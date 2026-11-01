@@ -1,6 +1,6 @@
 # 2026-10-28 — Previsioni e valori dei carichi
 
-**Chi:** Francesco (con Claude Code) · **Fase:** F1 · **Durata:** 3 h · **Issue:** #11
+**Chi:** Francesco · **Fase:** F1 · **Durata:** 3 h · **Issue:** #11
 
 ## Cosa abbiamo fatto
 

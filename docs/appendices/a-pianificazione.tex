@@ -58,7 +58,7 @@ Il progetto dura dodici settimane, dal 22/10/2026 al 13/01/2027. Ogni milestone 
 \midrule
 M1 & 04/11/2026 & Decisioni scritte, parametri fissati, previsioni registrate (tag \texttt{m1}) \\
 M2 & 11/11/2026 & Applicazione minima V1--V3 funzionante, nessun ordine perso con il database fermo per 60~s \\
-M3 & 25/11/2026 & V1--V3 su kind a 3 nodi; un crash F1 misurato con risoluzione sotto il secondo \\
+M3 & 25/11/2026 & V1--V3 su kind a 3 nodi; un crash (guasto F1) misurato con risoluzione sotto il secondo \\
 M3b & 02/12/2026 & Cluster AWS creato e distrutto, costi e limiti noti \\
 M4 & 09/12/2026 & Banco di prova ripetibile; failover di V4 e scalatura di V5 verificati \\
 M5 & 16/12/2026 & 245 run validi; decisione sull'estensione della fase AWS \\
@@ -70,4 +70,4 @@ M7 & 13/01/2027 & Report, diario, repository e orale pronti \\
 
 \paragraph{Impegno stimato.} Circa 306 ore in due, cioè circa 12,7 ore a settimana a testa. Le settimane S9--S11 cadono durante le festività: le attività che vi ricadono (sessioni AWS e analisi) si confermano o si ripianificano a M5.
 
-\paragraph{Piano di taglio.} In caso di ritardo si rinuncia, in quest'ordine, a: perdita di un nodo (F6), V5, latenza del database (F5), parte delle sessioni AWS, replica sincrona di V4 (V4s). Non si rinuncia mai al protocollo di misura, a V1--V3, ai guasti F1--F4 e F7 con 10 ripetizioni, alle previsioni e al diario.
+\paragraph{Piano di taglio.} In caso di ritardo si rinuncia, in quest'ordine, a: perdita di un nodo (guasto F6), V5, latenza del database (guasto F5), parte delle sessioni AWS, replica sincrona di V4 (V4s). Non si rinuncia mai al protocollo di misura, a V1--V3, ai guasti F1--F4 e F7 con 10 ripetizioni, alle previsioni e al diario.

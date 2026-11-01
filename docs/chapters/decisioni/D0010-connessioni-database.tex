@@ -9,10 +9,10 @@ PostgreSQL accetta un numero massimo di connessioni contemporanee (per impostazi
   \item \textbf{Dimensione del pool:} 5 connessioni per pod, uguale per API e worker e per tutte le versioni, così il confronto è equo. Nel caso peggiore (V5, 10 worker) sono 50 connessioni.
   \item \textbf{Attesa di una connessione libera:} rientra nella deadline di 1,5~s di D0008. Se il pool è occupato e il tempo scade, l'API risponde 503.
   \item \textbf{Controllo prima dell'uso:} il pool verifica che la connessione sia viva e ricrea quelle morte, così dopo il riavvio del database il ripristino non dipende da connessioni vecchie.
-  \item Il limite di PostgreSQL resta al valore predefinito (100) in tutte le versioni, anche con la replica di V4. Se la misura di capacità di F4 mostrasse che 5 connessioni per pod non bastano, si alza \texttt{max\_connections} per tutte le versioni insieme, annotandolo nella tabella dei parametri, invece di cambiare il pool in una sola.
+  \item Il limite di PostgreSQL resta al valore predefinito (100) in tutte le versioni, anche con la replica di V4. Se la misura di capacità della fase F4 mostrasse che 5 connessioni per pod non bastano, si alza \texttt{max\_connections} per tutte le versioni insieme, annotandolo nella tabella dei parametri, invece di cambiare il pool in una sola.
 \end{itemize}
 
 \conseguenze
-Con 5 connessioni per pod e 10 worker, V5 usa 50 connessioni su 100: il caso peggiore non esaurisce il database. Un pool di 10 porterebbe V5 a 100 e sarebbe al limite. Un pool piccolo può limitare il numero di richieste in corso verso il database, e durante F4 e F5 questo si vede come richieste respinte con 503 entro la deadline; è un effetto voluto, uguale per tutte le versioni.
+Con 5 connessioni per pod e 10 worker, V5 usa 50 connessioni su 100: il caso peggiore non esaurisce il database. Un pool di 10 porterebbe V5 a 100 e sarebbe al limite. Un pool piccolo può limitare il numero di richieste in corso verso il database, e durante i guasti F4 e F5 questo si vede come richieste respinte con 503 entro la deadline; è un effetto voluto, uguale per tutte le versioni.
 
 \end{decisione}

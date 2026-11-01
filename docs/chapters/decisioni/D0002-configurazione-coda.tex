@@ -5,7 +5,7 @@ Con la coda, un ordine a cui abbiamo risposto ``ricevuto'' esiste solo dentro Ra
 
 \scelta
 \begin{itemize}
-  \item \textbf{Una sola istanza} di RabbitMQ, fissata a worker-1, con i dati su disco: è volutamente un punto unico di guasto (F3).
+  \item \textbf{Una sola istanza} di RabbitMQ, fissata a worker-1, con i dati su disco: è volutamente un punto unico di guasto (guasto F3).
   \item \textbf{Coda e messaggi durevoli}: sopravvivono al riavvio di RabbitMQ.
   \item \textbf{Conferma all'API} (\textit{publisher confirm}): l'API risponde 202 solo quando RabbitMQ conferma di aver scritto il messaggio.
   \item \textbf{Conferma del worker} (\textit{ack}) solo \emph{dopo} il salvataggio nel database: se il worker si spegne prima, RabbitMQ consegna l'ordine a un altro worker.
@@ -14,6 +14,6 @@ Con la coda, un ordine a cui abbiamo risposto ``ricevuto'' esiste solo dentro Ra
 \end{itemize}
 
 \conseguenze
-Un ordine confermato al cliente non si perde per lo spegnimento della coda (F3) o dei worker (F2). Il prezzo è che lo stesso ordine può arrivare due volte (dopo un worker spento tra salvataggio e conferma): per questo serve D0004. Scrivere su disco e aspettare la conferma rende l'API un po' più lenta, ed è parte di ciò che misuriamo in RQ2.
+Un ordine confermato al cliente non si perde per lo spegnimento della coda (guasto F3) o dei worker (guasto F2). Il prezzo è che lo stesso ordine può arrivare due volte (dopo un worker spento tra salvataggio e conferma): per questo serve D0004. Scrivere su disco e aspettare la conferma rende l'API un po' più lenta, ed è parte di ciò che misuriamo in RQ2.
 
 \end{decisione}

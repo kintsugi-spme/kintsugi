@@ -17,8 +17,8 @@ Le definizioni seguenti valgono per tutte le versioni e per entrambi gli ambient
 Richiesta riuscita & Risposta positiva (\texttt{201} o \texttt{202}) ricevuta dal client entro il suo timeout di 2~s (D0008). \\
 Disponibilità di accettazione & Frazione di secondi in cui almeno il 99\% delle richieste inviate riesce, vista dal client. \\
 Disponibilità di completamento & Frazione di secondi in cui almeno il 99\% degli ordini ricevuti in quel secondo è salvato nel database entro un limite fissato (proposto: 2~s). In V1, V2 e V4 coincide quasi con l'accettazione; in V3 e V5 è la misura decisiva, perché con il database fermo l'API continua ad accettare ma nessun ordine viene completato. \\
-Ripristinato & Primo istante $t_r$ dopo il guasto da cui seguono 5 secondi consecutivi disponibili, sia in accettazione sia in completamento. Un pod tornato pronto non basta. \\
-Fermo (\textit{downtime}) & $t_r - t_g$, con $t_g$ istante del guasto; riportato separatamente per accettazione e completamento. Se il ripristino non avviene entro il tetto del run, il run è valido e registrato come ``non ripristinato''. \\
+Ripristinato & Vale separatamente per accettazione e completamento: $t_r$ è il primo istante, dal guasto in poi, da cui seguono 5 secondi consecutivi disponibili in quella misura. Il servizio è ripristinato quando lo sono entrambe. Un pod tornato pronto non basta. \\
+Fermo (\textit{downtime}) & $t_r - t_g$, con $t_g$ istante del guasto, calcolato con il $t_r$ di ciascuna misura. Se un ripristino non avviene entro il tetto del run, il run è valido e registrato come ``non ripristinato''. \\
 Tempo end-to-end & $\texttt{ts\_scrittura} - \texttt{ts\_ricezione}$, entrambi presi nel cluster (D0005). È la metrica comune a tutte le versioni. \\
 Latenza del client & Tempo tra invio e risposta, misurato da JMeter. In V3 e V5 misura solo l'accettazione. \\
 Costo & In locale, worker-secondi: integrale nel tempo del numero di worker attivi (RQ5). Su AWS, costo per mille ordini. \\
@@ -64,7 +64,7 @@ A fine run ogni identificativo inviato dal client viene assegnato a una categori
 
 \begin{description}
   \item[Completato in tempo] il client ha ricevuto esito positivo e l'ordine è salvato.
-  \item[Completato dopo il timeout] il client ha visto un errore o un timeout, ma l'ordine è stato salvato comunque; è possibile soprattutto in V1 e V2 durante F4 e F5.
+  \item[Completato dopo il timeout] il client ha visto un errore o un timeout, ma l'ordine è stato salvato comunque; è possibile soprattutto in V1 e V2 durante i guasti F4 e F5.
   \item[Fallito] il client ha visto un errore e l'ordine non è salvato. È un fallimento \emph{dichiarato}: il client sa di dover riprovare.
   \item[In dead-letter] accettato, finito nella coda dei falliti, rielaborato a fine run e contato a parte.
   \item[Perso] il client ha ricevuto esito positivo, ma l'ordine non è mai stato salvato, nemmeno dopo la rielaborazione. È il caso grave, perché il client crede che l'ordine sia andato a buon fine.
@@ -102,7 +102,7 @@ Ogni run è automatico e segue la sequenza della figura~\ref{fig:run}.
 \draw[accento, very thick] (2,-0.25) -- (2,1.05);
 \node[text=accento, above, align=center] at (2,1.05) {guasto $t_g$\\(minuto 2)};
 \draw[accento, densely dashed, thick] (10,-0.25) -- (10,1.05);
-\node[text=accento, above, align=center] at (10,1.05) {tetto: 10 min\\(15 per F6)};
+\node[text=accento, above, align=center] at (10,1.05) {tetto: 10 min\\(15 per il guasto F6)};
 \draw[decorate, decoration={brace, amplitude=4pt, mirror}, grigiotesto] (0,-0.75) -- node[below=3pt, etichetta] {escluso dalle statistiche} (1,-0.75);
 \end{tikzpicture}
 \caption{Struttura di un run. La durata tipica è di 5--6 minuti; il tetto vale solo quando il ripristino tarda.}
@@ -114,7 +114,7 @@ Ogni run è automatico e segue la sequenza della figura~\ref{fig:run}.
   \item \textbf{Riscaldamento.} Un minuto di carico, escluso dalle statistiche.
   \item \textbf{Riferimento.} Un minuto di carico senza guasti, che fornisce i valori di confronto del run.
   \item \textbf{Guasto.} Iniettato al minuto 2, in un istante registrato al millisecondo.
-  \item \textbf{Osservazione.} Fino al ripristino più 2 minuti, con un tetto di 10 minuti per run (15 per F6, perché Kubernetes attende alcuni minuti prima di ricollocare i pod di un nodo perso).
+  \item \textbf{Osservazione.} Fino al ripristino più 2 minuti, con un tetto di 10 minuti per run (15 per il guasto F6, perché Kubernetes attende alcuni minuti prima di ricollocare i pod di un nodo perso).
   \item \textbf{Esportazione.} Log del client, ordini salvati, eventi di Kubernetes e metriche di Prometheus vengono salvati in \texttt{data/<ambiente>/<run-id>/} prima del run successivo.
 \end{enumerate}
 
@@ -124,7 +124,7 @@ Il carico segue un \textbf{modello aperto}: le richieste partono a ritmo fisso a
 
 \begin{table}[htbp]
 \centering
-\caption{Profili di carico. I livelli si fissano rispetto alla capacità misurata in F4.}
+\caption{Profili di carico. I livelli si fissano rispetto alla capacità misurata nella fase F4.}
 \label{tab:carichi}
 \begin{tabularx}{\linewidth}{@{}llL@{}}
 \toprule
@@ -150,7 +150,7 @@ W3 & sovraccarico prolungato, sopra la capacità & comportamento oltre il limite
 Senza guasti (riferimento) & 5 & 85 \\
 Con guasti F1--F5 su V1--V3 & 10 & 100 \\
 Guasto del database su V4 (V4a, V4s) & 10 & 20 \\
-Blocco dell'API (F7, due configurazioni delle sonde) & 10 & 20 \\
+Blocco dell'API (guasto F7, due configurazioni delle sonde) & 10 & 20 \\
 Riferimenti per V5 (V3 con 1 e con 10 worker fissi, W2) & 10 & 20 \\
 \midrule
 \textbf{Totale} & & \textbf{245} \\
@@ -158,7 +158,7 @@ Riferimenti per V5 (V3 con 1 e con 10 worker fissi, W2) & 10 & 20 \\
 \end{tabular}
 \end{table}
 
-La composizione delle 17 configurazioni senza guasti (85 run) va ancora documentata: \todo{elenco delle configurazioni senza guasti}. La figura~\ref{fig:matrice} mostra i 160 run con guasto o di riferimento per V5. F6 è facoltativo e non è incluso nel totale.
+La composizione delle 17 configurazioni senza guasti (85 run) va ancora documentata: \todo{elenco delle configurazioni senza guasti}. La figura~\ref{fig:matrice} mostra i 160 run con guasto o di riferimento per V5. Il guasto F6 è facoltativo e non è incluso nel totale.
 
 \begin{figure}[htbp]
 \centering
@@ -178,7 +178,7 @@ La composizione delle 17 configurazioni senza guasti (85 run) va ancora document
 \cella{2}{7}{unina!55}{\textcolor{white}{2 $\times$ 10}}
 \cella{3}{8}{unina!55}{\textcolor{white}{2 $\times$ 10}}
 \end{tikzpicture}
-\caption{Run per guasto e versione: 140 run con guasto più 20 di riferimento per V5. Ogni cella vale 10 ripetizioni; per F7 le due configurazioni delle sonde, per i riferimenti V3 con 1 e con 10 worker fissi. V5 si misura senza guasti, sotto W2, tra i run di riferimento.}
+\caption{Run per guasto e versione: 140 run con guasto più 20 di riferimento per V5. Ogni cella vale 10 ripetizioni; per il guasto F7 le due configurazioni delle sonde, per i riferimenti V3 con 1 e con 10 worker fissi. V5 si misura senza guasti, sotto W2, tra i run di riferimento.}
 \label{fig:matrice}
 \end{figure}
 
@@ -190,7 +190,7 @@ Un run è valido se:
 \begin{itemize}
   \item il reset è stato completato e verificato;
   \item il ritmo effettivamente inviato resta entro $\pm 5\%$ di quello previsto, anche durante il guasto;
-  \item la CPU del computer resta sotto una soglia fissata in F4 e non si verificano esaurimenti di memoria.
+  \item la CPU del computer resta sotto una soglia fissata nella fase F4 e non si verificano esaurimenti di memoria.
 \end{itemize}
 Un run non valido viene scartato e ripetuto, annotando il motivo nel diario.
 

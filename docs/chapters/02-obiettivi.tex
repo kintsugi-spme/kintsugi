@@ -33,7 +33,7 @@ Le ipotesi qualitative sono elencate qui; le previsioni numeriche sono nel capit
   \item Più copie dell'API riducono molto il fermo dovuto all'API, ma non quello dovuto al database, che resta unico (RQ1).
   \item Con la coda il servizio continua ad accettare ordini anche con il database fermo e li salva al suo ritorno; in cambio cresce il tempo tra ricezione e salvataggio (RQ2).
   \item Un processo bloccato è rilevato più tardi di uno terminato, e il ritardo dipende dalla frequenza delle sonde (RQ3).
-  \item La replica del database accorcia il fermo; con replica asincrona si possono perdere gli ultimi ordini, con replica sincrona ogni scrittura è più lenta (RQ4).
+  \item Con l'arresto del solo processo, cioè il guasto F4 che misuriamo, la replica del database non accorcia necessariamente il fermo: nodo e disco restano integri, quindi il riavvio sul posto è già rapido quanto un failover. Il vantaggio atteso è nella perdita dell'intero nodo del database: senza replica PostgreSQL non può ripartire, perché i dati sono sul disco di quel nodo (D0006), mentre lo standby su un altro nodo può subentrare. Questo secondo caso non si misura ed è un limite dichiarato. Con replica asincrona si possono perdere gli ultimi ordini, con replica sincrona ogni scrittura è più lenta (RQ4).
   \item L'autoscaling smaltisce un picco con meno risorse di una configurazione fissa sovradimensionata, ma con un ritardo iniziale (RQ5).
 \end{enumerate}
 

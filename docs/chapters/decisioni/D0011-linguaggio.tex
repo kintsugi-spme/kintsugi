@@ -4,9 +4,9 @@
 L'applicazione è il veicolo degli esperimenti: il progetto valuta l'architettura, non il codice. Il linguaggio influisce però sulle misure in due modi: la memoria occupata da ogni pod (in V5 i pod possono essere 13, tra API e worker, su un computer con 7,75~GiB per Docker) e il tempo di avvio, che entra nel fermo dopo un guasto e, con tempi di rilevamento di pochi secondi, finirebbe per dominare i risultati. Sono stati valutati Spring Boot (Java), TypeScript e Python.
 
 \scelta
-L'applicazione (API e worker, lo stesso codice di D0012) è scritta in \textbf{Python}. Anche il banco di prova e l'analisi dei dati (mediana, intervallo interquartile, bootstrap) usano Python, così l'intero progetto ha un solo linguaggio. Versione di Python e librerie si fissano in F2 e restano le stesse in tutti gli ambienti.
+L'applicazione (API e worker, lo stesso codice di D0012) è scritta in \textbf{Python}. Anche il banco di prova e l'analisi dei dati (mediana, intervallo interquartile, bootstrap) usano Python, così l'intero progetto ha un solo linguaggio. Versione di Python e librerie si fissano nella fase F2 e restano le stesse in tutti gli ambienti.
 
 \conseguenze
-Memoria e tempo di avvio dei pod restano bassi (stime generali: decine di MiB e meno di un secondo; da verificare nella misura a vuoto dei tempi di avvio in F3). Spring Boot è stato escluso perché ogni pod occuperebbe alcune centinaia di MiB e avvierebbe in diversi secondi; TypeScript è equivalente per risorse, ma richiederebbe comunque Python per l'analisi. Il computer locale è ARM e le istanze \texttt{m5} di AWS sono x86 (D0009): le immagini si costruiscono per entrambe le architetture, e la differenza va dichiarata nel confronto tra ambienti.
+Memoria e tempo di avvio dei pod restano bassi (stime generali: decine di MiB e meno di un secondo; da verificare nella misura a vuoto dei tempi di avvio nella fase F3). Spring Boot è stato escluso perché ogni pod occuperebbe alcune centinaia di MiB e avvierebbe in diversi secondi; TypeScript è equivalente per risorse, ma richiederebbe comunque Python per l'analisi. Il computer locale è ARM e le istanze \texttt{m5} di AWS sono x86 (D0009): le immagini si costruiscono per entrambe le architetture, e la differenza va dichiarata nel confronto tra ambienti.
 
 \end{decisione}

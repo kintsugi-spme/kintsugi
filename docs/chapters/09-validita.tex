@@ -18,7 +18,7 @@ Nessun esperimento è privo di limiti. Le minacce note sono classificate secondo
 \toprule
 \textbf{Tipo} & \textbf{Minaccia} & \textbf{Contromisura} \\
 \midrule
-Interna & Sistema e generatore di carico girano sullo stesso computer e si contendono CPU e memoria & Soglia di CPU fissata in F4; run saturi o senza memoria scartati \\
+Interna & Sistema e generatore di carico girano sullo stesso computer e si contendono CPU e memoria & Soglia di CPU fissata nella fase F4; run saturi o senza memoria scartati \\
 Interna & Un run può lasciare tracce (code non vuote, pod degradati) che influenzano il successivo & Reset verificato prima di ogni run; ordine casuale dei run \\
 Interna & Il guasto di un componente può dipendere da dove Kubernetes ha collocato i pod & Regole di piazzamento esplicite (D0006); topologia verificata al reset \\
 Di costrutto & Un generatore a modello chiuso smetterebbe di inviare durante il guasto, nascondendolo & Carico a modello aperto; ritmo inviato controllato entro $\pm5\%$ \\

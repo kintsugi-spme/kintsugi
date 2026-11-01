@@ -52,11 +52,11 @@ Il worker ritenta: attesa tra i tentativi / per almeno & da 0,5 a 10 s / 120 s (
 Sonde, configurazione \emph{veloce}: API pronta / viva & ogni 1 s / ogni 2 s; guasto dichiarato dopo 3 controlli falliti di fila \\
 Sonde, configurazione \emph{standard} (valori predefiniti di Kubernetes): API pronta / viva & ogni 10 s / ogni 10 s; guasto dichiarato dopo 3 controlli falliti di fila \\
 Sonde, timeout di ogni controllo (tutte le configurazioni) & 1 s (valore predefinito di Kubernetes, D0007) \\
-Sonde usate nei run & \emph{veloce} in tutti i run; F7 si ripete con entrambe le configurazioni \\
-Ritmo di W1 & uguale per tutte le versioni: 50\% della capacità più bassa misurata in F4 tra V1, V2, V3, V4a e V4s \\
-Latenza di F5 & 200 ms aggiunti a ogni scambio con il database, per 60 s \\
-Il worker considera troppo lenta una scrittura dopo & 1,5 s (come la deadline dell'API, D0003) \\
-Tempo previsto per accorgersi di un blocco (F7): veloce / standard & circa 4--7 s / circa 31 s \\
+Sonde usate nei run & \emph{veloce} in tutti i run; il guasto F7 si ripete con entrambe le configurazioni \\
+Ritmo di W1 & uguale per tutte le versioni: 50\% della capacità più bassa misurata nella fase F4 tra V1, V2, V3, V4a e V4s \\
+Latenza del guasto F5 & 200 ms aggiunti a ogni scambio con il database, per 60 s \\
+Il worker considera troppo lenta una scrittura dopo & 1,5 s (come la deadline dell'API, D0008) \\
+Tempo previsto per escludere dal Service una copia bloccata (guasto F7): veloce / standard & circa 4 s / circa 31 s \\
 KEDA: ogni quanto controlla la coda / oltre quanti ordini aggiunge worker / attesa prima di toglierli & \todo{valori da fissare} \\
 Riferimenti per V5 (carico W2) & V3 con 1 worker fisso e V3 con 10 worker fissi \\
 Costo di una versione in locale & worker-secondi: la somma, nel tempo, del numero di worker accesi \\

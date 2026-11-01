@@ -28,7 +28,7 @@ Le due classi principali si comportano in modo opposto rispetto a Kubernetes:
 
 \begin{itemize}
   \item un processo che \textbf{termina} (crash) viene rilevato quasi subito, perché il container esce e il kubelet lo riavvia;
-  \item un processo \textbf{bloccato} (\textit{hang}) resta in esecuzione: il kubelet se ne accorge solo quando la sonda di liveness fallisce per un numero stabilito di volte di fila. Il tempo di rilevamento dipende quindi da periodo e soglia delle sonde, ed è ciò che F7 misura con due configurazioni (tabella~\ref{tab:parametri}).
+  \item un processo \textbf{bloccato} (\textit{hang}) resta in esecuzione: Kubernetes se ne accorge solo dalle sonde. Dopo un numero stabilito di fallimenti di fila, la readiness esclude la copia dal Service e la liveness la fa riavviare. Il tempo di rilevamento dipende quindi da periodo e soglia delle sonde, ed è ciò che il guasto F7 misura con due configurazioni (tabella~\ref{tab:parametri}).
 \end{itemize}
 
 La figura~\ref{fig:anatomia} scompone il fermo nelle sue fasi. La durata delle barre è indicativa: i valori previsti sono nel capitolo~\ref{cap:previsioni}.
@@ -43,19 +43,19 @@ La figura~\ref{fig:anatomia} scompone il fermo nelle sue fasi. La durata delle b
   sta/.style={seg, fill=grigiotesto!25}]
 \newcommand{\segm}[5]{\node[#1, minimum width=#3*0.25cm] at (#2,#4) {#5};}
 % Riga 1: crash
-\node[anchor=east, font=\small\bfseries, text=unina] at (-0.6,0) {Crash (F1)};
+\node[anchor=east, font=\small\bfseries, text=unina, align=right] at (-0.6,0) {Crash\\[-1pt]{\scriptsize\normalfont guasto F1}};
 \segm{ril}{0}{1}{0}{}
 \segm{rav}{1}{6}{0}{}
 \segm{pro}{7}{5}{0}{}
 \segm{sta}{12}{5}{0}{}
 % Riga 2: blocco, sonde veloci
-\node[anchor=east, font=\small\bfseries, text=unina, align=right] at (-0.6,-1) {Blocco (F7)\\[-1pt]{\scriptsize\normalfont sonde veloci}};
+\node[anchor=east, font=\small\bfseries, text=unina, align=right] at (-0.6,-1) {Blocco\\[-1pt]{\scriptsize\normalfont sonde veloci}};
 \segm{ril}{0}{6}{-1}{}
 \segm{rav}{6}{6}{-1}{}
 \segm{pro}{12}{5}{-1}{}
 \segm{sta}{17}{5}{-1}{}
 % Riga 3: blocco, sonde standard
-\node[anchor=east, font=\small\bfseries, text=unina, align=right] at (-0.6,-2) {Blocco (F7)\\[-1pt]{\scriptsize\normalfont sonde standard}};
+\node[anchor=east, font=\small\bfseries, text=unina, align=right] at (-0.6,-2) {Blocco\\[-1pt]{\scriptsize\normalfont sonde standard}};
 \segm{ril}{0}{30}{-2}{periodo $\times$ soglia}
 \segm{rav}{30}{6}{-2}{}
 \segm{pro}{36}{5}{-2}{}
@@ -75,7 +75,7 @@ La figura~\ref{fig:anatomia} scompone il fermo nelle sue fasi. La durata delle b
   \node[anchor=west, etichetta] at (\x+1.5,-3.5) {\t};
 }
 \end{tikzpicture}
-\caption{Anatomia di un fermo: rilevamento, riavvio e ritorno a pronto. Il ripristino $t_r$ è l'inizio dei 5 secondi di servizio stabile, che lo confermano ma non entrano nel fermo $t_r - t_g$. Nel blocco il rilevamento dipende dalla configurazione delle sonde.}
+\caption{Anatomia di un fermo con una sola copia: rilevamento, riavvio e ritorno a pronto. Il ripristino $t_r$ è l'inizio dei 5 secondi di servizio stabile, che lo confermano ma non entrano nel fermo $t_r - t_g$. Nel blocco il rilevamento dipende dalla configurazione delle sonde. Con più copie, come nel guasto F7 su V2, il fermo finisce prima: quando la readiness esclude la copia dal Service (circa 4~s con le sonde veloci, circa 31~s con quelle standard).}
 \label{fig:anatomia}
 \end{figure}
 
@@ -86,9 +86,9 @@ Con più repliche (V2) il servizio non attende il riavvio: la replica guasta esc
 L'iniezione segue D0016:
 
 \begin{itemize}
-  \item i segnali \texttt{SIGKILL} (crash) e \texttt{SIGSTOP} (blocco) sono inviati dal nodo che ospita il processo (\texttt{docker exec} sul container del nodo di kind). Non si usa \texttt{kubectl delete pod}, che è una terminazione ordinata e non un guasto;
+  \item i segnali \texttt{SIGKILL} (crash) e \texttt{SIGSTOP} (blocco) sono inviati dal nodo che ospita il processo (\texttt{docker exec} sul container del nodo di kind). Non si usa \texttt{kubectl delete pod}, che è una terminazione ordinata e non un guasto, salvo l'eccezione per V4 prevista da D0016;
   \item il segnale non può partire dall'interno del container: il processo principale vi ha PID~1, e il kernel scarta i segnali inviati al PID~1 dal suo stesso namespace se il processo non li gestisce, compresi \texttt{SIGKILL} e \texttt{SIGSTOP}; inviati dal nodo, invece, hanno effetto;
   \item l'istante del guasto è registrato al millisecondo sia sul computer sia nel cluster;
-  \item in V4, F4 uccide il processo principale del pod del primario, così il pod cade e CloudNativePG avvia il failover. Uccidere solo PostgreSQL non basta: il gestore dell'istanza, che è il processo principale del pod, potrebbe riavviarlo sul posto senza failover. Il comportamento si verifica in F4;
-  \item la latenza di F5 (200~ms per 60~s) si attiva e disattiva tramite l'API di Toxiproxy, già presente nel percorso verso il database in tutte le versioni. Con 500~ms ogni ordine arriverebbe a circa 1,5~s, pari alla deadline dell'API: il sincrono fallirebbe quasi del tutto e F5 non direbbe nulla di nuovo rispetto a F4.
+  \item in V4, il guasto F4 uccide il processo principale del pod del primario, cioè il gestore dell'istanza: uccidere solo PostgreSQL non basta, perché il gestore lo riavvierebbe sul posto. Si ipotizza che CloudNativePG avvii il failover, ma Kubernetes può riavviare il container nello stesso pod prima che l'operatore intervenga. Il comportamento si verifica nella fase F4; se il failover non parte, si applica l'eccezione di D0016;
+  \item la latenza del guasto F5 (200~ms per 60~s) si attiva e disattiva tramite l'API di Toxiproxy, già presente nel percorso verso il database in tutte le versioni. Con 500~ms ogni ordine arriverebbe a circa 1,5~s, pari alla deadline dell'API: il sincrono fallirebbe quasi del tutto e il guasto F5 non direbbe nulla di nuovo rispetto al guasto F4.
 \end{itemize}

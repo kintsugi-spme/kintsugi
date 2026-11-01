@@ -27,7 +27,7 @@ Le cinque versioni sono configurazioni dello stesso codice e della stessa immagi
   \item[Database] PostgreSQL: conserva gli ordini e la tabella dei doppi (D0004).
   \item[Broker] RabbitMQ: conserva gli ordini in attesa (solo V3 e V5).
   \item[Worker] leggono gli ordini dalla coda e li scrivono nel database (solo V3 e V5).
-  \item[Toxiproxy] proxy sempre presente tra l'applicazione e il database: senza guasti è trasparente, in F5 introduce un ritardo.
+  \item[Toxiproxy] proxy sempre presente tra l'applicazione e il database: senza guasti è trasparente, nel guasto F5 introduce un ritardo.
 \end{description}
 
 I diagrammi delle versioni usano la notazione della figura~\ref{fig:legenda}.
@@ -98,7 +98,7 @@ Come V1, con tre repliche dell'API. Il Service distribuisce le richieste solo tr
 \node[pod] (a2) at (6.1,0) {API};
 \node[pod, guastato] (a3) at (6.1,-1.15) {API guasta\\{\scriptsize esclusa}};
 \node[toxi] (tx) at (8.9,0) {Toxiproxy};
-\node[etichetta, below=1mm of tx] {ritardo\\per F5};
+\node[etichetta, below=1mm of tx] {ritardo\\per il guasto F5};
 \node[db] (db) at (12.0,0) {PostgreSQL};
 \node[etichetta, below=1mm of db] (n1) {nodo dati};
 \node[etichetta, above=2mm of a1] (dl) {3 repliche};
