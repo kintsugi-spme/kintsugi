@@ -15,8 +15,8 @@ Il cluster ha due worker, con le etichette \texttt{kintsugi/ruolo: dati} (\textt
 \end{itemize}
 
 \conseguenze
-Con il cluster integro la collocazione è ripetibile. Nel guasto F6 (solo V2 e V3) le API e i worker si ricreano su \texttt{kintsugi-worker} dopo che Kubernetes dichiara perso il nodo, e il tempo di attesa è già nel tetto di 15 minuti del run. Lo standby di V4, con regola rigida, non può ripartire altrove: per questo V4 non è nel guasto F6. La perdita di \texttt{kintsugi-worker} (database e coda) non è un esperimento previsto, perché i dati sono legati al suo disco: è un limite dichiarato, e il failover del database di V4 si prova già con F4. Il guasto di macchina resta simulato, perché i nodi di kind sono container sullo stesso computer.
+Con il cluster integro la collocazione è ripetibile. Nel guasto F6 (solo V2 e V3) le API e i worker si ricreano su \texttt{kintsugi-worker} dopo che Kubernetes dichiara perso il nodo, e il tempo di attesa è già nel tetto di 15 minuti del run. Lo standby di V4, con regola rigida, non può ripartire altrove: per questo V4 non è nel guasto F6. La perdita di \texttt{kintsugi-worker} (database e coda) non è un esperimento previsto, perché i dati sono legati al suo disco: è un limite dichiarato, e il failover del database di V4 si prova già con il guasto F4. Il guasto di macchina resta simulato, perché i nodi di kind sono container sullo stesso computer.
 
-Un terzo worker libero (nodo ``jolly'') non è previsto ora. Se avanza tempo si aggiunge, per ricostruire lo standby di V4 e provare in F6 il ricollocamento su un nodo di riserva; richiederebbe di aggiornare il cluster, il README, il capitolo~\ref{cap:deployment}, il piano e i diagrammi.
+Un terzo worker libero (nodo ``jolly'') non è previsto ora. Se avanza tempo si aggiunge, per ricostruire lo standby di V4 e provare nel guasto F6 il ricollocamento su un nodo di riserva; richiederebbe di aggiornare il cluster, il README, il capitolo~\ref{cap:deployment}, il piano e i diagrammi.
 
 \end{decisione}

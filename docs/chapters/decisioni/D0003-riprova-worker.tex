@@ -1,10 +1,10 @@
 \begin{decisione}{D0003}{Come i worker ritentano quando il database è fermo}{Accettata}{27/10/2026}
 
 \contesto
-Quando il database è fermo (F4) o lento (F5), il worker non riesce a salvare. Rimettere subito l'ordine in coda crea un giro continuo che consuma risorse senza risultato; d'altra parte RabbitMQ toglie l'ordine a un worker che non risponde per troppo tempo (30 minuti di default).
+Quando il database è fermo (guasto F4) o lento (guasto F5), il worker non riesce a salvare. Rimettere subito l'ordine in coda crea un giro continuo che consuma risorse senza risultato; d'altra parte RabbitMQ toglie l'ordine a un worker che non risponde per troppo tempo (30 minuti di default).
 
 \scelta
-Il worker ritenta lo stesso ordine \emph{tenendolo con sé}, senza rimetterlo in coda, aspettando sempre di più tra un tentativo e l'altro: 0,5 s, poi 1, 2, 4, 8 s, poi ogni 10 s. Dopo almeno 120 s di tentativi falliti rinuncia e manda l'ordine nella coda dei falliti (D0002). I 120~s sono un valore \emph{indicativo}: non sappiamo ancora quanto dura il fermo del database in F4, quindi la soglia verrà verificata sul campo, con la misura dei tempi di riavvio e i primi test, e potrà essere cambiata senza modificare il meccanismo. Ritenta solo gli errori temporanei (database irraggiungibile o troppo lento); un ordine già salvato è un doppio (D0004) e un messaggio illeggibile va subito tra i falliti.
+Il worker ritenta lo stesso ordine \emph{tenendolo con sé}, senza rimetterlo in coda, aspettando sempre di più tra un tentativo e l'altro: 0,5 s, poi 1, 2, 4, 8 s, poi ogni 10 s. Dopo almeno 120 s di tentativi falliti rinuncia e manda l'ordine nella coda dei falliti (D0002). I 120~s sono un valore \emph{indicativo}: non sappiamo ancora quanto dura il fermo del database nel guasto F4, quindi la soglia verrà verificata sul campo, con la misura dei tempi di riavvio e i primi test, e potrà essere cambiata senza modificare il meccanismo. Ritenta solo gli errori temporanei (database irraggiungibile o troppo lento: una scrittura è troppo lenta se supera 1,5~s); un ordine già salvato è un doppio (D0004) e un messaggio illeggibile va subito tra i falliti.
 
 \conseguenze
 Con il database fermo per 60 secondi nessun ordine si perde (criterio di M2), e 120 s restano molto sotto il limite di RabbitMQ. Quando il database torna, un worker può accorgersene fino a 10 s dopo: questo ritardo entra nel tempo di recupero di V3 e lo prevediamo nel capitolo~\ref{cap:previsioni}. Mentre i worker ritentano, gli altri ordini restano in coda.

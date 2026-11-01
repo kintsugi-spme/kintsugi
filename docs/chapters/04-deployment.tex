@@ -52,7 +52,7 @@ Tutti i nodi usano l'immagine \texttt{kindest/node:v1.37.0}, quindi Kubernetes 1
 
 \paragraph{Computer di misura.} Il Mac di F.~Terrecuso (8 GB) serve per sviluppare e provare. Le misure ufficiali si fanno solo sul MacBook M5 di G.~Vellotti (16 GB, Docker con 7,75 GiB e 10 CPU), così la memoria scarsa non altera i risultati (D0013). Se questo computer non fosse disponibile, si passerebbe, per l'intera campagna, al PC da 64 GB.
 
-\paragraph{Limite dell'ambiente.} I nodi di kind sono container sullo stesso computer: condividono CPU, memoria, disco e orologio. Lo spegnimento di un nodo (F6) è quindi simulato, e i dischi locali legati al nodo dati non possono essere recuperati da un altro nodo (capitolo~\ref{cap:validita}).
+\paragraph{Limite dell'ambiente.} I nodi di kind sono container sullo stesso computer: condividono CPU, memoria, disco e orologio. Lo spegnimento di un nodo (guasto F6) è quindi simulato, e i dischi locali legati al nodo dati non possono essere recuperati da un altro nodo (capitolo~\ref{cap:validita}).
 
 \section{Ambiente B -- AWS}
 \label{sec:aws}

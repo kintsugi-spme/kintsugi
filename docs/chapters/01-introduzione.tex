@@ -28,7 +28,7 @@ La figura~\ref{fig:metodo} riassume il ciclo di lavoro.
   doc/.style={etichetta, text width=2.45cm}]
 \node[fase] (p) {\textbf{Prevedere}\\{\scriptsize modelli e parametri}};
 \node[fase, right=of p] (c) {\textbf{Configurare}\\{\scriptsize una versione V1--V5}};
-\node[fase, right=of c, guastato] (g) {\textbf{Guastare}\\{\scriptsize un componente F1--F7}};
+\node[fase, right=of c, guastato] (g) {\textbf{Guastare}\\{\scriptsize un componente}\\{\scriptsize (guasti F1--F7)}};
 \node[fase, right=of g] (m) {\textbf{Misurare}\\{\scriptsize client, DB, cluster}};
 \node[fase, right=of m] (k) {\textbf{Confrontare}\\{\scriptsize previsto e misurato}};
 \foreach \a/\b in {p/c, c/g, g/m, m/k} \draw[freccia] (\a) -- (\b);

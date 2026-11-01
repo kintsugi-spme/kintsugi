@@ -6,6 +6,8 @@ Il comando ``cancella'' di Kubernetes chiude un programma con gentilezza: non è
 \scelta
 Spegnimento brusco per simulare un crash, congelamento per simulare un blocco, entrambi inviati dalla macchina simulata. Prima di ogni esperimento il sistema viene riportato allo stato iniziale.
 
+\textbf{Eccezione per V4:} se nella fase F4 il guasto F4 non fa partire il failover, solo su V4 si cancella il pod del primario in modo forzato (\texttt{kubectl delete pod -{}-force -{}-grace-period=0}). L'effetto va verificato prima della campagna. Il guasto non è più identico a quello di V2, e la differenza si dichiara nel report.
+
 \conseguenze
 Guasti realistici ed esperimenti indipendenti tra loro.
 

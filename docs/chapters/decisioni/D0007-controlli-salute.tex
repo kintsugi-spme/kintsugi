@@ -7,6 +7,6 @@ Kubernetes chiede periodicamente a ogni copia dell'API ``sei viva?'' (sonda di \
 I due controlli verificano solo l'API stessa, non il database. Se il database è fermo, l'API risponde subito con un errore. Per ogni sonda il tempo massimo di risposta (\emph{timeout}) è di 1~s, in tutte le configurazioni.
 
 \conseguenze
-Un guasto del database non trascina con sé l'API. Per il test F7 proviamo due frequenze di controllo (veloce e quella standard di Kubernetes); il timeout è uguale nelle due, così la differenza dipende solo dal periodo. Con un processo bloccato ogni controllo fallisce allo scadere del timeout, che si somma al tempo di rilevamento (capitolo~\ref{cap:previsioni}). Le sonde riguardano le copie dell'API: i worker non ne hanno bisogno, perché un crash si vede dall'uscita del container, e il database di V4 è gestito dall'operatore CloudNativePG.
+Un guasto del database non trascina con sé l'API. Per il guasto F7 proviamo due frequenze di controllo (veloce e quella standard di Kubernetes); il timeout è uguale nelle due, così la differenza dipende solo dal periodo. Con un processo bloccato ogni controllo fallisce allo scadere del timeout, che si somma al tempo di rilevamento (capitolo~\ref{cap:previsioni}). Le sonde riguardano le copie dell'API: i worker non ne hanno bisogno, perché un crash si vede dall'uscita del container, e il database di V4 è gestito dall'operatore CloudNativePG.
 
 \end{decisione}
