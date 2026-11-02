@@ -1,0 +1,70 @@
+\section{I guasti}
+\label{s:guasti}
+
+Ogni run inietta \textbf{un solo guasto}, sotto carico e in un istante registrato, e osserva il ripristino automatico del sistema: nessun intervento manuale.
+
+\begin{table}[H]
+\centering
+\caption{I sette guasti.}
+\label{tab:guasti}
+\begin{tabularx}{\linewidth}{@{}lLlll@{}}
+\toprule
+\textbf{ID} & \textbf{Guasto} & \textbf{Meccanismo} & \textbf{Versioni} & \textbf{RQ} \\
+\midrule
+F1 & Arresto improvviso di un'istanza dell'API & \texttt{SIGKILL} & V1, V2, V3 & 1, 2, 3 \\
+F2 & Arresto di tutti i worker & \texttt{SIGKILL} & V3 & 2, 3 \\
+F3 & Arresto del broker & \texttt{SIGKILL} & V3 & 2, 3 \\
+F4 & Arresto del database (in V4: del primario) & \texttt{SIGKILL} & V1--V4 & 1, 2, 4 \\
+F5 & Latenza verso il database (200~ms per 60~s) & Toxiproxy & V2, V3 & 2 \\
+F6 & Perdita di un nodo \textit{(facoltativo)} & arresto del nodo & V2, V3 & 3, 6 \\
+F7 & Blocco di un'istanza dell'API, con due configurazioni delle sonde & \texttt{SIGSTOP} & V2 & 3 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Crash e blocco.} Le due classi principali si comportano in modo opposto rispetto a Kubernetes. Un processo che \textbf{termina} viene rilevato quasi subito, perché il container esce e il kubelet lo riavvia. Un processo \textbf{bloccato} resta in esecuzione: Kubernetes se ne accorge solo dalle sonde, dopo un numero stabilito di controlli falliti di fila. Il tempo di rilevamento dipende quindi da periodo e soglia delle sonde, ed è ciò che il guasto F7 misura con due configurazioni (\emph{veloce}: controllo ogni 1~s; \emph{standard}, i valori predefiniti di Kubernetes: ogni 10~s).
+
+La figura~\ref{fig:anatomia} scompone il fermo in rilevamento, riavvio e ritorno a pronto. La durata delle barre è indicativa.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[x=0.25cm, y=0.9cm, every node/.append style={font=\scriptsize},
+  seg/.style={draw=white, line width=0.6pt, minimum height=0.55cm, inner sep=0pt, anchor=west},
+  ril/.style={seg, fill=accento!75, text=white},
+  rav/.style={seg, fill=unina, text=white},
+  pro/.style={seg, fill=unina!45},
+  sta/.style={seg, fill=grigiotesto!25}]
+\newcommand{\segm}[5]{\node[#1, minimum width=#3*0.25cm] at (#2,#4) {#5};}
+\node[anchor=east, font=\small\bfseries, text=unina, align=right] at (-0.6,0) {Crash\\[-1pt]{\scriptsize\normalfont guasto F1}};
+\segm{ril}{0}{1}{0}{}
+\segm{rav}{1}{6}{0}{}
+\segm{pro}{7}{5}{0}{}
+\segm{sta}{12}{5}{0}{}
+\node[anchor=east, font=\small\bfseries, text=unina, align=right] at (-0.6,-1) {Blocco\\[-1pt]{\scriptsize\normalfont sonde veloci}};
+\segm{ril}{0}{6}{-1}{}
+\segm{rav}{6}{6}{-1}{}
+\segm{pro}{12}{5}{-1}{}
+\segm{sta}{17}{5}{-1}{}
+\node[anchor=east, font=\small\bfseries, text=unina, align=right] at (-0.6,-2) {Blocco\\[-1pt]{\scriptsize\normalfont sonde standard}};
+\segm{ril}{0}{30}{-2}{periodo $\times$ soglia}
+\segm{rav}{30}{6}{-2}{}
+\segm{pro}{36}{5}{-2}{}
+\segm{sta}{41}{5}{-2}{}
+\draw[vita] (0,0.55) -- (0,-2.6);
+\fill[accento] (0,0.55) circle (2.2pt);
+\node[text=accento, above] at (0,0.6) {guasto $t_g$};
+\draw[-{Latex}, grigiotesto] (0,-2.6) -- (47,-2.6) node[right] {tempo};
+\foreach \r/\e in {0/12, -1/17, -2/41} {
+  \fill[accento] (\e,\r) circle (2.2pt);
+  \node[text=accento, anchor=south] at (\e,\r+0.3) {$t_r$};
+}
+\foreach \s/\t/\x in {ril/rilevamento/0, rav/riavvio/10, pro/ritorno a pronto/20, sta/5 s di servizio stabile/32} {
+  \node[\s, minimum width=0.3cm, minimum height=0.25cm] at (\x,-3.5) {};
+  \node[anchor=west, etichetta] at (\x+1.5,-3.5) {\t};
+}
+\end{tikzpicture}
+\caption{Anatomia di un fermo con una sola copia. Il ripristino $t_r$ è l'inizio dei 5 secondi di servizio stabile, che lo confermano ma non entrano nel fermo $t_r - t_g$. Con più copie (guasto F7 su V2) il fermo finisce prima, quando la sonda di readiness esclude la copia dal Service.}
+\label{fig:anatomia}
+\end{figure}
+
+\paragraph{Come si provocano.} I segnali \texttt{SIGKILL} (crash) e \texttt{SIGSTOP} (blocco) sono inviati dal nodo che ospita il processo, non con \texttt{kubectl delete pod}, che è una terminazione ordinata e non un guasto (D0016). L'istante del guasto è registrato al millisecondo. Prima di ogni run il sistema viene riportato a uno stato iniziale verificato. La latenza del guasto F5 è di 200~ms: con 500~ms il sincrono fallirebbe quasi del tutto e il guasto non direbbe nulla di nuovo rispetto all'arresto del database.

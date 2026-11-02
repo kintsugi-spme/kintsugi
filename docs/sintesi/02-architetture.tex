@@ -1,0 +1,247 @@
+\section{Le cinque architetture}
+\label{s:architetture}
+
+Le cinque versioni sono configurazioni dello stesso codice e della stessa immagine (D0012): cambiano solo impostazioni e manifest. Ognuna deriva da un'altra modificando \textbf{un solo fattore} (figura~\ref{fig:derivazione}).
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\node[box] (v1) {V1\\{\scriptsize 1 istanza, sincrona}};
+\node[box, right=1.3cm of v1] (v2) {V2\\{\scriptsize 3 repliche}};
+\node[box, above right=0.2cm and 1.6cm of v2] (v3) {V3\\{\scriptsize asincrona}};
+\node[box, below right=0.2cm and 1.6cm of v2] (v4) {V4\\{\scriptsize DB replicato}};
+\node[box, right=1.3cm of v3] (v5) {V5\\{\scriptsize autoscaling}};
+\draw[freccia] (v1) -- node[above, font=\scriptsize] {+ repliche} (v2);
+\draw[freccia] (v2) -- node[above, sloped, font=\scriptsize] {+ coda} (v3);
+\draw[freccia] (v2) -- node[below, sloped, font=\scriptsize] {+ replica del DB} (v4);
+\draw[freccia] (v3) -- node[above, font=\scriptsize] {+ KEDA} (v5);
+\end{tikzpicture}
+\caption{Derivazione delle versioni: ogni freccia cambia un solo fattore.}
+\label{fig:derivazione}
+\end{figure}
+
+La figura~\ref{fig:panoramica} riunisce i componenti di tutte le versioni. Nelle versioni sincrone (V1, V2, V4) l'API scrive nel database e risponde solo dopo il salvataggio; in quelle asincrone (V3, V5) pubblica l'ordine su una coda (RabbitMQ) e risponde appena la coda lo ha conservato, mentre i worker lo salvano dopo.
+
+\begin{figure}[H]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[every node/.append style={font=\small}]
+\node[box, minimum width=1.7cm] (cl) at (0,0) {Cliente\\{\scriptsize JMeter}};
+\node[kube] (svc) at (2.6,0) {Service};
+\node[copie] (api) at (5.2,0) {API\\{\scriptsize $\times N$}};
+\node[db] (db) at (10.6,0.4) {PostgreSQL};
+\node[db] (st) at (13.9,0.4) {Standby\\{\scriptsize solo V4}};
+\node[coda, label={[etichetta]above:RabbitMQ}] (q) at (8.0,-2.3) {};
+\node[copie] (wk) at (10.6,-2.3) {Worker\\{\scriptsize $\times M$}};
+\node[kube] (keda) at (8.0,-4.2) {KEDA\\{\scriptsize solo V5}};
+\draw[freccia] (cl) -- (svc);
+\draw[freccia] (svc) -- (api);
+\draw[freccia] (api.east) -- node[etichetta, above, pos=0.45] {V1, V2, V4: scrive\\e risponde 201} (db.west);
+\draw[freccia] (api.south) |- node[etichetta, pos=0.3, left] {V3, V5: pubblica\\e risponde 202} (q.west);
+\draw[freccia] (q) -- (wk);
+\draw[freccia] (wk.north) -- (db.south);
+\draw[freccia, double, -{Latex}] (db) -- node[etichetta, above] {replica} (st);
+\draw[sonda] (q.south) -- node[etichetta, right] {lunghezza\\della coda} (keda.north);
+\draw[sonda] (keda.east) -| node[etichetta, pos=0.8, right] {da 1 a 10\\worker} (wk.south);
+\end{tikzpicture}}
+\caption{I componenti e i due percorsi di un ordine. Le linee a puntini sono i controlli di KEDA sulla coda e le sue azioni sui worker.}
+\label{fig:panoramica}
+\end{figure}
+
+Nei diagrammi che seguono i blocchi con bordo sono programmi nostri, quelli pieni sono parti di Kubernetes, il cilindro è il database; la freccia continua è una richiesta, quella tratteggiata una risposta, quella a puntini un controllo. Per semplicità manca Toxiproxy, il proxy tra applicazione e database che serve solo per il guasto F5 (sezione~\ref{s:guasti}).
+
+\subsection{V1 -- istanza singola, sincrona}
+\label{s:v1}
+
+È la versione di riferimento. L'API riceve l'ordine, lo scrive nel database e risponde \texttt{201} solo dopo il salvataggio; se non riesce entro 1,5~s risponde \texttt{503} (D0008). Il kubelet, l'agente di Kubernetes su ogni nodo, controlla l'API con due sonde indipendenti dal database (D0007): una verifica che sia \emph{viva} (ogni 2~s) e una che sia \emph{pronta} a ricevere richieste (ogni 1~s). Con un'unica istanza, un guasto dell'API ferma il servizio fino al riavvio.
+
+\begin{figure}[H]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}
+\node[box, minimum width=1.8cm] (cl) at (0,0) {Cliente\\{\scriptsize JMeter}};
+\node[kube] (svc) at (3.3,0) {Service};
+\node[pod] (api) at (6.3,0) {API\\{\scriptsize 1 copia}};
+\node[db] (db) at (10.2,0) {PostgreSQL};
+\node[etichetta, below=1mm of db] (n1) {nodo dati};
+\node[kube] (kl) at (6.3,2.0) {kubelet};
+\draw[freccia] (cl) -- node[etichetta, above] {POST\\/ordini} (svc);
+\draw[freccia] (svc) -- (api);
+\draw[freccia] (api) -- node[etichetta, above] {INSERT} (db);
+\draw[sonda] ([xshift=-4mm]kl.south) -- node[etichetta, left] {viva?\\ogni 2 s} ([xshift=-4mm]api.north);
+\draw[sonda] ([xshift=4mm]kl.south) -- node[etichetta, right] {pronta?\\ogni 1 s} ([xshift=4mm]api.north);
+\begin{scope}[on background layer]
+\node[cluster, fit=(svc)(kl)(db)(n1), label={[etichetta, anchor=north east]south east:cluster Kubernetes}] {};
+\end{scope}
+\draw[risposta] (api.south) -- ++(0,-1.5) -| node[etichetta, pos=0.25, below] {201 dopo il salvataggio $\cdot$ 503 entro 1,5 s} (cl.south);
+\end{tikzpicture}}
+\caption{V1: un'unica istanza dell'API, sorvegliata dalle sonde del kubelet; risposta \texttt{201} solo dopo il salvataggio.}
+\label{fig:v1}
+\end{figure}
+
+\subsection{V2 -- repliche dell'API}
+\label{s:v2}
+
+Come V1, con tre repliche dell'API. Il Service distribuisce le richieste solo tra le repliche pronte: se una replica cade, esce dal Service e le altre continuano a servire (attivo-attivo, tabella~\ref{tab:corso}). Resta unico il database, che diventa il punto debole.
+
+\begin{figure}[H]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}
+\node[box, minimum width=1.8cm] (cl) at (0,0) {Cliente\\{\scriptsize JMeter}};
+\node[kube] (svc) at (3.3,0) {Service};
+\node[pod] (a1) at (6.3,1.15) {API};
+\node[pod] (a2) at (6.3,0) {API};
+\node[pod, guastato] (a3) at (6.3,-1.15) {API guasta\\{\scriptsize esclusa}};
+\node[db] (db) at (10.2,0) {PostgreSQL};
+\node[etichetta, below=1mm of db] (n1) {nodo dati};
+\node[etichetta, above=2mm of a1] (dl) {3 repliche};
+\draw[freccia] (cl) -- node[etichetta, above] {POST\\/ordini} (svc);
+\draw[freccia] (svc.east) -- (a1.west);
+\draw[freccia] (svc.east) -- (a2.west);
+\draw[sonda, color=accento] (svc.east) -- (a3.west);
+\draw[freccia] (a1.east) -- node[etichetta, above, pos=0.55] {INSERT} (db.west);
+\draw[freccia] (a2.east) -- (db.west);
+\begin{scope}[on background layer]
+\node[gruppo, fit=(a1)(a3)(dl)] {};
+\node[cluster, fit=(svc)(a1)(a3)(dl)(db)(n1), label={[etichetta, anchor=north east]south east:cluster Kubernetes}] {};
+\end{scope}
+\end{tikzpicture}}
+\caption{V2: il Service inoltra gli ordini solo alle repliche pronte; una replica guasta resta esclusa finché non torna pronta.}
+\label{fig:v2}
+\end{figure}
+
+\subsection{V3 -- asincrona con coda}
+\label{s:v3}
+
+Come V2, ma l'API non scrive nel database: pubblica l'ordine su RabbitMQ e risponde \texttt{202} (``ricevuto'') appena il broker conferma di averlo conservato (D0001, D0002). Tre worker leggono la coda, scrivono nel database e confermano al broker (\textit{ack}) solo dopo il salvataggio. Se il database si ferma, gli ordini restano in coda e i worker ritentano (D0003); quelli che non si riesce a salvare entro 120~s finiscono nella coda dei falliti. Il cliente attende meno, ma ora il broker è il punto unico di guasto per l'accettazione.
+
+\begin{figure}[H]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}
+\node[box, minimum width=1.8cm] (cl) at (0,0) {Cliente\\{\scriptsize JMeter}};
+\node[kube] (svc) at (3.3,0) {Service};
+\node[copie] (api) at (6.0,0) {API};
+\node[coda, label={[etichetta]above:RabbitMQ}] (q) at (9.8,0) {};
+\node[coda, rectangle split parts=3, draw=accento, fill=accento!10,
+      label={[etichetta]above:coda dei falliti}] (dlq) at (13.3,0) {};
+\node[copie] (wk) at (9.8,-3.0) {Worker\\{\scriptsize $\times 3$}};
+\node[db] (db) at (6.0,-3.0) {PostgreSQL};
+\node[etichetta, below=1mm of db] (n2) {nodo dati};
+\draw[freccia] (cl) -- node[etichetta, above] {POST\\/ordini} (svc);
+\draw[freccia] (svc) -- (api);
+\draw[freccia] ([yshift=1mm]api.east) -- node[etichetta, above] {pubblica} ([yshift=1mm]q.west);
+\draw[risposta] ([yshift=-2mm]q.west) -- node[etichetta, below] {conferma} ([yshift=-2mm]api.east);
+\draw[freccia] ([xshift=3mm]q.south) -- node[etichetta, right] {1 ordine\\alla volta} ([xshift=3mm]wk.north);
+\draw[risposta] ([xshift=-3mm]wk.north) -- node[etichetta, left] {ack dopo\\il salvataggio} ([xshift=-3mm]q.south);
+\draw[sonda, color=accento] (q) -- node[etichetta, below, pos=0.42, text=accento] {dopo 120 s\\di riprove} (dlq);
+\draw[freccia] (wk) -- node[etichetta, above] {INSERT} (db);
+\begin{scope}[on background layer]
+\node[cluster, fit=(svc)(api)(q)(dlq)(wk)(db)(n2), label={[etichetta, anchor=north east]south east:cluster Kubernetes}] {};
+\end{scope}
+\draw[risposta] (api.north) -- ++(0,1.6) -| node[etichetta, pos=0.25, above] {202 dopo la conferma della coda} (cl.north);
+\end{tikzpicture}}
+\caption{V3: l'ordine passa dalla coda; il worker conferma al broker solo dopo averlo salvato.}
+\label{fig:v3}
+\end{figure}
+
+\subsection{V4 -- database replicato}
+\label{s:v4}
+
+Come V2, ma PostgreSQL è gestito da CloudNativePG con un primario e uno standby aggiornato in continuo (D0014). L'API scrive sempre allo stesso indirizzo, il Service di scrittura (\texttt{-rw}); se il primario cade, l'operatore promuove lo standby e sposta l'indirizzo su di esso (attivo-passivo). Primario e standby stanno su nodi diversi, altrimenti la replica non proteggerebbe dal guasto di una macchina (D0006). Si provano due modalità:
+\begin{description}
+  \item[V4a, asincrona] il primario conferma senza attendere lo standby: scritture più rapide, ma gli ultimi ordini confermati possono andare persi nel failover.
+  \item[V4s, sincrona] il primario conferma solo dopo che lo standby ha ricevuto la scrittura: nessuna perdita, ma ogni scrittura è più lenta.
+\end{description}
+
+\begin{figure}[H]
+\centering
+\resizebox{0.85\linewidth}{!}{%
+\begin{tikzpicture}
+\node[box, minimum width=1.8cm] (cl) at (0,0) {Cliente\\{\scriptsize JMeter}};
+\node[kube] (svc) at (3.2,0) {Service};
+\node[copie] (api) at (5.6,0) {API};
+\node[kube] (rw) at (8.6,0) {Service\\\texttt{-rw}};
+\node[db] (pr) at (12.0,1.0) {Primario};
+\node[db] (st) at (12.0,-2.2) {Standby};
+\node[kube] (op) at (8.6,-2.2) {Operatore\\CNPG};
+\draw[freccia] (cl) -- node[etichetta, above] {POST\\/ordini} (svc);
+\draw[freccia] (svc) -- (api);
+\draw[freccia] (api) -- node[etichetta, above] {INSERT} (rw);
+\draw[freccia] (rw.east) -- (pr.west);
+\draw[freccia, double, -{Latex}] (pr.south) -- node[etichetta, left, xshift=-1mm] {replica del WAL\\V4a: asincrona\\V4s: sincrona} (st.north);
+\draw[sonda] (op) -- node[etichetta, below] {sorveglia\\e promuove} (st);
+\draw[sonda] (op) -- node[etichetta, left] {sposta\\l'indirizzo} (rw);
+\begin{scope}[on background layer]
+\node[gruppo, fit=(pr), label={[etichetta]above:nodo A}] {};
+\node[gruppo, fit=(st), label={[etichetta, align=center]below:nodo B, diverso da A}] {};
+\end{scope}
+\end{tikzpicture}}
+\caption{V4: l'API scrive sempre sul Service \texttt{-rw}; se il primario cade, l'operatore CNPG promuove lo standby e sposta il Service su di esso.}
+\label{fig:v4}
+\end{figure}
+
+\subsection{V5 -- autoscaling dei worker}
+\label{s:v5}
+
+Come V3, ma il numero di worker non è fisso: KEDA osserva la lunghezza della coda e ne aggiunge quando si allunga, ne toglie quando si svuota, tra 1 e 10 (D0015). È l'elasticità del corso (T12): le risorse seguono la domanda.
+
+\begin{figure}[H]
+\centering
+\resizebox{0.85\linewidth}{!}{%
+\begin{tikzpicture}
+\node[box, minimum width=1.8cm] (cl) at (0,0) {Cliente\\{\scriptsize JMeter}};
+\node[kube] (svc) at (3.3,0) {Service};
+\node[copie] (api) at (6.0,0) {API};
+\node[coda, label={[etichetta]above:RabbitMQ}] (q) at (9.8,0) {};
+\node[copie] (wk) at (9.8,-3.0) {Worker\\{\scriptsize da 1 a 10}};
+\node[kube] (keda) at (13.2,-1.5) {KEDA};
+\node[db] (db) at (6.0,-3.0) {PostgreSQL};
+\draw[freccia] (cl) -- node[etichetta, above] {POST\\/ordini} (svc);
+\draw[freccia] (svc) -- (api);
+\draw[freccia] (api) -- node[etichetta, above] {pubblica} (q);
+\draw[freccia] (q) -- (wk);
+\draw[sonda] (q.east) -| node[etichetta, pos=0.25, above] {quanti ordini\\in attesa?} (keda.north);
+\draw[sonda] (keda.south) |- node[etichetta, pos=0.75, below] {aggiunge o\\toglie worker} (wk.east);
+\draw[freccia] (wk) -- node[etichetta, above] {INSERT} (db);
+\begin{scope}[on background layer]
+\node[cluster, fit=(svc)(api)(q)(keda)(wk)(db), label={[etichetta, anchor=north east]south east:cluster Kubernetes}] {};
+\end{scope}
+\draw[risposta] (api.north) -- ++(0,1.6) -| node[etichetta, pos=0.25, above] {202} (cl.north);
+\end{tikzpicture}}
+\caption{V5: come V3 (coda dei falliti compresa), con KEDA che regola il numero di worker in base alla coda.}
+\label{fig:v5}
+\end{figure}
+
+V5 parte con 1 worker mentre V3 ne ha 3, quindi confrontarle direttamente non direbbe se il vantaggio viene dalla scalatura o dal numero di partenza. Per questo V5 si misura anche contro \textbf{V3 con 1 worker fisso} (economica ma lenta) e \textbf{V3 con 10 worker fissi} (veloce ma costosa); V5 dovrebbe stare in mezzo. Il costo si misura in \textbf{worker-secondi}: la somma, nel tempo, del numero di worker accesi.
+
+\subsection{Confronto: che cosa ferma il servizio}
+
+\begin{table}[H]
+\centering
+\caption{I punti unici di guasto di ogni versione.}
+\label{tab:versioni}
+\begin{tabularx}{\linewidth}{@{}lL@{}}
+\toprule
+\textbf{Versione} & \textbf{Cosa ferma il servizio} \\
+\midrule
+V1 & API, database \\
+V2 & Database \\
+V3, V5 & Broker (accettazione); broker e database (completamento: gli ordini attendono in coda) \\
+V4a & Nessuno, ma gli ultimi ordini possono andare persi \\
+V4s & Lo standby: se cade le scritture possono bloccarsi\textsuperscript{*} \\
+\bottomrule
+\end{tabularx}
+
+\vspace{2pt}
+{\footnotesize\textsuperscript{*} Comportamento da verificare sulla versione di CloudNativePG adottata (D0014).\par}
+\end{table}
+
+\paragraph{Il tempo di un ordine.} In ogni versione si registrano due istanti, entrambi presi nel cluster per evitare orologi diversi (D0005): la ricezione da parte dell'API e la scrittura nel database. La loro differenza è il \emph{tempo end-to-end}, la metrica comune a tutte le versioni. Con la coda il client attende meno, ma l'ordine viene salvato più tardi.
+
+\subsection{Dove si esegue}
+
+Una campagna completa si svolge in \textbf{locale}, su \textbf{kind}, con tre nodi simulati da container Docker (un control plane che non viene mai guastato e due worker, uno per i dati e uno per il calcolo), Kubernetes 1.37 e misure ufficiali su un solo computer (D0013). Una parte degli esperimenti (V2 e V3, carichi W1 e W2, guasti F1, F2 e F3) si ripete su \textbf{AWS}, con EKS, nodi EC2 in tre zone, bilanciatore ALB e dischi EBS, nella regione di Irlanda (D0009). Il costo previsto è di circa 15--20 dollari, con allarme di budget attivo prima di ogni sessione e distruzione del cluster al termine.
+
+Il limite principale dell'ambiente locale è che i nodi di kind sono container sullo stesso computer: la perdita di un nodo è simulata, e per questo la ripetizione su AWS serve a RQ6.

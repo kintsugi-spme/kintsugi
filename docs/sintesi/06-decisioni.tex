@@ -1,0 +1,30 @@
+\section{Le decisioni principali}
+\label{s:decisioni}
+
+Ogni scelta rilevante è documentata in una scheda con contesto, decisione e conseguenze (ADR) nel documento tecnico. La tabella~\ref{tab:decisioni} ne riassume l'essenza: che cosa abbiamo scelto e perché.
+
+\begin{table}[H]
+\centering
+\caption{Le decisioni architetturali in breve.}
+\label{tab:decisioni}
+\small
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{1.9cm}LL@{}}
+\toprule
+\textbf{Decisione} & \textbf{Che cosa abbiamo scelto} & \textbf{Perché} \\
+\midrule
+D0001, D0002 & Con la coda l'API risponde 202 solo dopo che RabbitMQ ha confermato di aver scritto il messaggio (durevole); il worker conferma dopo il salvataggio; un ordine alla volta per worker; coda dei falliti & Un ordine ``ricevuto'' non deve sparire se coda o worker si spengono. Prezzo: l'API è più lenta e un ordine può arrivare due volte \\
+D0003 & Il worker ritenta tenendo l'ordine con sé, con attese crescenti da 0,5 a 10~s; dopo 120~s va alla coda dei falliti & Rimetterlo subito in coda creerebbe un giro continuo senza risultato. I 120~s sono indicativi \\
+D0004 & Identificativo scelto dal client; inserimento ``se esiste non fare nulla''; doppi registrati in una tabella & I doppi si contano anche quando il programma si spegne \\
+D0005 & Ricezione e scrittura prese entrambe dal cluster, mai dal client & Orologi diversi falserebbero il tempo di ogni ordine \\
+D0006 & Database e coda su un nodo dedicato con regola rigida; primario e standby su nodi diversi; API e worker preferiscono l'altro nodo & Collocazione ripetibile: se cambiasse tra i run sarebbe una causa nascosta delle differenze \\
+D0007 & Le sonde controllano solo l'API, non il database & Un database fermo non deve far riavviare o escludere tutte le copie, annullando il vantaggio dell'asincrono \\
+D0008 & Il generatore di carico aspetta 2~s, l'API 1,5~s e poi risponde 503; limite di completamento di 2~s & Un errore dichiarato è più chiaro di un timeout, e l'API non lavora per chi ha già rinunciato \\
+D0010 & Pool di 5 connessioni per pod, uguale in tutte le versioni (V5 al massimo 50 su 100) & Il limite di PostgreSQL non deve falsare il confronto \\
+D0014 & V4 con CloudNativePG, in due modalità: asincrona (V4a) e sincrona (V4s) & In V1--V3 il database è unico: se cade si ferma tutto \\
+D0015 & V5 con KEDA da 1 a 10 worker: controllo ogni 15~s circa, soglia di due secondi di lavoro in coda per worker, attesa di 60~s prima di toglierli & Il valore predefinito (300~s) terrebbe 10 worker accesi dopo il picco e annullerebbe il confronto di costo \\
+D0016 & Crash e blocco con \texttt{SIGKILL} e \texttt{SIGSTOP} inviati dal nodo & \texttt{kubectl delete} è una chiusura ordinata, non un guasto \\
+D0017 & Obiettivo di disponibilità del 99,9\% (circa 43 minuti di fermo al mese) & Scala comune per confrontare versioni e guasti \\
+D0009, D0011--D0013 & AWS in Irlanda con \texttt{eksctl} e istanze a prestazioni fisse; Python; un solo codice per tutte le versioni; misure ufficiali su un solo computer da 16 GB & Confronto equo e risorse stabili tra i run \\
+\bottomrule
+\end{tabularx}
+\end{table}
