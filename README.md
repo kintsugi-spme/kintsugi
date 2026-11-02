@@ -106,7 +106,7 @@ Un solo programma Python (FastAPI) e una sola immagine Docker, che parte come AP
 
 - **Iniezione realistica:** `SIGKILL` e `SIGSTOP` inviati dal nodo, non `kubectl delete pod` (che è una terminazione ordinata).
 - **Carico a modello aperto** (W1 costante, W2 picco, W3 sovraccarico), per evitare la *coordinated omission*.
-- **250 run** in ordine casuale (circa 23,5 ore di macchina), con reset verificato prima di ogni run.
+- **250 run** in ordine casuale (circa 25 ore di macchina), con reset verificato prima di ogni run.
 
 | Ambiente | Infrastruttura |
 |---|---|

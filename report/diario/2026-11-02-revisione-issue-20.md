@@ -50,6 +50,27 @@ Modificati: `docs/chapters/06-decisioni.tex` (tre righe di parametri al posto de
 
 Da verificare: la compatibilità della versione di KEDA con Kubernetes 1.37 (all'installazione) e i 2–5 s di avvio di un worker (misura a vuoto di F3). Restano due `\todo`: durata del picco di W2 (collegata all'attesa di 60 s: se dopo il picco il run finisce prima, la riduzione non si vede) ed elenco delle configurazioni senza guasti.
 
+## Durata del picco di W2 (secondo dei tre `\todo`, parte di #10)
+
+Calcolato cosa succede con i valori del documento, usando μ₁ (capacità di un worker) come unità: base a 0,5, picco a 5, durata del picco P.
+- V3 con 1 worker: la coda cresce di 4 al secondo per P secondi, poi si svuota a ritmo netto 0,5: servono 8·P secondi. Il run dura 4 minuti fissi (riscaldamento, riferimento, «ripristino + 2 min») più 9·P.
+- V3 con 10 worker: nessuna coda.
+- V5: per i primi 3–20 s come V3 con 1 worker (coda di circa 4 al secondo), poi 5 worker (capacità pari al picco) e infine 10 (18–35 s).
+
+| P | Esito | Scelto |
+|---|---|---|
+| 30 s | KEDA arriva a 10 worker quando il picco finisce: V5 ≈ V3 con 1 worker, RQ5 misurerebbe solo la lentezza di KEDA | no |
+| **60 s** | V5 lavora a pieno regime per almeno 25 s; coda massima al più circa 80 contro 240 di V3 con 1 worker; V3 con 1 worker finisce in circa 13 min | **sì** |
+| 120 s | Run di circa 22 min; la coda di V5 si svuota a metà picco e il controllo sulla lunghezza della coda può togliere worker mentre il carico c'è ancora | no |
+
+Conseguenze:
+- **Tetto di 15 minuti** per i run sotto W2 (come per F6): con 10 minuti V3 con 1 worker risulterebbe «non ripristinato». Campagna da circa 23,5 a circa 25 ore (+1–1,5 h).
+- **Costo nella stessa finestra:** il costo in worker-secondi sotto W2 si calcola dall'inizio del picco fino a 10 minuti dopo, uguale per V5 e per i due riferimenti; altrimenti V3 con 1 worker (circa 13 min) e V5 (circa 7 min) avrebbero finestre diverse e il confronto non sarebbe equo.
+- L'attesa di 60 s di KEDA regge: la coda di V5 si svuota intorno ai 45 s dall'inizio del picco, quindi la riduzione dei worker scatta dopo la fine del picco.
+- Assunzione: il picco parte al minuto 2, come il guasto negli altri run (nel capitolo non era scritto).
+
+Modificati: `docs/chapters/07-misura.tex` (W2, struttura del run con tetto di 15 minuti e figura, definizione di costo, ore di macchina), `docs/chapters/06-decisioni.tex` (riga nella tabella dei parametri), `README.md` (circa 25 ore). Non cambia nessuna previsione. Resta un `\todo`: l'elenco delle configurazioni senza guasti.
+
 ## Perché
 
 - RQ5 confronta tre configurazioni sotto W2: V5, V3 con 1 worker e V3 con 10 worker. Le due V3 avevano 10 ripetizioni, V5 solo 5, e con 5 ripetizioni non si calcola l'intervallo di confidenza bootstrap (cap. 7, «Statistica»). La previsione di RQ5 è che V5 stia *tra* le due V3: il confronto richiede la stessa precisione su tutte e tre.

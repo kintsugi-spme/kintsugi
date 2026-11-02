@@ -21,7 +21,7 @@ Ripristinato & Vale separatamente per accettazione e completamento: $t_r$ è il 
 Fermo (\textit{downtime}) & $t_r - t_g$, con $t_g$ istante del guasto, calcolato con il $t_r$ di ciascuna misura. Se un ripristino non avviene entro il tetto del run, il run è valido e registrato come ``non ripristinato''. \\
 Tempo end-to-end & $\texttt{ts\_scrittura} - \texttt{ts\_ricezione}$, entrambi presi nel cluster (D0005). È la metrica comune a tutte le versioni. \\
 Latenza del client & Tempo tra invio e risposta, misurato da JMeter. In V3 e V5 misura solo l'accettazione. \\
-Costo & In locale, worker-secondi: integrale nel tempo del numero di worker attivi (RQ5). Su AWS, costo per mille ordini. \\
+Costo & In locale, worker-secondi: integrale nel tempo del numero di worker attivi (RQ5). Sotto W2 si calcola dall'inizio del picco fino a 10 minuti dopo, uguale per V5 e per i due riferimenti V3: se un run finisce prima, si prosegue con il numero di worker presente alla fine. Su AWS, costo per mille ordini. \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -102,7 +102,7 @@ Ogni run è automatico e segue la sequenza della figura~\ref{fig:run}.
 \draw[accento, very thick] (2,-0.25) -- (2,1.05);
 \node[text=accento, above, align=center] at (2,1.05) {guasto $t_g$\\(minuto 2)};
 \draw[accento, densely dashed, thick] (10,-0.25) -- (10,1.05);
-\node[text=accento, above, align=center] at (10,1.05) {tetto: 10 min\\(15 per il guasto F6)};
+\node[text=accento, above, align=center] at (10,1.05) {tetto: 10 min\\(15 per F6 e W2)};
 \draw[decorate, decoration={brace, amplitude=4pt, mirror}, grigiotesto] (0,-0.75) -- node[below=3pt, etichetta] {escluso dalle statistiche} (1,-0.75);
 \end{tikzpicture}
 \caption{Struttura di un run. La durata tipica è di 5--6 minuti; il tetto vale solo quando il ripristino tarda.}
@@ -114,7 +114,7 @@ Ogni run è automatico e segue la sequenza della figura~\ref{fig:run}.
   \item \textbf{Riscaldamento.} Un minuto di carico, escluso dalle statistiche.
   \item \textbf{Riferimento.} Un minuto di carico senza guasti, che fornisce i valori di confronto del run.
   \item \textbf{Guasto.} Iniettato al minuto 2, in un istante registrato al millisecondo.
-  \item \textbf{Osservazione.} Fino al ripristino più 2 minuti, con un tetto di 10 minuti per run (15 per il guasto F6, perché Kubernetes attende alcuni minuti prima di ricollocare i pod di un nodo perso).
+  \item \textbf{Osservazione.} Fino al ripristino più 2 minuti, con un tetto di 10 minuti per run. Il tetto è di 15 minuti per il guasto F6, perché Kubernetes attende alcuni minuti prima di ricollocare i pod di un nodo perso, e per i run sotto W2: con un solo worker, dopo un picco di 60~s la coda si svuota in circa 8 minuti, e il run dura circa 13 minuti. Sotto W2 il ``guasto'' del grafico è l'inizio del picco.
   \item \textbf{Esportazione.} Log del client, ordini salvati, eventi di Kubernetes e metriche di Prometheus vengono salvati in \texttt{data/<ambiente>/<run-id>/} prima del run successivo.
 \end{enumerate}
 
@@ -131,7 +131,7 @@ Il carico segue un \textbf{modello aperto}: le richieste partono a ritmo fisso a
 \textbf{ID} & \textbf{Profilo} & \textbf{Uso} \\
 \midrule
 W1 & costante, sotto la capacità & tutti i run con guasto. Ritmo uguale per tutte le versioni: 50\% della capacità più bassa tra V1, V2, V3, V4a e V4s, così il carico non diventa un secondo fattore che cambia \\
-W2 & picco improvviso, poi ritorno al livello di base & elasticità di V5 e riferimenti di V3. Rispetto alla capacità di un solo worker $\mu_1$: base al 50\% di $\mu_1$, picco al 500\% di $\mu_1$, cioè sopra 3 worker e sotto 10 (\todo{durata del picco da fissare}) \\
+W2 & picco improvviso, poi ritorno al livello di base & elasticità di V5 e riferimenti di V3. Rispetto alla capacità di un solo worker $\mu_1$: base al 50\% di $\mu_1$, picco al 500\% di $\mu_1$, cioè sopra 3 worker e sotto 10. Il picco dura 60~s e parte al minuto 2, come il guasto negli altri run \\
 W3 & sovraccarico prolungato, sopra la capacità & comportamento oltre il limite, senza guasti. Livello fissato per versione: 150\% della capacità di quella versione \\
 \bottomrule
 \end{tabularx}
@@ -182,7 +182,7 @@ V5 sotto W2 ha 10 ripetizioni come i suoi due riferimenti: il confronto di RQ5 r
 \label{fig:matrice}
 \end{figure}
 
-I run si eseguono in \textbf{ordine casuale}, mescolando configurazioni e ripetizioni, così un eventuale degrado progressivo dell'ambiente non si concentra su una sola configurazione. A circa 5--6 minuti per run, la campagna richiede circa 23,5 ore di macchina.
+I run si eseguono in \textbf{ordine casuale}, mescolando configurazioni e ripetizioni, così un eventuale degrado progressivo dell'ambiente non si concentra su una sola configurazione. A circa 5--6 minuti per run, la campagna richiede circa 25 ore di macchina (i 10 run di V3 con 1 worker sotto W2 durano circa 13 minuti ciascuno).
 
 \section{Validità di un run}
 
