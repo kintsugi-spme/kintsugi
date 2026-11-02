@@ -1,6 +1,6 @@
 # 2026-11-02 — Correzione delle incoerenze del documento (issue #20)
 
-**Chi:** Francesco · **Fase:** F1 · **Durata:** ? h · **Issue:** #20 e #22 (documentazione AWS)
+**Chi:** Francesco · **Fase:** F1 · **Durata:** ? h · **Issue:** #20, #22 (documentazione AWS) e, in parte, #10 (valori principali)
 
 ## Cosa abbiamo fatto
 
@@ -31,6 +31,24 @@ L'issue sull'account AWS, che era in M1 (#6), è stata eliminata e il lavoro spo
 | `README.md`, roadmap | M3b mancava | Aggiunta la riga M3b |
 
 Le ore delle fasi non sono ridistribuite: aprire l'account è poco lavoro rispetto alle 10 ore di F0 e alle 40 di F6. La voce del diario del 27/10 («Da fare per M1: … #6») è storica e resta com'è.
+
+## Valori di KEDA (primo dei tre `\todo` aperti, parte di #10)
+
+Letta la documentazione di KEDA 2.22 e di Kubernetes per fissare i tre valori di V5. Due cose che si credevano diverse:
+- l'intervallo di controllo di KEDA (30 s) vale solo da 0 a 1 worker; da 1 a N decide l'autoscaler di Kubernetes, circa ogni 15 s, e il suo ritmo è del control plane (su EKS non si cambia);
+- il `cooldownPeriod` di KEDA (300 s) vale solo per scendere a 0 worker; da N a 1 decide la finestra di stabilità dell'autoscaler, 300 s di default.
+
+| Valore | Scelta | Alternativa scartata |
+|---|---|---|
+| Controllo della coda | **Predefinito** (circa 15 s) | Accorciarlo nella configurazione di kind: su EKS non è possibile, i due ambienti sarebbero diversi (RQ6) |
+| Soglia per worker | **μ₁ × 2 s** ordini per worker, calcolati in F4 come il ritmo di W1; 2 s come il limite di completamento | Un numero fisso (per esempio 100): arbitrario |
+| Attesa prima di toglierli | **60 s** | 300 s (predefinito: V5 resterebbe a 10 worker per 5 minuti e il costo non mostrerebbe l'elasticità); 30 s (rischio di togliere worker a metà picco) |
+
+Ritardo di reazione previsto (ipotesi, tabella del cap. 8): primi worker **3–20 s** (fino a 15 s per il controllo dell'autoscaler più 2–5 s di avvio), tutti e 10 **18–35 s** (l'autoscaler aggiunge al più 4 worker o il 100% ogni 15 s: da 1 a 5, poi a 10). Durante la reazione la coda cresce di circa 4μ₁ al secondo.
+
+Modificati: `docs/chapters/06-decisioni.tex` (tre righe di parametri al posto del `\todo`), `docs/chapters/decisioni/D0015-autoscaling.tex` (valori, motivazioni e ritardo previsto), `docs/chapters/08-previsioni.tex` (nuova ipotesi $T_{\text{KEDA}}$ e relazione attesa di RQ5).
+
+Da verificare: la compatibilità della versione di KEDA con Kubernetes 1.37 (all'installazione) e i 2–5 s di avvio di un worker (misura a vuoto di F3). Restano due `\todo`: durata del picco di W2 (collegata all'attesa di 60 s: se dopo il picco il run finisce prima, la riduzione non si vede) ed elenco delle configurazioni senza guasti.
 
 ## Perché
 
