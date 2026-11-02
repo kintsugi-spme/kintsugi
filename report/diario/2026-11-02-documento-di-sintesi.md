@@ -11,7 +11,7 @@ L'idea è avere due documenti con ruoli diversi:
 | | Documento tecnico | Relazione di sintesi |
 |---|---|---|
 | Per chi | noi due e chi deve riprodurre gli esperimenti | i docenti |
-| Lunghezza | 51 pagine | 16 pagine (copertina e indice compresi) |
+| Lunghezza | 51 pagine | 19 pagine (copertina e indice compresi) |
 | Contenuto | tutto: 17 ADR, parametri, diagrammi, calcoli, appendici | l'essenziale, con **numeri e formule** ma presentati meglio |
 | Sorgente | `docs/main.tex` e `docs/chapters/` | `docs/main-sintesi.tex` e `docs/sintesi/` |
 
@@ -24,13 +24,14 @@ Il documento tecnico è completo ma molto lungo, e ha parti che servono a noi (r
 Scelte di impostazione:
 - **Si parte dal corso:** la sezione 1 contiene una tabella «concetto del corso → dove lo misuriamo» (scalabilità e bilanciamento, disponibilità e numero di nove, failover attivo-attivo e attivo-passivo, replica del database, sincrono e asincrono, elasticità, IaaS). I concetti sono verificati sulle slide T06 e T12.
 - **Numeri e formule restano:** previsioni, modello del fermo, esempi di calcolo, budget di errore. Si taglia il «come si ottiene» di ogni riga, che resta nel documento tecnico.
-- **Una sola figura per idea:** metodo, derivazione delle versioni, panoramica dei componenti (nuova, sostituisce i cinque diagrammi per versione), anatomia di un fermo, categorie degli ordini, struttura di un run, matrice dei run.
+- **Una figura per idea:** metodo, derivazione delle versioni, panoramica dei componenti, anatomia di un fermo, categorie degli ordini, struttura di un run, matrice dei run.
+- **Un sottocapitolo e uno schema per ogni versione** (richiesta di Francesco, dopo la prima bozza): la sezione 2 apre con il grafo di derivazione e la panoramica di tutti i componenti, poi 2.1--2.5 spiegano V1--V5 in un paragrafo con il proprio schema. Gli schemi vengono dal documento tecnico, semplificati: senza Toxiproxy (serve solo per F5, dichiarato nel testo) e collegati direttamente al database. La tabella dei punti unici di guasto resta come confronto finale (2.6).
 - **Sezioni al posto dei capitoli**, senza pagine vuote tra una e l'altra.
 
 | Sezione | Cosa contiene | Cosa si è tagliato |
 |---|---|---|
 | 1 Il progetto in breve | scopo, RQ, metodo, tabella dei concetti del corso | struttura del documento, ipotesi H1–H5 (assorbite dalle relazioni attese) |
-| 2 Le cinque architetture | derivazione, panoramica, tabella con punti unici di guasto, ambienti | un diagramma per ogni versione, percorso di un ordine come figura, dettagli di kind |
+| 2 Le cinque architetture | derivazione, panoramica, un sottocapitolo con schema per versione, tabella dei punti unici di guasto, ambienti | percorso di un ordine come figura, Toxiproxy negli schemi, dettagli di kind |
 | 3 I guasti | tabella F1–F7, crash e blocco, anatomia, iniezione | dettagli sul PID 1 e su V4 |
 | 4 Come misuriamo | misure, categorie, run, carichi, 220 run, statistica | tabella dei parametri, motivazioni di ogni tetto |
 | 5 Che cosa ci aspettiamo | grandezze, esempi, modello, previsioni, relazioni per RQ, budget di errore | spiegazione riga per riga della tabella, ipotesi minori |
@@ -49,12 +50,14 @@ Aggiunto `make sintesi` al `Makefile`; `make` ora compila entrambi i PDF.
 
 ## Risultato
 
-`docs/main-sintesi.pdf`, 16 pagine con copertina, senza errori né riferimenti mancanti né righe fuori margine. Controllato a vista pagina per pagina.
+`docs/main-sintesi.pdf`, 19 pagine con copertina, senza errori né riferimenti mancanti né righe fuori margine. Controllato a vista pagina per pagina.
 
 ## Problemi e soluzioni
 
 - **Spazi bianchi tra le tabelle:** i riquadri flottanti lasciavano mezze pagine vuote. Risolto fissandoli dove sono scritti (pacchetto `float`, posizione `H`).
 - **Etichette sovrapposte nella panoramica dei componenti:** accorciate e spostate.
+- **Figura di V5 slittata alla pagina dopo il suo testo:** spostato il paragrafo di confronto dopo la figura e ridotti all'85% gli schemi di V4 e V5.
+- **File ausiliari corrotti (errori «invalid character»):** una compilazione ha lasciato caratteri nulli nei file intermedi; risolto con `latexmk -C` e ricompilazione.
 
 ## Limiti dello strumento emersi
 
