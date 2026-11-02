@@ -71,6 +71,31 @@ Conseguenze:
 
 Modificati: `docs/chapters/07-misura.tex` (W2, struttura del run con tetto di 15 minuti e figura, definizione di costo, ore di macchina), `docs/chapters/06-decisioni.tex` (riga nella tabella dei parametri), `README.md` (circa 25 ore). Non cambia nessuna previsione. Resta un `\todo`: l'elenco delle configurazioni senza guasti.
 
+## Elenco delle configurazioni senza guasti (ultimo dei `\todo`, parte di #10)
+
+Il 17 × 5 = 85 del piano originale non aveva un calcolo (già segnalato il 23/10). Ricostruito l'elenco partendo dalle domande di ricerca e dal ruolo dei run senza guasti. Due problemi emersi:
+- **Manca il confronto principale di RQ5.** Il README dice che RQ5 confronta V3 con V5, ma V3 con i suoi 3 worker sotto il picco W2 non era nella matrice (c'erano solo V3 con 1 e con 10 worker fissi). Aggiunto, con 10 ripetizioni come gli altri tre.
+- **I run senza guasti non avevano una fine.** La struttura del run dice «fino al ripristino più 2 minuti», ma senza guasto non c'è ripristino. Fissata una durata di 5 minuti (riscaldamento, riferimento, 3 minuti di osservazione).
+
+| Gruppo | Configurazioni | Ripetizioni | Run |
+|---|---|---|---|
+| Senza guasti, W1 | V1, V2, V3, V4a, V4s | 5 | 25 |
+| Senza guasti, W3 | V1, V2, V3 | 5 | 15 |
+| Carico W2 | V5, V3 con 3, con 1 e con 10 worker fissi | 10 | 40 |
+| Con guasti | come prima (F1–F5 su V1–V3, F4 su V4, F7) | 10 | 140 |
+| **Totale** | | | **220** (da 250) |
+
+Scelte e scartate:
+- W1 su cinque versioni dà il quadro di base per RQ2 (tempo end-to-end) e RQ4 (costo della replica sincrona) e conferma che senza guasti il fermo è zero.
+- W3 solo su V1, V2, V3: confronto sincrono/asincrono sotto sovraccarico (RQ2). Scartato W3 su V4a e V4s (+10 run): nessuna domanda di ricerca lo richiede. Scartato anche togliere del tutto W3 (205 run): il capitolo 7 lo descrive già come carico e il confronto sincrono/asincrono oltre il limite è utile.
+- V5 non ha run con W1 o W3: la sua capacità cambia nel tempo, quindi «150% della capacità» non ha senso.
+
+Il totale scende da 250 a **220 run** e le ore di macchina da circa 25 a circa **22**. Le 306 ore di lavoro del piano non sono state ricalcolate (le ore di macchina sono solo una parte delle 48 ore di F5).
+
+Aggiunta una relazione attesa a RQ5 (cap. 8): con il picco, V3 con 3 worker ha capacità 3μ₁ contro 5μ₁ in arrivo, la coda cresce di 2μ₁ al secondo e dopo 60 s arriva a circa 120μ₁; V5 arriva al massimo a circa 80μ₁ (4μ₁ × 20 s di reazione). Nuova previsione, scritta prima del tag `m1`, quindi ammessa.
+
+Modificati: `docs/chapters/07-misura.tex` (tabella, elenco e motivazioni, figura, struttura del run, carichi, statistica, ore), `docs/chapters/06-decisioni.tex` (riga del confronto per V5), `docs/chapters/08-previsioni.tex` (relazione di RQ5), `README.md`, `report/fasi-e-milestone.md`, `docs/appendices/a-pianificazione.tex` (220 run). Non resta nessun `\todo` nel documento.
+
 ## Perché
 
 - RQ5 confronta tre configurazioni sotto W2: V5, V3 con 1 worker e V3 con 10 worker. Le due V3 avevano 10 ripetizioni, V5 solo 5, e con 5 ripetizioni non si calcola l'intervallo di confidenza bootstrap (cap. 7, «Statistica»). La previsione di RQ5 è che V5 stia *tra* le due V3: il confronto richiede la stessa precisione su tutte e tre.

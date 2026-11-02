@@ -118,6 +118,8 @@ Ogni run è automatico e segue la sequenza della figura~\ref{fig:run}.
   \item \textbf{Esportazione.} Log del client, ordini salvati, eventi di Kubernetes e metriche di Prometheus vengono salvati in \texttt{data/<ambiente>/<run-id>/} prima del run successivo.
 \end{enumerate}
 
+I run \textbf{senza guasti} (carichi W1 e W3) non hanno un ripristino da attendere: durano 5 minuti fissi, cioè riscaldamento, riferimento e 3 minuti di osservazione.
+
 Il carico segue un \textbf{modello aperto}: le richieste partono a ritmo fisso anche quando il sistema rallenta. Con un modello chiuso il generatore smetterebbe di inviare proprio durante il guasto, nascondendo il problema (\textit{coordinated omission}).
 
 \section{Carichi}
@@ -130,9 +132,9 @@ Il carico segue un \textbf{modello aperto}: le richieste partono a ritmo fisso a
 \toprule
 \textbf{ID} & \textbf{Profilo} & \textbf{Uso} \\
 \midrule
-W1 & costante, sotto la capacità & tutti i run con guasto. Ritmo uguale per tutte le versioni: 50\% della capacità più bassa tra V1, V2, V3, V4a e V4s, così il carico non diventa un secondo fattore che cambia \\
-W2 & picco improvviso, poi ritorno al livello di base & elasticità di V5 e riferimenti di V3. Rispetto alla capacità di un solo worker $\mu_1$: base al 50\% di $\mu_1$, picco al 500\% di $\mu_1$, cioè sopra 3 worker e sotto 10. Il picco dura 60~s e parte al minuto 2, come il guasto negli altri run \\
-W3 & sovraccarico prolungato, sopra la capacità & comportamento oltre il limite, senza guasti. Livello fissato per versione: 150\% della capacità di quella versione \\
+W1 & costante, sotto la capacità & tutti i run con guasto e i run senza guasti di riferimento. Ritmo uguale per tutte le versioni: 50\% della capacità più bassa tra V1, V2, V3, V4a e V4s, così il carico non diventa un secondo fattore che cambia \\
+W2 & picco improvviso, poi ritorno al livello di base & elasticità di V5, confrontata con V3 a 3, a 1 e a 10 worker fissi. Rispetto alla capacità di un solo worker $\mu_1$: base al 50\% di $\mu_1$, picco al 500\% di $\mu_1$, cioè sopra 3 worker e sotto 10. Il picco dura 60~s e parte al minuto 2, come il guasto negli altri run \\
+W3 & sovraccarico prolungato, sopra la capacità & comportamento oltre il limite, senza guasti, su V1, V2 e V3. Livello fissato per versione: 150\% della capacità di quella versione \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -147,18 +149,21 @@ W3 & sovraccarico prolungato, sopra la capacità & comportamento oltre il limite
 \toprule
 \textbf{Gruppo} & \textbf{Ripetizioni} & \textbf{Run} \\
 \midrule
-Senza guasti (riferimento) & 5 & 80 \\
+Senza guasti, carico W1 (V1, V2, V3, V4a, V4s) & 5 & 25 \\
+Senza guasti, carico W3 (V1, V2, V3) & 5 & 15 \\
 Con guasti F1--F5 su V1--V3 & 10 & 100 \\
 Guasto del database su V4 (V4a, V4s) & 10 & 20 \\
 Blocco dell'API (guasto F7, due configurazioni delle sonde) & 10 & 20 \\
-V5 e riferimenti (V3 con 1 e con 10 worker fissi), sotto W2 & 10 & 30 \\
+Carico W2: V5 e V3 con 3, con 1 e con 10 worker fissi & 10 & 40 \\
 \midrule
-\textbf{Totale} & & \textbf{250} \\
+\textbf{Totale} & & \textbf{220} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-V5 sotto W2 ha 10 ripetizioni come i suoi due riferimenti: il confronto di RQ5 riguarda tre configurazioni e serve la stessa precisione su tutte e tre. Le altre configurazioni senza guasti ne hanno 5. La composizione delle 16 configurazioni senza guasti da 5 ripetizioni (80 run) va ancora documentata: \todo{elenco delle configurazioni senza guasti}. La figura~\ref{fig:matrice} mostra i 170 run con guasto o per il confronto di V5. Il guasto F6 è facoltativo e non è incluso nel totale.
+Il confronto di RQ5 riguarda quattro configurazioni sotto W2: V5, V3 con i suoi 3 worker, V3 con 1 e V3 con 10 worker fissi. Servono la stessa precisione su tutte e quattro, quindi 10 ripetizioni ciascuna.
+
+I run senza guasti servono a tre scopi. Il carico W1 su V1, V2, V3, V4a e V4s dà il quadro di base di ogni versione: tempo end-to-end (RQ2), costo della replica sincrona (RQ4) e conferma che senza guasti il fermo è zero. Il carico W3 su V1, V2 e V3 mostra cosa succede oltre il limite: il sincrono risponde con errori, l'asincrono accumula coda (RQ2). V5 non ha run con W1 o W3, perché la sua capacità cambia nel tempo e ``150\% della capacità'' non ha senso; V4a e V4s non si provano con W3, perché nessuna domanda di ricerca lo richiede. La figura~\ref{fig:matrice} mostra i 180 run con guasto o sotto W2. Il guasto F6 è facoltativo e non è incluso nel totale.
 
 \begin{figure}[htbp]
 \centering
@@ -176,13 +181,13 @@ V5 sotto W2 ha 10 ripetizioni come i suoi due riferimenti: il confronto di RQ5 r
 \cella{2}{5}{unina!30}{10}\cella{3}{5}{unina!30}{10}
 \cella{2}{6}{black!12}{opz.}\cella{3}{6}{black!12}{opz.}
 \cella{2}{7}{unina!55}{\textcolor{white}{2 $\times$ 10}}
-\cella{3}{8}{unina!55}{\textcolor{white}{2 $\times$ 10}}\cella{6}{8}{unina!55}{\textcolor{white}{10}}
+\cella{3}{8}{unina!55}{\textcolor{white}{3 $\times$ 10}}\cella{6}{8}{unina!55}{\textcolor{white}{10}}
 \end{tikzpicture}
-\caption{Run per guasto e versione: 140 run con guasto più 30 per il confronto di V5. Ogni cella vale 10 ripetizioni; per il guasto F7 le due configurazioni delle sonde, per i riferimenti V3 con 1 e con 10 worker fissi. V5 si misura senza guasti, sotto W2, insieme ai suoi riferimenti.}
+\caption{Run per guasto e versione: 140 run con guasto più 40 sotto W2 per il confronto di V5. Ogni cella vale 10 ripetizioni; per il guasto F7 le due configurazioni delle sonde, sotto W2 V3 con 3, con 1 e con 10 worker fissi. V5 si misura senza guasti, sotto W2, insieme a V3. I run senza guasti con W1 e W3 (40) non sono nella figura.}
 \label{fig:matrice}
 \end{figure}
 
-I run si eseguono in \textbf{ordine casuale}, mescolando configurazioni e ripetizioni, così un eventuale degrado progressivo dell'ambiente non si concentra su una sola configurazione. A circa 5--6 minuti per run, la campagna richiede circa 25 ore di macchina (i 10 run di V3 con 1 worker sotto W2 durano circa 13 minuti ciascuno).
+I run si eseguono in \textbf{ordine casuale}, mescolando configurazioni e ripetizioni, così un eventuale degrado progressivo dell'ambiente non si concentra su una sola configurazione. A circa 5--6 minuti per run, la campagna richiede circa 22 ore di macchina (i 10 run di V3 con 1 worker sotto W2 durano circa 13 minuti ciascuno).
 
 \section{Validità di un run}
 
@@ -196,4 +201,4 @@ Un run non valido viene scartato e ripetuto, annotando il motivo nel diario.
 
 \section{Statistica}
 
-Per ogni configurazione si riportano \textbf{mediana} e \textbf{intervallo interquartile}. Per le configurazioni con 10 ripetizioni si aggiunge l'\textbf{intervallo di confidenza al 95\%} della mediana, calcolato con il bootstrap. Con 5 ripetizioni (configurazioni senza guasti, tranne V5 sotto W2) non si traggono conclusioni su differenze piccole. Per ogni confronto si dichiara la differenza minima che il numero di ripetizioni permette di distinguere.
+Per ogni configurazione si riportano \textbf{mediana} e \textbf{intervallo interquartile}. Per le configurazioni con 10 ripetizioni si aggiunge l'\textbf{intervallo di confidenza al 95\%} della mediana, calcolato con il bootstrap. Con 5 ripetizioni (run senza guasti con W1 e W3) non si traggono conclusioni su differenze piccole. Per ogni confronto si dichiara la differenza minima che il numero di ripetizioni permette di distinguere.
