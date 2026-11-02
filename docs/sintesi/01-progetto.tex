@@ -1,0 +1,84 @@
+\section{Il progetto in breve}
+\label{s:progetto}
+
+\progetto{} è un servizio di ordini volutamente minimo: riceve un ordine e lo salva in un database. Lo realizziamo in \textbf{cinque architetture} (V1--V5), gli facciamo accadere \textbf{guasti controllati} (F1--F7) mentre è sotto carico e misuriamo come si ripristina. Non valutiamo il codice, ma le \textbf{scelte architetturali}: ridondanza, coda asincrona, replica dei dati, elasticità.
+
+Il nome viene dal \textit{kintsugi}, l'arte giapponese di riparare la ceramica rotta con l'oro, mettendo in evidenza le crepe: ogni guasto misurato mostra dove l'architettura cede e come si ricompone.
+
+\paragraph{Perché è un tema di architettura.} Nel corso (T06) l'architettura è l'insieme delle decisioni principali, quelle difficili da cambiare in seguito, e determina proprietà come disponibilità, scalabilità e prestazioni. Qui prendiamo quelle decisioni, le mettiamo alla prova con i guasti e ne misuriamo l'effetto, invece di limitarci a descriverlo.
+
+\subsection{Le domande di ricerca}
+
+\begin{table}[H]
+\centering
+\caption{Le sei domande di ricerca e le versioni confrontate.}
+\label{tab:rq}
+\begin{tabularx}{\linewidth}{@{}lLl@{}}
+\toprule
+\textbf{ID} & \textbf{Domanda} & \textbf{Confronto} \\
+\midrule
+RQ1 & Quanto fermo si evita passando da una a più copie dell'API? & V1 / V2 \\
+RQ2 & Cosa cambia, in tempi, ordini persi e ripristino, inserendo una coda tra API e database? & V2 / V3 \\
+RQ3 & Quanto dipende il ripristino dal tipo di guasto e dai parametri delle sonde? & tutte \\
+RQ4 & Quanto fermo evita una replica del database con failover, e quanti dati si rischiano? & V2 / V4 \\
+RQ5 & L'autoscaling sulla lunghezza della coda assorbe meglio un picco, a parità di costo? & V3 / V5 \\
+RQ6 & Quali risultati locali si ripetono su AWS, e perché gli altri cambiano? & locale / AWS \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Il metodo}
+
+Tre regole guidano tutto il lavoro.
+
+\begin{enumerate}
+  \item \textbf{Un fattore alla volta.} Ogni architettura cambia un solo aspetto rispetto a quella da cui deriva, così ogni differenza misurata ha una causa attribuibile.
+  \item \textbf{Prima prevedere, poi misurare.} Le previsioni si scrivono e si registrano su Git \emph{prima} degli esperimenti (tag \texttt{m1}). Lo scarto tra previsto e misurato mostra quanto abbiamo capito del sistema.
+  \item \textbf{Dichiarare i limiti.} Ciò che gli esperimenti non possono dimostrare è scritto esplicitamente (sezione~\ref{s:limiti}).
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[node distance=0.55cm,
+  fase/.style={box, minimum width=2.45cm, minimum height=1.25cm},
+  doc/.style={etichetta, text width=2.45cm}]
+\node[fase] (p) {\textbf{Prevedere}\\{\scriptsize modelli e parametri}};
+\node[fase, right=of p] (c) {\textbf{Configurare}\\{\scriptsize una versione V1--V5}};
+\node[fase, right=of c, guastato] (g) {\textbf{Guastare}\\{\scriptsize un componente}\\{\scriptsize (guasti F1--F7)}};
+\node[fase, right=of g] (m) {\textbf{Misurare}\\{\scriptsize client, DB, cluster}};
+\node[fase, right=of m] (k) {\textbf{Confrontare}\\{\scriptsize previsto e misurato}};
+\foreach \a/\b in {p/c, c/g, g/m, m/k} \draw[freccia] (\a) -- (\b);
+\node[doc, below=2mm of p] {sezione~\ref{s:previsioni}\\tag \texttt{m1}};
+\node[doc, below=2mm of c] {sezione~\ref{s:architetture}};
+\node[doc, below=2mm of g] {sezione~\ref{s:guasti}};
+\node[doc, below=2mm of m] {sezione~\ref{s:misura}};
+\node[doc, below=2mm of k] {report finale\\(RQ1--RQ6)};
+\draw[risposta] (k.north) -- ++(0,0.7) -| node[etichetta, pos=0.25, above] {lo scarto spiega cosa non avevamo capito del sistema} (p.north);
+\end{tikzpicture}}
+\caption{Il metodo: ogni esperimento confronta una previsione scritta in anticipo con una misura.}
+\label{fig:metodo}
+\end{figure}
+
+\subsection{I concetti del corso che mettiamo alla prova}
+
+\begin{table}[H]
+\centering
+\caption{Dalla teoria dell'insegnamento agli esperimenti.}
+\label{tab:corso}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{4.6cm}L@{}}
+\toprule
+\textbf{Concetto (lezioni)} & \textbf{Dove lo misuriamo} \\
+\midrule
+Scalabilità orizzontale e bilanciamento del carico (T06) & V1 contro V2: tre copie dell'API dietro un bilanciatore (RQ1). Un bilanciatore unico è un punto unico di guasto: nel nostro caso il control plane, che non viene mai guastato (sezione~\ref{s:limiti}). \\
+Disponibilità e ``numero di nove'' (T06) & Obiettivo del 99,9\% e budget di errore: ogni fermo misurato si traduce in guasti sopportabili al mese (sezione~\ref{s:previsioni}). \\
+Failover attivo-attivo e attivo-passivo; \textit{heartbeat} e osservabilità (T06) & Attivo-attivo: le copie dell'API in V2. Attivo-passivo: primario e standby del database in V4. I controlli periodici sono le sonde di Kubernetes, che misuriamo con il blocco di un'istanza (RQ3). \\
+Replica del database e suo costo di sincronizzazione (T06) & V4a con replica asincrona (possibile perdita di dati) contro V4s con replica sincrona (scritture più lente) (RQ4). \\
+Interazione sincrona e asincrona, coda e broker (T06) & V2 contro V3: la coda separa chi produce gli ordini da chi li salva, e si riempie se i produttori superano i consumatori (RQ2). \\
+Scalabilità contro elasticità (T12) & V5: i worker seguono la domanda con una regola dinamica sulla lunghezza della coda; il costo si misura in risorse usate nel tempo, come nel pagamento a consumo del cloud (RQ5). \\
+Cloud IaaS: macchine virtuali e bilanciatore gestiti (T12) & Ripetizione di una parte degli esperimenti su AWS (EKS, EC2, ALB) per capire cosa si trasferisce (RQ6). \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Come leggere questo documento.} È la versione breve del \emph{Documento di architettura} (\texttt{docs/main.pdf}), che resta il riferimento tecnico completo: contiene le diciassette schede di decisione, i parametri, tutti i diagrammi e i calcoli. I codici D\textit{nnnn} rimandano a quelle schede.

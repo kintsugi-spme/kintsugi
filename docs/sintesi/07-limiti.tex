@@ -1,0 +1,28 @@
+\section{I limiti dell'esperimento}
+\label{s:limiti}
+
+Nessun esperimento è privo di limiti. Le minacce principali sono classificate nelle quattro categorie usuali, ognuna con la sua contromisura. \emph{Interna}: un altro fattore causa la differenza osservata. \emph{Di costrutto}: la misura non rappresenta ciò che vogliamo misurare. \emph{Esterna}: i risultati non valgono fuori dall'ambiente di prova. \emph{Delle conclusioni}: la statistica porta a conclusioni sbagliate.
+
+\begin{table}[H]
+\centering
+\caption{Le minacce principali e le contromisure.}
+\label{tab:limiti}
+\small
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{1.8cm}LL@{}}
+\toprule
+\textbf{Tipo} & \textbf{Minaccia} & \textbf{Contromisura} \\
+\midrule
+Interna & Sistema e generatore di carico girano sullo stesso computer e si contendono CPU e memoria & Soglia di CPU fissata nel banco di prova; run saturi scartati \\
+Interna & Un run lascia tracce (code non vuote, pod degradati) che influenzano il successivo & Reset verificato prima di ogni run; ordine casuale dei run \\
+Di costrutto & Un generatore a modello chiuso smetterebbe di inviare durante il guasto & Carico a modello aperto; ritmo controllato entro $\pm 5\%$ \\
+Di costrutto & Un pod ``pronto'' non significa servizio ripristinato & Ripristino come 5~s consecutivi disponibili in accettazione e completamento \\
+Esterna & In locale i nodi sono container sullo stesso hardware: la perdita di un nodo è simulata & Parte degli esperimenti ripetuta su AWS (RQ6); la perdita di un nodo solo se si esegue il guasto F6, facoltativo \\
+Esterna & Il servizio è molto più semplice di uno reale & Le conclusioni riguardano i meccanismi (rilevamento, riparazione, smaltimento), non i valori assoluti \\
+Esterna & Il control plane di Kubernetes è unico e funge anche da punto d'ingresso & Non viene mai guastato; in produzione sarebbe replicato \\
+Delle conclusioni & Un risultato singolo può essere casuale & 10 ripetizioni per i run con guasto; intervalli di confidenza bootstrap \\
+Delle conclusioni & Si possono adattare le spiegazioni dopo aver visto i dati & Previsioni registrate prima delle misure (tag \texttt{m1}) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Fuori ambito.} Replica del broker e del control plane, database distribuito su più zone, sicurezza e ottimizzazione delle prestazioni del codice.

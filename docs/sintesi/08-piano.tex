@@ -1,0 +1,30 @@
+\section{Piano di lavoro}
+\label{s:piano}
+
+Il progetto dura dodici settimane, dal 22/10/2026 al 13/01/2027, per circa 306 ore in due. Ogni milestone è un controllo: se non è superato, non si va avanti.
+
+\begin{table}[H]
+\centering
+\caption{Le milestone.}
+\label{tab:milestone}
+\begin{tabularx}{\linewidth}{@{}llL@{}}
+\toprule
+\textbf{Milestone} & \textbf{Entro il} & \textbf{Criterio di passaggio} \\
+\midrule
+M1 & 04/11/2026 & Decisioni scritte, parametri fissati, previsioni registrate (tag \texttt{m1}) \\
+M2 & 11/11/2026 & Applicazione minima V1--V3 funzionante, nessun ordine perso con il database fermo per 60~s \\
+M3 & 25/11/2026 & V1--V3 su kind a 3 nodi; un crash (guasto F1) misurato con risoluzione sotto il secondo \\
+M3b & 02/12/2026 & Account AWS con allarme di budget attivo; cluster creato e distrutto, costi e limiti noti \\
+M4 & 09/12/2026 & Banco di prova ripetibile; failover di V4 e scalatura di V5 verificati \\
+M5 & 16/12/2026 & 220 run validi; decisione sull'estensione della fase AWS \\
+M6 & 30/12/2026 & Sessioni AWS svolte, risorse distrutte, costi annotati \\
+M7 & 13/01/2027 & Report, diario, repository e orale pronti \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Piano di taglio.} In caso di ritardo si rinuncia, in quest'ordine, a: perdita di un nodo (guasto F6), V5, latenza del database (guasto F5), parte delle sessioni AWS, replica sincrona di V4 (V4s). Non si rinuncia mai al protocollo di misura, a V1--V3, ai guasti F1--F4 e F7 con 10 ripetizioni, alle previsioni e al diario.
+
+\paragraph{Rischi.} Le settimane S9--S11 cadono durante le festività: sessioni AWS e analisi si confermano o si ripianificano a M5. Il rischio principale su AWS è lasciare risorse accese, per questo ogni sessione termina con la distruzione del cluster e la verifica che non restino risorse a pagamento.
+
+\paragraph{Gestione.} Ogni attività parte da una issue assegnata a una milestone; le modifiche rientrano in \texttt{main} con una pull request rivista dall'altro autore; ogni operazione è annotata nel diario (\texttt{report/diario/}).

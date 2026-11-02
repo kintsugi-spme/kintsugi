@@ -1,0 +1,43 @@
+% Kintsugi -- Relazione di sintesi
+% Versione breve del documento di architettura (main.tex), pensata per la lettura dei docenti.
+% Compilare con: make sintesi   (oppure: latexmk -pdf main-sintesi.tex)
+
+\documentclass[11pt, a4paper, oneside, openany]{report}
+
+\input{config/preambolo}
+\usepackage{float}
+\input{config/metadati}
+
+% Metadati propri della sintesi (il documento tecnico mantiene i suoi).
+\renewcommand{\titolodoc}{Relazione di sintesi}
+\renewcommand{\versionedoc}{0.1}
+\renewcommand{\statodoc}{Bozza}
+
+\input{config/stile}
+
+% La sintesi usa le sezioni come livello principale: niente capitoli, niente pagine vuote.
+\renewcommand{\thesection}{\arabic{section}}
+\renewcommand{\sectionmark}[1]{\markboth{#1}{}}
+\titlespacing*{\section}{0pt}{16pt}{6pt}
+\makeatletter
+\renewcommand\tableofcontents{\section*{Indice}\@starttoc{toc}}
+\makeatother
+
+\begin{document}
+
+\pagenumbering{roman}
+\input{frontmatter/frontespizio}
+\pagenumbering{arabic}
+
+\tableofcontents
+
+\input{sintesi/01-progetto}
+\input{sintesi/02-architetture}
+\input{sintesi/03-guasti}
+\input{sintesi/04-misura}
+\input{sintesi/05-previsioni}
+\input{sintesi/06-decisioni}
+\input{sintesi/07-limiti}
+\input{sintesi/08-piano}
+
+\end{document}

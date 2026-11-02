@@ -1,0 +1,77 @@
+\section{Le cinque architetture}
+\label{s:architetture}
+
+Le cinque versioni sono configurazioni dello stesso codice e della stessa immagine (D0012): cambiano solo impostazioni e manifest. Ognuna deriva da un'altra modificando \textbf{un solo fattore} (figura~\ref{fig:derivazione}).
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\node[box] (v1) {V1\\{\scriptsize 1 istanza, sincrona}};
+\node[box, right=1.3cm of v1] (v2) {V2\\{\scriptsize 3 repliche}};
+\node[box, above right=0.2cm and 1.6cm of v2] (v3) {V3\\{\scriptsize asincrona}};
+\node[box, below right=0.2cm and 1.6cm of v2] (v4) {V4\\{\scriptsize DB replicato}};
+\node[box, right=1.3cm of v3] (v5) {V5\\{\scriptsize autoscaling}};
+\draw[freccia] (v1) -- node[above, font=\scriptsize] {+ repliche} (v2);
+\draw[freccia] (v2) -- node[above, sloped, font=\scriptsize] {+ coda} (v3);
+\draw[freccia] (v2) -- node[below, sloped, font=\scriptsize] {+ replica del DB} (v4);
+\draw[freccia] (v3) -- node[above, font=\scriptsize] {+ KEDA} (v5);
+\end{tikzpicture}
+\caption{Derivazione delle versioni: ogni freccia cambia un solo fattore.}
+\label{fig:derivazione}
+\end{figure}
+
+La figura~\ref{fig:panoramica} riunisce i componenti. Nelle versioni sincrone (V1, V2, V4) l'API scrive nel database e risponde solo dopo il salvataggio; in quelle asincrone (V3, V5) pubblica l'ordine su una coda (RabbitMQ) e risponde appena la coda lo ha conservato, mentre i worker lo salvano dopo.
+
+\begin{figure}[H]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[every node/.append style={font=\small}]
+\node[box, minimum width=1.7cm] (cl) at (0,0) {Cliente\\{\scriptsize JMeter}};
+\node[kube] (svc) at (2.6,0) {Service};
+\node[copie] (api) at (5.2,0) {API\\{\scriptsize $\times N$}};
+\node[db] (db) at (12.0,0.4) {PostgreSQL};
+\node[db] (st) at (15.4,0.4) {Standby\\{\scriptsize solo V4}};
+\node[coda, label={[etichetta]above:RabbitMQ}] (q) at (9.0,-2.3) {};
+\node[copie] (wk) at (12.0,-2.3) {Worker\\{\scriptsize $\times M$}};
+\node[kube] (keda) at (9.0,-4.2) {KEDA\\{\scriptsize solo V5}};
+\draw[freccia] (cl) -- (svc);
+\draw[freccia] (svc) -- (api);
+\draw[freccia] (api.east) -- node[etichetta, above] {V1, V2, V4: scrive nel database\\e risponde 201} (db.west);
+\draw[freccia] (api.south) |- node[etichetta, pos=0.97, above left] {V3, V5: pubblica\\e risponde 202} (q.west);
+\draw[freccia] (q) -- (wk);
+\draw[freccia] (wk.north) -- (db.south);
+\draw[freccia, double, -{Latex}] (db) -- node[etichetta, above] {replica} (st);
+\draw[sonda] (q.south) -- node[etichetta, right] {lunghezza\\della coda} (keda.north);
+\draw[sonda] (keda.east) -| node[etichetta, pos=0.25, above] {da 1 a 10 worker} (wk.south);
+\end{tikzpicture}}
+\caption{I componenti e i due percorsi di un ordine. Le linee tratteggiate sono le richieste di controllo di KEDA e le sue azioni sui worker.}
+\label{fig:panoramica}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Le cinque versioni e i loro punti unici di guasto.}
+\label{tab:versioni}
+\begin{tabularx}{\linewidth}{@{}lLL@{}}
+\toprule
+\textbf{Versione} & \textbf{Come funziona} & \textbf{Cosa ferma il servizio} \\
+\midrule
+V1 & Una sola istanza dell'API. Salva e risponde 201; se non riesce entro 1,5~s risponde 503. & API, database \\
+V2 & Tre repliche dell'API. Il Service inoltra solo alle repliche pronte, quindi una replica guasta viene esclusa. & Database \\
+V3 & L'API pubblica sulla coda e risponde 202 dopo la conferma del broker; tre worker salvano nel database e confermano solo dopo il salvataggio. & Broker (accettazione); broker e database (completamento: gli ordini attendono in coda) \\
+V4 & Come V2, con PostgreSQL primario e standby gestiti da CloudNativePG. V4a replica in modo asincrono, V4s in modo sincrono. & V4a: nessuno, ma gli ultimi ordini possono andare persi. V4s: lo standby, se cade le scritture possono bloccarsi\textsuperscript{*} \\
+V5 & Come V3, con KEDA che porta i worker da 1 a 10 in base alla lunghezza della coda. Si confronta anche con V3 a 1, a 3 e a 10 worker fissi. & Come V3 \\
+\bottomrule
+\end{tabularx}
+
+\vspace{2pt}
+{\footnotesize\textsuperscript{*} Comportamento da verificare sulla versione di CloudNativePG adottata (D0014).\par}
+\end{table}
+
+\paragraph{Il tempo di un ordine.} In ogni versione si registrano due istanti, entrambi presi nel cluster per evitare orologi diversi (D0005): la ricezione da parte dell'API e la scrittura nel database. La loro differenza è il \emph{tempo end-to-end}, la metrica comune a tutte le versioni. Con la coda il client attende meno, ma l'ordine viene salvato più tardi.
+
+\subsection{Dove si esegue}
+
+Una campagna completa si svolge in \textbf{locale}, su \textbf{kind}, con tre nodi simulati da container Docker (un control plane che non viene mai guastato e due worker, uno per i dati e uno per il calcolo), Kubernetes 1.37 e misure ufficiali su un solo computer (D0013). Una parte degli esperimenti (V2 e V3, carichi W1 e W2, guasti F1, F2 e F3) si ripete su \textbf{AWS}, con EKS, nodi EC2 in tre zone, bilanciatore ALB e dischi EBS, nella regione di Irlanda (D0009). Il costo previsto è di circa 15--20 dollari, con allarme di budget attivo prima di ogni sessione e distruzione del cluster al termine.
+
+Il limite principale dell'ambiente locale è che i nodi di kind sono container sullo stesso computer: la perdita di un nodo è simulata, e per questo la ripetizione su AWS serve a RQ6.

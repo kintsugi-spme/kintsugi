@@ -1,0 +1,144 @@
+\section{Che cosa ci aspettiamo}
+\label{s:previsioni}
+
+Le previsioni si scrivono e si registrano su Git \textbf{prima} di qualsiasi misura, con il tag \texttt{m1}: la data del commit dimostra che non sono state adattate ai risultati. Dopo il tag non si modificano; uno scarto tra previsto e misurato si spiega nel report, non si corregge.
+
+\subsection{Le grandezze}
+
+\begin{table}[H]
+\centering
+\caption{Le grandezze usate nelle previsioni, con un esempio.}
+\label{tab:grandezze}
+\begin{tabularx}{\linewidth}{@{}lLl@{}}
+\toprule
+\textbf{Simbolo} & \textbf{Significato} & \textbf{Esempio} \\
+\midrule
+$\lambda$ & ritmo di arrivo: ordini inviati al secondo & 100 ordini/s \\
+$\mu$ & capacità: ordini al secondo che il sistema smaltisce & 200 ordini/s \\
+$\rho = \lambda / \mu$ & utilizzazione: quanto il sistema è occupato & 50\% \\
+$N$ & copie dell'API & 3 \\
+$D = t_r - t_g$ & fermo: per quanto il servizio resta indisponibile & 4 s \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Una sola copia, sincrono (guasto F1 su V1).} Durante il fermo fallisce tutto: $\text{falliti} \approx \lambda \cdot D = 100 \cdot 4 = 400$ ordini.
+
+\paragraph{Tre copie (guasto F1 su V2).} Fallisce solo il traffico diretto alla copia guasta, finché non viene esclusa dal Service ($T_{\text{escl}} \approx 1{,}5$~s): $\text{falliti} \approx \frac{\lambda}{N} T_{\text{escl}} = \frac{100}{3} \cdot 1{,}5 \approx 50$ ordini. Il fermo non è nullo: per quei secondi fallisce un terzo delle richieste, molto più dell'1\% tollerato.
+
+\paragraph{Con la coda (guasto F4 su V3).} Il database resta fermo $D_0 = 30$~s: l'API continua ad accettare, ma gli ordini si accumulano ($\lambda D_0 = 3000$). Quando il database torna, la coda si svuota alla velocità netta $\mu - \lambda = 100$ ordini/s:
+\[
+T_{\text{arretrato}} \approx \frac{\lambda \cdot D_0}{\mu - \lambda} = \frac{3000}{100} = 30 \text{ s.}
+\]
+Nessun ordine fallisce, ma il completamento torna regolare solo dopo $D_0 + T_{\text{arretrato}} = 60$~s. Per questo nell'asincrono si prevedono separatamente il fermo di accettazione e quello di completamento.
+
+\subsection{Il modello del fermo}
+
+Il fermo previsto si ricava dai parametri configurati, non a occhio:
+\begin{equation}
+  D \approx \underbrace{T_{\text{ril}}}_{\text{rilevamento}} + \underbrace{T_{\text{riavvio}}}_{\text{avvio del container}} + \underbrace{T_{\text{pronto}}}_{\text{prima readiness positiva}} + \underbrace{T_{\text{arretrato}}}_{\text{solo V3, V5}}
+  \label{eq:fermo}
+\end{equation}
+Per un crash il rilevamento è quasi nullo; per un blocco vale circa $p \times s + t$, con $p$ periodo della sonda, $s$ soglia di fallimenti consecutivi e $t$ timeout. In V4 il riavvio è sostituito dalla promozione dello standby.
+
+Alcuni tempi si conosceranno solo con la misura a vuoto e i primi test del banco di prova. Per scrivere le previsioni prima, si fissano valori \emph{ipotizzati}, uguali per tutte le righe (tabella~\ref{tab:ipotesi}). Se un valore misurato esce dall'intervallo, la previsione non si corregge: lo scarto si spiega nel report.
+
+\begin{table}[H]
+\centering
+\caption{I principali valori ipotizzati. L'elenco completo è nel documento tecnico.}
+\label{tab:ipotesi}
+\begin{tabularx}{\linewidth}{@{}lLl@{}}
+\toprule
+\textbf{Simbolo} & \textbf{Cosa} & \textbf{Valore} \\
+\midrule
+$T_{\text{ril}}$ & rilevamento di un crash da parte del kubelet & $\approx 1$~s \\
+$T_{\text{riavvio}}$ & riavvio del container dell'API o del worker & 1--3~s \\
+$T_{\text{escl}}$ & uscita dal Service di una copia dell'API in crash & 1--2~s \\
+$T_{\text{DB}}$ & riavvio di PostgreSQL dopo \texttt{SIGKILL} & 3--8~s \\
+$T_{\text{MQ}}$ & riavvio di RabbitMQ con la coda durevole & 5--15~s \\
+$T_{\text{prom}}$ & promozione dello standby da parte di CloudNativePG & 3--10~s \\
+$T_{\text{KEDA}}$ & reazione di V5 al picco (controllo ogni 15~s, nuovi worker pronti in 2--5~s) & 3--20~s i primi worker; 18--35~s tutti e 10 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Le previsioni}
+
+Nell'asincrono il fermo si prevede separatamente per l'accettazione (acc.) e per il completamento (compl.). I numeri tra parentesi valgono per $\lambda = 100$ ordini/s e sono solo un esempio: il valore vero di $\lambda$ si fissa nel banco di prova.
+
+\begin{table}[H]
+\centering
+\caption{Previsioni per guasto e versione.}
+\label{tab:previsioni}
+\small
+\begin{tabularx}{\linewidth}{@{}llLLcc@{}}
+\toprule
+\textbf{Guasto} & \textbf{Vers.} & \textbf{Fermo previsto} & \textbf{Falliti} & \textbf{Persi} & \textbf{Doppi} \\
+\midrule
+F1 & V1 & 3--5~s & $\lambda D$ ($\approx$ 300--500) & 0 & 0 \\
+F1 & V2 & 1--2~s & $\frac{\lambda}{3} T_{\text{escl}}$ ($\approx$ 30--70) & 0 & 0 \\
+F1 & V3 & acc.\ 1--2~s; compl.\ $\approx 0$ & $\frac{\lambda}{3} T_{\text{escl}}$ ($\approx$ 30--70) & 0 & 0 \\
+F2 & V3 & acc.\ 0; compl.\ 6--18~s & 0 & 0 & 0--3 \\
+F3 & V3 & acc.\ e compl.\ 7--21~s & $\lambda D$ ($\approx$ 700--2100) & 0 & 0--3 \\
+F4 & V1, V2 & 5--10~s & $\lambda D$ ($\approx$ 500--1000) & 0 & 0 \\
+F4 & V3 & acc.\ 0; compl.\ 10--36~s & 0 & 0 & 0 \\
+F4 & V4a & 5--12~s & $\lambda D$ ($\approx$ 500--1200) & $\le 0{,}1\lambda$ ($\approx$ 10) & 0 \\
+F4 & V4s & 5--12~s & $\lambda D$ ($\approx$ 500--1200) & 0 & 0 \\
+F5 & V2 & 60~s (tutta la durata) & $(\lambda - \mu_L) \cdot 60$ & 0 & 0 \\
+F5 & V3 & acc.\ 0; compl.\ $\approx$ 120~s & 0 & 0 & 0 \\
+F7 & V2 veloce & $\approx$ 4~s & $\frac{\lambda}{3} D$ ($\approx$ 130) & 0 & 0 \\
+F7 & V2 standard & $\approx$ 31~s & $\frac{\lambda}{3} D$ ($\approx$ 1000) & 0 & 0 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Due derivazioni mostrano come si ottengono i valori. Nel guasto F7 su V2 un processo bloccato non risponde nemmeno con un errore: il fermo dura finché la sonda di readiness non esclude la copia, cioè $p \times s + t = 1 \times 3 + 1 \approx 4$~s con le sonde veloci e $10 \times 3 + 1 \approx 31$~s con quelle standard. Nel guasto F5 la latenza $L = 200$~ms si somma a ognuno dei $k = 2$--$3$ scambi con il database, quindi ogni ordine richiede circa 0,4--0,6~s e il database regge al massimo $\mu_L = C / (S + kL)$ ordini al secondo, con $C$ scritture contemporanee: in V2 la parte in eccesso fallisce per tutti i 60~s, in V3 si accumula in coda e si smaltisce poi in un tempo simile alla durata del guasto.
+
+\subsection{Le relazioni attese}
+
+I numeri dipendono dalle ipotesi; le relazioni tra versioni no, e sono la parte più facile da smentire.
+
+\begin{table}[H]
+\centering
+\caption{Relazioni attese per domanda di ricerca.}
+\label{tab:relazioni}
+\begin{tabularx}{\linewidth}{@{}lL@{}}
+\toprule
+\textbf{RQ} & \textbf{Che cosa prevediamo} \\
+\midrule
+RQ1 & Con F1, V2 ha un fermo più breve di V1 e circa un ordine di grandezza in meno di ordini falliti. Con F4 i due si comportano allo stesso modo: il database resta unico. \\
+RQ2 & Con F4, V3 non perde accettazione e ha zero falliti, ma il suo fermo di completamento è più lungo di quello di V2. Nessun ordine si perde, tranne in V4a. Il broker è il nuovo punto debole: F3 su V3 costa più di F4 su V2. \\
+RQ3 & Con F7 le sonde standard allungano il fermo di circa 8 volte rispetto alle veloci. Un crash (F1) si rileva in circa 1~s, un blocco (F7) solo con le sonde. \\
+RQ4 & In locale il failover di V4 non è necessariamente più rapido del riavvio del database di V2, perché il riavvio dura pochi secondi: il vantaggio sarebbe nella perdita di un nodo, che qui non si prova. V4a può perdere pochi ordini, V4s nessuno, al prezzo di scritture più lente. \\
+RQ5 & Sotto W2, V5 sta tra V3 a 1 e V3 a 10 worker sia per arretrato massimo sia per costo. V5 impiega circa 18--35~s per arrivare a 10 worker; nel frattempo la coda cresce di $4\mu_1$ ordini al secondo, fino a circa $80\mu_1$. V3 con i suoi 3 worker ha capacità $3\mu_1$ contro $5\mu_1$ in arrivo: dopo 60~s la coda arriva a circa $120\mu_1$, più di V5. \\
+RQ6 & Su AWS il fermo di F1 su V2 è più lungo che in locale, perché l'ALB toglie una copia con controlli di salute più lenti di quelli del Service. I risultati che non dipendono dai tempi (zero ordini persi in V3) si ripetono uguali. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Dal fermo alla disponibilità}
+
+Un fermo di 4~s, da solo, non dice se il servizio è buono: dipende da quante volte il guasto si ripete. Portiamo i secondi misurati sulla scala dei servizi reali, la disponibilità del 99,9\% (D0017). Un mese di 30 giorni ha 43\,200 minuti, quindi il \textbf{budget di errore} è
+\[
+B = 0{,}001 \cdot 43\,200 \text{ min} = 43{,}2 \text{ min} = 2592 \text{ s al mese.}
+\]
+Quante volte al mese i guasti avverranno davvero non si può misurare, perché li provochiamo noi. Si rovescia allora la domanda: quanti guasti di un certo tipo può sopportare una versione prima di esaurire il budget? Sono $B / D$ (tabella~\ref{tab:sopportabili}); nel report il calcolo si ripete con i fermi misurati.
+
+\begin{table}[H]
+\centering
+\caption{Guasti sopportabili al mese con l'obiettivo del 99,9\%, calcolati sui fermi previsti.}
+\label{tab:sopportabili}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Guasto} & \textbf{Fermo $D$} & \textbf{Guasti sopportabili al mese} \\
+\midrule
+F1 su V1 & 4~s & $\approx 650$ \\
+F1 su V2 & 1,5~s & $\approx 1700$ \\
+F4 su V1 e V2 & 8~s & $\approx 320$ \\
+F7, sonde veloci & 4~s & $\approx 650$ \\
+F7, sonde standard & 31~s & $\approx 80$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Con le sonde standard bastano circa 80 blocchi al mese (meno di 3 al giorno) per esaurire il budget; con quelle veloci ne servono circa 650.
