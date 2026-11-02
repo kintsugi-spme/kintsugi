@@ -25,7 +25,7 @@ Di costrutto & Un generatore a modello chiuso smetterebbe di inviare durante il 
 Di costrutto & Un pod ``pronto'' non significa servizio ripristinato & Ripristino definito come 5~s consecutivi disponibili in accettazione e completamento \\
 Di costrutto & La soglia del 99\% al secondo è severa a ritmi bassi & Si riportano anche le richieste fallite per guasto, indipendenti dalla soglia \\
 Di costrutto & Su AWS gli istanti di ricezione e scrittura vengono da nodi con orologi diversi & Sfasamento verificato e dichiarato prima delle sessioni (D0005) \\
-Esterna & In locale i nodi sono container sullo stesso hardware: la perdita di un nodo è simulata & Parte degli esperimenti ripetuta su AWS con macchine reali (RQ6) \\
+Esterna & In locale i nodi sono container sullo stesso hardware: la perdita di un nodo è simulata & Parte degli esperimenti ripetuta su AWS con macchine reali (RQ6). La perdita di un nodo è provata su AWS solo se si esegue il guasto F6 (facoltativo): altrimenti il limite resta non mitigato \\
 Esterna & Il servizio è molto più semplice di uno reale & Le conclusioni riguardano i meccanismi (rilevamento, riparazione, smaltimento), non i valori assoluti \\
 Esterna & Il control plane è unico e funge anche da punto d'ingresso: se cadesse, nessun pod verrebbe riavviato e gli ordini non entrerebbero & Non viene mai guastato; gli esperimenti riguardano l'applicazione, non Kubernetes. In produzione il control plane è replicato \\
 Delle conclusioni & Un risultato singolo può essere casuale & 10 ripetizioni per i run con guasto; intervalli di confidenza bootstrap \\

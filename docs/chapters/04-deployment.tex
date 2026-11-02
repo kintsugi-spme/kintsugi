@@ -57,7 +57,7 @@ Tutti i nodi usano l'immagine \texttt{kindest/node:v1.37.0}, quindi Kubernetes 1
 \section{Ambiente B -- AWS}
 \label{sec:aws}
 
-Una parte degli esperimenti (V2 e V3, carichi W1 e W2, guasti F1, F2, F3 e F6) si ripete su AWS, con macchine reali distribuite su zone di disponibilità diverse. I servizi usati sono:
+Una parte degli esperimenti (V2 e V3, carichi W1 e W2, guasti F1, F2 e F3) si ripete su AWS, con macchine reali distribuite su zone di disponibilità diverse. Il guasto F6 (perdita di un nodo) è facoltativo anche su AWS: si esegue solo se c'è tempo, con una previsione scritta e registrata su Git prima del primo run. I servizi usati sono:
 
 \begin{description}
   \item[EKS] il control plane di Kubernetes, gestito da AWS.
@@ -95,4 +95,4 @@ Regione (Irlanda, \texttt{eu-west-1}), famiglia di istanze (a prestazioni fisse)
 \label{fig:deploy-aws}
 \end{figure}
 
-\paragraph{Costi.} La stima per l'intera fase AWS è di circa 15--20 dollari, coperti dai crediti di un account nuovo. Il rischio principale è lasciare risorse accese: un allarme di budget è attivo e ogni sessione termina con la distruzione del cluster e la verifica che non restino load balancer, volumi o indirizzi IP a pagamento.
+\paragraph{Costi.} La stima per l'intera fase AWS è di circa 15--20 dollari, che si prevede di coprire con i crediti di un account nuovo (da verificare alla creazione dell'account, perché il piano gratuito potrebbe non includere EKS). L'account si apre in S5, prima della prova di S6 (M3b). Il rischio principale è lasciare risorse accese: prima della prova si attiva un allarme di budget e ogni sessione termina con la distruzione del cluster e la verifica che non restino load balancer, volumi o indirizzi IP a pagamento.

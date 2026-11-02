@@ -7,6 +7,6 @@ Se l'API continua a lavorare dopo che il cliente ha già rinunciato, spreca riso
 Il generatore di carico (JMeter) aspetta al massimo 2 secondi: è un'impostazione nostra, uguale per tutte le versioni, così il confronto è equo. L'API si arrende dopo 1,5 secondi e risponde con un errore (503). Così il generatore di carico riceve sempre una risposta esplicita prima di rinunciare.
 
 \conseguenze
-Meno lavoro sprecato e risultati più chiari da interpretare: un errore è \emph{dichiarato} (503) e non un semplice timeout, e si riducono gli ordini nella categoria ``completato dopo il timeout'' (capitolo~\ref{cap:misura}). La regola ``l'API si arrende prima del client'' si può applicare perché controlliamo entrambi i lati; con clienti reali il loro timeout sarebbe sconosciuto.
+Meno lavoro sprecato e risultati più chiari da interpretare: un errore è \emph{dichiarato} (503) e non un semplice timeout, e si riducono gli ordini nella categoria ``completato dopo il timeout'' (capitolo~\ref{cap:misura}). La regola ``l'API si arrende prima del client'' si può applicare perché controlliamo entrambi i lati; con clienti reali il loro timeout sarebbe sconosciuto. Gli stessi 2 secondi valgono come limite di completamento (capitolo~\ref{cap:misura}): un ordine conta come completato se è salvato entro 2 secondi dalla ricezione, valore che supera la deadline dell'API e mantiene la disponibilità di completamento di V1, V2 e V4 quasi uguale a quella di accettazione (chiarimento aggiunto il 02/11/2026, issue \#20).
 
 \end{decisione}

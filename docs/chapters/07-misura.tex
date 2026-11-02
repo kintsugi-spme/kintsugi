@@ -16,7 +16,7 @@ Le definizioni seguenti valgono per tutte le versioni e per entrambi gli ambient
 \midrule
 Richiesta riuscita & Risposta positiva (\texttt{201} o \texttt{202}) ricevuta dal client entro il suo timeout di 2~s (D0008). \\
 Disponibilità di accettazione & Frazione di secondi in cui almeno il 99\% delle richieste inviate riesce, vista dal client. \\
-Disponibilità di completamento & Frazione di secondi in cui almeno il 99\% degli ordini ricevuti in quel secondo è salvato nel database entro un limite fissato (proposto: 2~s). In V1, V2 e V4 coincide quasi con l'accettazione; in V3 e V5 è la misura decisiva, perché con il database fermo l'API continua ad accettare ma nessun ordine viene completato. \\
+Disponibilità di completamento & Frazione di secondi in cui almeno il 99\% degli ordini ricevuti in quel secondo è salvato nel database entro il limite di completamento di 2~s dalla ricezione (tabella~\ref{tab:parametri}, D0008). In V1, V2 e V4 coincide quasi con l'accettazione, perché il limite supera la deadline dell'API (1,5~s); in V3 e V5 è la misura decisiva, perché con il database fermo l'API continua ad accettare ma nessun ordine viene completato. \\
 Ripristinato & Vale separatamente per accettazione e completamento: $t_r$ è il primo istante, dal guasto in poi, da cui seguono 5 secondi consecutivi disponibili in quella misura. Il servizio è ripristinato quando lo sono entrambe. Un pod tornato pronto non basta. \\
 Fermo (\textit{downtime}) & $t_r - t_g$, con $t_g$ istante del guasto, calcolato con il $t_r$ di ciascuna misura. Se un ripristino non avviene entro il tetto del run, il run è valido e registrato come ``non ripristinato''. \\
 Tempo end-to-end & $\texttt{ts\_scrittura} - \texttt{ts\_ricezione}$, entrambi presi nel cluster (D0005). È la metrica comune a tutte le versioni. \\
@@ -26,7 +26,7 @@ Costo & In locale, worker-secondi: integrale nel tempo del numero di worker atti
 \end{tabularx}
 \end{table}
 
-\paragraph{Sensibilità della soglia del 99\%.} A ritmi bassi la soglia è molto severa: a 50 richieste al secondo basta un errore per rendere indisponibile l'intero secondo. Per questo si riportano sempre anche le \emph{richieste fallite per guasto}, che non dipendono dalla soglia.
+\paragraph{Sensibilità della soglia del 99\%.} A ritmi bassi la soglia è molto severa: a 50 richieste al secondo basta un errore per rendere indisponibile l'intero secondo. Per questo si riportano sempre anche le \emph{richieste fallite per guasto}, che non dipendono dalla soglia. Il limite di completamento si fissa a 2~s prima delle misure; poiché gli istanti di ogni ordine sono registrati, nell'analisi si ripete il calcolo con 1~s e 5~s come verifica di sensibilità, senza cambiare il valore delle previsioni.
 
 \section{Categorie degli ordini}
 \label{sec:categorie}
@@ -63,7 +63,7 @@ A fine run ogni identificativo inviato dal client viene assegnato a una categori
 \end{figure}
 
 \begin{description}
-  \item[Completato in tempo] il client ha ricevuto esito positivo e l'ordine è salvato.
+  \item[Completato in tempo] il client ha ricevuto esito positivo entro il suo timeout e l'ordine è salvato. ``In tempo'' si riferisce alla risposta al client, non al limite di completamento: un ordine di V3 salvato dopo 30~s per un guasto è comunque in questa categoria, e il ritardo si legge nella disponibilità di completamento.
   \item[Completato dopo il timeout] il client ha visto un errore o un timeout, ma l'ordine è stato salvato comunque; è possibile soprattutto in V1 e V2 durante i guasti F4 e F5.
   \item[Fallito] il client ha visto un errore e l'ordine non è salvato. È un fallimento \emph{dichiarato}: il client sa di dover riprovare.
   \item[In dead-letter] accettato, finito nella coda dei falliti, rielaborato a fine run e contato a parte.
@@ -147,24 +147,24 @@ W3 & sovraccarico prolungato, sopra la capacità & comportamento oltre il limite
 \toprule
 \textbf{Gruppo} & \textbf{Ripetizioni} & \textbf{Run} \\
 \midrule
-Senza guasti (riferimento) & 5 & 85 \\
+Senza guasti (riferimento) & 5 & 80 \\
 Con guasti F1--F5 su V1--V3 & 10 & 100 \\
 Guasto del database su V4 (V4a, V4s) & 10 & 20 \\
 Blocco dell'API (guasto F7, due configurazioni delle sonde) & 10 & 20 \\
-Riferimenti per V5 (V3 con 1 e con 10 worker fissi, W2) & 10 & 20 \\
+V5 e riferimenti (V3 con 1 e con 10 worker fissi), sotto W2 & 10 & 30 \\
 \midrule
-\textbf{Totale} & & \textbf{245} \\
+\textbf{Totale} & & \textbf{250} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-La composizione delle 17 configurazioni senza guasti (85 run) va ancora documentata: \todo{elenco delle configurazioni senza guasti}. La figura~\ref{fig:matrice} mostra i 160 run con guasto o di riferimento per V5. Il guasto F6 è facoltativo e non è incluso nel totale.
+V5 sotto W2 ha 10 ripetizioni come i suoi due riferimenti: il confronto di RQ5 riguarda tre configurazioni e serve la stessa precisione su tutte e tre. Le altre configurazioni senza guasti ne hanno 5. La composizione delle 16 configurazioni senza guasti da 5 ripetizioni (80 run) va ancora documentata: \todo{elenco delle configurazioni senza guasti}. La figura~\ref{fig:matrice} mostra i 170 run con guasto o per il confronto di V5. Il guasto F6 è facoltativo e non è incluso nel totale.
 
 \begin{figure}[htbp]
 \centering
 \begin{tikzpicture}[x=1.55cm, y=0.62cm, every node/.append style={font=\scriptsize}]
 \foreach \c/\v in {1/V1, 2/V2, 3/V3, 4/V4a, 5/V4s, 6/V5} \node[font=\scriptsize\bfseries, text=unina] at (\c,0.9) {\v};
-\foreach \r/\f in {1/F1 crash API, 2/F2 crash worker, 3/F3 crash broker, 4/F4 crash database, 5/F5 latenza DB, 6/F6 perdita nodo, 7/F7 blocco API, 8/Riferimenti V5 (W2)}
+\foreach \r/\f in {1/F1 crash API, 2/F2 crash worker, 3/F3 crash broker, 4/F4 crash database, 5/F5 latenza DB, 6/F6 perdita nodo, 7/F7 blocco API, 8/V5 e riferimenti (W2)}
   \node[anchor=east] at (0.45,-\r+1) {\f};
 \foreach \c in {1,...,6} \foreach \r in {1,...,8}
   \draw[white, fill=black!4] (\c-0.47,-\r+1-0.45) rectangle (\c+0.47,-\r+1+0.45);
@@ -176,13 +176,13 @@ La composizione delle 17 configurazioni senza guasti (85 run) va ancora document
 \cella{2}{5}{unina!30}{10}\cella{3}{5}{unina!30}{10}
 \cella{2}{6}{black!12}{opz.}\cella{3}{6}{black!12}{opz.}
 \cella{2}{7}{unina!55}{\textcolor{white}{2 $\times$ 10}}
-\cella{3}{8}{unina!55}{\textcolor{white}{2 $\times$ 10}}
+\cella{3}{8}{unina!55}{\textcolor{white}{2 $\times$ 10}}\cella{6}{8}{unina!55}{\textcolor{white}{10}}
 \end{tikzpicture}
-\caption{Run per guasto e versione: 140 run con guasto più 20 di riferimento per V5. Ogni cella vale 10 ripetizioni; per il guasto F7 le due configurazioni delle sonde, per i riferimenti V3 con 1 e con 10 worker fissi. V5 si misura senza guasti, sotto W2, tra i run di riferimento.}
+\caption{Run per guasto e versione: 140 run con guasto più 30 per il confronto di V5. Ogni cella vale 10 ripetizioni; per il guasto F7 le due configurazioni delle sonde, per i riferimenti V3 con 1 e con 10 worker fissi. V5 si misura senza guasti, sotto W2, insieme ai suoi riferimenti.}
 \label{fig:matrice}
 \end{figure}
 
-I run si eseguono in \textbf{ordine casuale}, mescolando configurazioni e ripetizioni, così un eventuale degrado progressivo dell'ambiente non si concentra su una sola configurazione. A circa 5--6 minuti per run, la campagna richiede circa 23 ore di macchina.
+I run si eseguono in \textbf{ordine casuale}, mescolando configurazioni e ripetizioni, così un eventuale degrado progressivo dell'ambiente non si concentra su una sola configurazione. A circa 5--6 minuti per run, la campagna richiede circa 23,5 ore di macchina.
 
 \section{Validità di un run}
 
@@ -196,4 +196,4 @@ Un run non valido viene scartato e ripetuto, annotando il motivo nel diario.
 
 \section{Statistica}
 
-Per ogni configurazione si riportano \textbf{mediana} e \textbf{intervallo interquartile}. Per le configurazioni con 10 ripetizioni si aggiunge l'\textbf{intervallo di confidenza al 95\%} della mediana, calcolato con il bootstrap. Con 5 ripetizioni (configurazioni senza guasti) non si traggono conclusioni su differenze piccole. Per ogni confronto si dichiara la differenza minima che il numero di ripetizioni permette di distinguere.
+Per ogni configurazione si riportano \textbf{mediana} e \textbf{intervallo interquartile}. Per le configurazioni con 10 ripetizioni si aggiunge l'\textbf{intervallo di confidenza al 95\%} della mediana, calcolato con il bootstrap. Con 5 ripetizioni (configurazioni senza guasti, tranne V5 sotto W2) non si traggono conclusioni su differenze piccole. Per ogni confronto si dichiara la differenza minima che il numero di ripetizioni permette di distinguere.

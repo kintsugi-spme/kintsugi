@@ -136,7 +136,7 @@ F7 & V2 standard & $\approx$ 31~s & $\frac{\lambda}{3} D$ ($\approx$ 1000) & 0 &
   \item[Guasto F7 su V2] Un processo bloccato non risponde nemmeno con un errore: le richieste dirette alla copia bloccata scadono al timeout del client (2~s). Il fermo dura finché la sonda di readiness non esclude la copia: $p \times s + t$, cioè $1 \times 3 + 1 \approx 4$~s con le sonde veloci e $10 \times 3 + 1 \approx 31$~s con quelle standard.
 \end{description}
 
-Il guasto F6 è facoltativo e non ha una previsione: se si esegue, la previsione si scrive e si registra su Git prima del primo run.
+Il guasto F6 è facoltativo e non ha una previsione: se si esegue, in locale o su AWS, la previsione si scrive e si registra su Git prima del primo run.
 
 \section{Relazioni attese}
 
