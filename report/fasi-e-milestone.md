@@ -15,9 +15,9 @@ Progettare e scrivere le previsioni (M1) → costruire l'app (M2) → portarla s
 | **M1** Architettura e previsioni | S2 · 04/11/2026 | F0, F1 | Decisioni scritte, parametri fissati, previsioni committate | Non si inizia F3 |
 | **M2** App minima | S3 · 11/11/2026 | F2 | I quattro criteri di F2 soddisfatti | Non si tocca Kubernetes |
 | **M3** Kubernetes locale | S5 · 25/11/2026 | F3 | V1-V3 su kind a 3 nodi; l'harness minimo misura un crash F1 iniettato dal nodo con risoluzione sotto il secondo | Rivedere il metodo di misura prima di proseguire |
-| **M3b** Prova AWS | S6 · 02/12/2026 | F6 (prova) | Cluster creato e distrutto, costi e limiti noti | Ripianificare (o ridurre) subito la fase AWS, non in S9 |
+| **M3b** Prova AWS | S6 · 02/12/2026 | F6 (prova) | Account con allarme di budget attivo; cluster creato e distrutto, costi e limiti noti | Ripianificare (o ridurre) subito la fase AWS, non in S9 |
 | **M4** Banco di prova | S7 · 09/12/2026 | F4 | I criteri di F4 soddisfatti, compresi failover di V4 e scalatura di V5 | **Non parte la campagna F5** |
-| **M5** Campagna locale | S8 · 16/12/2026 | F5 | 245 run validi. **Decisione sulla fase AWS:** sessioni complete, una sola sessione o solo la prova di S6 | Applicare il piano di taglio; mai sotto 10 ripetizioni per F1-F4 e F7 |
+| **M5** Campagna locale | S8 · 16/12/2026 | F5 | 220 run validi. **Decisione sulla fase AWS:** sessioni complete, una sola sessione o solo la prova di S6 | Applicare il piano di taglio; mai sotto 10 ripetizioni per F1-F4 e F7 |
 | **M6** Sessioni AWS | S10 · 30/12/2026 | F6 (sessioni) | Sessioni fatte, risorse distrutte, costi annotati | Ridurre a una sola sessione |
 | **M7** Consegna | S12 · 13/01/2027 | F7, F8 | Report, diario, repository e orale pronti | — |
 
@@ -52,8 +52,8 @@ Progettare e scrivere le previsioni (M1) → costruire l'app (M2) → portarla s
 ## Fasi
 
 ### F0 — Preparazione · S1 · ~10 h · → M1
-**Attività:** repository Git, diario e registro delle decisioni · Docker Desktop (5 GB sul Mac da 8 GB, ~8 GB sulla macchina delle misure; D0013), kind, kubectl, Helm, JMeter 5.5+ · account AWS con autenticazione a due fattori, utente non amministratore e allarmi di budget · linguaggio (default Python) · ruoli.
-**Fatto quando:** `kubectl get nodes` risponde sul cluster locale e l'allarme di budget è attivo.
+**Attività:** repository Git, diario e registro delle decisioni · Docker Desktop (5 GB sul Mac da 8 GB, ~8 GB sulla macchina delle misure; D0013), kind, kubectl, Helm, JMeter 5.5+ · linguaggio (default Python) · ruoli. L'account AWS non si crea in F0: è un prerequisito della prova di F6 (M3b).
+**Fatto quando:** `kubectl get nodes` risponde sul cluster locale.
 
 ### F1 — Architettura e protocollo di misura · S1-S2 · ~32 h · → M1
 **Attività:** decisioni D0001-D0017 nel documento di architettura (`docs/`) · tabella unica dei parametri · protocollo sperimentale (domande, matrice, indicatori e SLO, ripetizioni, validità dei run) · previsioni per V1-V5 e F1-F7.
@@ -77,21 +77,23 @@ Progettare e scrivere le previsioni (M1) → costruire l'app (M2) → portarla s
 1. due ripetizioni dello stesso test sono entro una tolleranza dichiarata (es. 10% sulla mediana), anche con un run con guasto in mezzo;
 2. durante un guasto il ritmo inviato resta entro ±5%, anche con F4 su V1;
 3. F1 su V2 produce un downtime coerente con la previsione, oppure la differenza è spiegata;
-4. il failover di V4 avviene e il reset ripristina la topologia; KEDA scala i worker di V5 sotto W2 e il reset li riporta al minimo.
+4. il failover di V4 avviene e il reset ripristina la topologia; KEDA scala i worker di V5 sotto W2 e il reset li riporta al minimo;
+5. misurata la capacità con 1, 3 e 10 worker; se con 10 è sotto 10×μ1, si annota quale componente satura.
 
 ### F5 — Campagna locale · S7-S8 · ~48 h · → M5
-**Attività:** 245 run sul MacBook M5 da 16 GB (D0013), in blocchi automatici (matrice nel capitolo "Protocollo di misura" del documento; F6 se c'è tempo) · controllo periodico dei dati e della coerenza delle categorie · ogni run scartato e ogni anomalia nel diario · analisi preliminare di RQ1-RQ5.
+**Attività:** 220 run sul MacBook M5 da 16 GB (D0013), in blocchi automatici (matrice nel capitolo "Protocollo di misura" del documento; F6 se c'è tempo) · controllo periodico dei dati e della coerenza delle categorie · ogni run scartato e ogni anomalia nel diario · analisi preliminare di RQ1-RQ5.
 **Fatto quando:** ogni configurazione ha il numero previsto di run validi e ogni run supera il controllo di coerenza.
 
 ### F6 — Fase AWS · prova in S6, sessioni in S9-S10 · ~40 h · → M3b, M6
+**Account (da aprire in S5, prima della prova):** account AWS con autenticazione a due fattori, utente non amministratore e allarme di budget attivo. Il piano gratuito di un account nuovo potrebbe non includere EKS: alla creazione scegliere il piano Paid e verificare i servizi inclusi.
 **Prova (S6):** creare e distruggere il cluster con infrastruttura come codice (eksctl, D0009) per scoprire limiti, permessi e costi reali.
-**Prima delle sessioni:** manifest parametrizzati, tabella dei parametri allineata (ALB compreso), piano delle 2-3 sessioni. Si fanno solo se confermate a M5.
-**Sessioni:** EKS su 2-3 zone, ALB con pod readiness gate, DB e broker in una zona, JMeter su EC2 nella stessa regione · V2 e V3 con W1 e W2, guasti F1, F2, F3, F6.
+**Prima delle sessioni:** manifest parametrizzati, tabella dei parametri allineata (ALB compreso), piano delle 2-3 sessioni, previsione del guasto F6 se si decide di eseguirlo (scritta e committata prima del primo run). Si fanno solo se confermate a M5.
+**Sessioni:** EKS su 2-3 zone, ALB con pod readiness gate, DB e broker in una zona, JMeter su EC2 nella stessa regione · V2 e V3 con W1 e i guasti F1, F2, F3 (e F6, facoltativo); V3 anche con W2, senza guasti.
 **Dopo ogni sessione:** distruggere tutto e verificare che non restino risorse a pagamento (load balancer, NAT gateway, volumi, IP elastici).
 **Fatto quando:** risultati per RQ6 raccolti con la tabella delle differenze tra ambienti, console AWS pulita, costi annotati.
 
 ### F7 — Analisi e confronto con la teoria · S10-S11 · ~26 h · → M7
-**Attività:** downtime, richieste fallite e ordini persi previsti contro misurati · budget di errore consumato per guasto e disponibilità proiettata in "nove" · mediane, intervalli interquartili, intervalli di confidenza bootstrap, analisi di sensibilità · sincrono contro asincrono · crash contro blocco · failover con replica asincrona e sincrona · V5 contro V3 a parità di costo · pod pronto contro servizio ripristinato · locale contro AWS · risposta a ogni domanda · cosa non possiamo concludere.
+**Attività:** downtime, richieste fallite e ordini persi previsti contro misurati · budget di errore consumato per guasto e disponibilità proiettata in "nove" · mediane, intervalli interquartili, intervalli di confidenza bootstrap, analisi di sensibilità (compreso il limite di completamento a 1 s e 5 s) · sincrono contro asincrono · crash contro blocco · failover con replica asincrona e sincrona · V5 contro V3 su coda massima e costo · pod pronto contro servizio ripristinato · locale contro AWS · risposta a ogni domanda · cosa non possiamo concludere.
 **Fatto quando:** ogni RQ ha una risposta con dati, incertezza e limiti dichiarati.
 
 ### F8 — Report, diario e orale · S11-S12 · ~27 h · → M7

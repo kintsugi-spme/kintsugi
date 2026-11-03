@@ -1,0 +1,34 @@
+\section{I limiti dell'esperimento}
+\label{s:limiti}
+
+Ogni esperimento ha limiti: cose che potrebbero falsare le misure o impedirci di estenderle ad altri casi. Dichiariamo i principali e per ciascuno diciamo che cosa facciamo per ridurlo. Li raggruppiamo per ciò che mettono a rischio:
+\begin{itemize}
+  \item \textbf{Interni:} un altro fattore, non quello che cambiamo, causa la differenza che vediamo (per esempio, il portatile e il generatore di carico si contendono la CPU).
+  \item \textbf{Di costrutto:} ciò che misuriamo non è davvero ciò che vogliamo misurare (un pod ``pronto'' non vuol dire servizio ripristinato).
+  \item \textbf{Esterni:} i risultati valgono nel nostro ambiente ma non è detto fuori (kind su un portatile non è un cluster reale).
+  \item \textbf{Delle conclusioni:} la statistica potrebbe portarci a conclusioni sbagliate (un solo run può essere un caso).
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\caption{Le minacce principali e le contromisure.}
+\label{tab:limiti}
+\small
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{1.8cm}LL@{}}
+\toprule
+\textbf{Tipo} & \textbf{Minaccia} & \textbf{Contromisura} \\
+\midrule
+Interna & Sistema e generatore di carico girano sullo stesso computer e si contendono CPU e memoria & Soglia di CPU fissata nel banco di prova; run saturi scartati \\
+Interna & Un run lascia tracce (code non vuote, pod degradati) che influenzano il successivo & Reset verificato prima di ogni run; ordine casuale dei run \\
+Di costrutto & Un generatore a modello chiuso smetterebbe di inviare durante il guasto & Carico a modello aperto; ritmo controllato entro $\pm 5\%$ \\
+Di costrutto & Un pod ``pronto'' non significa servizio ripristinato & Ripristino come 5~s consecutivi disponibili in accettazione e completamento \\
+Esterna & In locale i nodi sono container sullo stesso hardware: la perdita di un nodo è simulata & Parte degli esperimenti ripetuta su AWS (RQ6); la perdita di un nodo solo se si esegue il guasto F6, facoltativo \\
+Esterna & Il servizio è molto più semplice di uno reale & Le conclusioni riguardano i meccanismi (rilevamento, riparazione, smaltimento), non i valori assoluti \\
+Esterna & Il control plane di Kubernetes è unico e funge anche da punto d'ingresso & Non viene mai guastato; in produzione sarebbe replicato \\
+Delle conclusioni & Un risultato singolo può essere casuale & 10 ripetizioni per i run con guasto; intervalli di confidenza bootstrap \\
+Delle conclusioni & Si possono adattare le spiegazioni dopo aver visto i dati & Previsioni registrate prima delle misure (tag \texttt{m1}) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Fuori ambito.} Replica del broker e del control plane, database distribuito su più zone, sicurezza e ottimizzazione delle prestazioni del codice.

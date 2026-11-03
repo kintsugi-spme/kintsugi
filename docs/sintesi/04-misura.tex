@@ -1,0 +1,167 @@
+\section{Come misuriamo}
+\label{s:misura}
+
+\subsection{Che cosa misuriamo}
+
+Tempi di fermo e di ripristino si calcolano dal log del client e dagli istanti registrati nel database: la risoluzione di Prometheus (alcuni secondi) è troppo grossolana per guasti che durano pochi secondi.
+
+\begin{table}[H]
+\centering
+\caption{Le misure e il loro significato.}
+\label{tab:definizioni}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{2.9cm}>{\raggedright\arraybackslash}p{3.6cm}L@{}}
+\toprule
+\textbf{Misura} & \textbf{In parole} & \textbf{Significato} \\
+\midrule
+Disponibilità di accettazione & Il cliente riceve una risposta positiva? & Frazione di secondi in cui almeno il 99\% delle richieste inviate riceve esito positivo (201 o 202) entro 2~s, visto dal client. \\
+Disponibilità di completamento & L'ordine è stato davvero salvato, e in tempo? & Frazione di secondi in cui almeno il 99\% degli ordini ricevuti è salvato nel database entro 2~s dalla ricezione. In V3 e V5 è la misura decisiva: con il database fermo l'API continua ad accettare, ma nessun ordine viene completato. \\
+Ripristino $t_r$ & Da quando il servizio funziona di nuovo, in modo stabile & Vale separatamente per accettazione e completamento: primo istante, dal guasto in poi, da cui seguono 5 secondi consecutivi disponibili in quella misura. Un pod tornato pronto non basta. Il servizio è ripristinato quando lo sono sia l'accettazione sia il completamento. \\
+Fermo $D$ & Quanto è durato il disservizio & $t_r - t_g$, con $t_g$ istante del guasto, calcolato con il $t_r$ di ciascuna misura. Se il ripristino non avviene entro il tetto del run, il run è valido e registrato come ``non ripristinato''. \\
+Tempo end-to-end & Quanto passa dall'arrivo dell'ordine al suo salvataggio & Scrittura nel database meno ricezione da parte dell'API, entrambi presi nel cluster. \\
+Costo & Quante risorse abbiamo usato & In locale, \emph{worker-secondi}: la somma nel tempo del numero di worker accesi (RQ5). Su AWS, costo per mille ordini. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+La soglia del 99\% è severa a ritmi bassi: a 50 richieste al secondo basta un errore per rendere indisponibile l'intero secondo. Per questo si riportano sempre anche le \emph{richieste fallite per guasto}, che non dipendono dalla soglia, e nell'analisi il limite di completamento si ripete con 1~s e 5~s come verifica di sensibilità.
+
+\subsection{Dove finisce ogni ordine}
+
+A fine run ogni identificativo inviato dal client viene assegnato a una categoria, incrociando il log del client con il database e la coda dei falliti (figura~\ref{fig:categorie}). Il caso grave è il \textbf{perso}: il client ha ricevuto esito positivo, ma l'ordine non è mai stato salvato. Distinguere \emph{fallito} (errore dichiarato, il client riprova) da \emph{perso} è ciò che permette di confrontare sincrono e asincrono: nel sincrono un errore è visibile subito, nell'asincrono un ``ricevuto'' non garantisce il completamento. I \textbf{doppi} (lo stesso ordine consegnato due volte) si contano a parte: l'identificativo dell'ordine lo sceglie il client e il database inserisce un ordine solo se non esiste già, registrando i doppi in una tabella separata.
+
+\begin{figure}[H]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+  domanda/.style={draw=unina, thick, fill=white, rounded corners=8pt, align=center, font=\scriptsize, minimum height=0.85cm, inner sep=3pt},
+  cat/.style={box, minimum width=3.3cm, minimum height=0.8cm, font=\scriptsize},
+  si/.style={etichetta, above, pos=0.45},
+  no/.style={etichetta, below, pos=0.45}]
+\node[domanda] (q1) at (0,0) {Il client ha ricevuto\\esito positivo?};
+\node[domanda] (q2) at (4.4,1.5) {L'ordine è\\nel database?};
+\node[domanda] (q3) at (4.4,-1.5) {L'ordine è\\nel database?};
+\node[domanda] (q4) at (8.4,0.6) {È nella coda\\dei falliti?};
+\node[cat] (c1) at (8.4,2.35) {\textbf{completato in tempo}};
+\node[cat, fill=uninachiaro!40] (c2) at (12.3,1.25) {\textbf{in dead-letter}\\rielaborato e contato a parte};
+\node[cat, guastato] (c3) at (12.3,-0.05) {\textbf{perso}\\il caso grave};
+\node[cat, fill=white] (c4) at (8.4,-1.0) {\textbf{completato dopo il timeout}};
+\node[cat, fill=white] (c5) at (8.4,-2.3) {\textbf{fallito}\\errore dichiarato};
+\draw[freccia] (q1) |- node[si, pos=0.75] {sì} (q2);
+\draw[freccia] (q1) |- node[no, pos=0.75] {no (errore o timeout)} (q3);
+\draw[freccia] (q2) |- node[si, pos=0.7] {sì} (c1);
+\draw[freccia] (q2) |- node[no, pos=0.7] {no} (q4);
+\draw[freccia] (q4) |- node[si, pos=0.7] {sì} (c2);
+\draw[freccia] (q4) |- node[no, pos=0.7] {no} (c3);
+\draw[freccia] (q3) |- node[si, pos=0.7] {sì} (c4);
+\draw[freccia] (q3) |- node[no, pos=0.7] {no} (c5);
+\end{tikzpicture}}
+\caption{Assegnazione di un ordine a una categoria. I duplicati sono contati a parte.}
+\label{fig:categorie}
+\end{figure}
+
+\subsection{Un run}
+
+Ogni run è automatico (figura~\ref{fig:run}): reset verificato (coda vuota, tabelle ripulite, pod nello stato iniziale), un minuto di riscaldamento escluso dalle statistiche, un minuto di riferimento senza guasti, guasto al minuto 2, osservazione fino al ripristino più 2 minuti, ed esportazione dei dati. Il tetto è di 10 minuti, 15 per il guasto F6 (Kubernetes attende alcuni minuti prima di ricollocare i pod di un nodo perso) e per i run sotto W2 (con un solo worker la coda si svuota in circa 8 minuti). I run senza guasti durano 5 minuti fissi.
+
+Il carico segue un \textbf{modello aperto}: le richieste partono a ritmo fisso anche quando il sistema rallenta. Con un modello chiuso il generatore smetterebbe di inviare proprio durante il guasto, nascondendo il problema (\textit{coordinated omission}).
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[x=1.2cm, every node/.append style={font=\scriptsize}]
+\fill[grigiotesto!20] (-1,0) rectangle (0,0.7);
+\node at (-0.5,0.35) {reset};
+\fill[unina!25] (0,0) rectangle (1,0.7);
+\node[font=\tiny, align=center] at (0.5,0.35) {riscal-\\damento};
+\fill[unina!55] (1,0) rectangle (2,0.7);
+\node[text=white, font=\tiny, align=center] at (1.5,0.35) {riferi-\\mento};
+\fill[unina!85] (2,0) rectangle (6,0.7);
+\node[text=white, align=center] at (4,0.35) {osservazione\\fino al ripristino + 2 min};
+\fill[unina!10] (6,0) rectangle (10,0.7);
+\draw[unina!60, densely dashed] (6,0) rectangle (10,0.7);
+\node at (8,0.35) {solo se il ripristino tarda};
+\fill[grigiotesto!20] (10,0) rectangle (11.2,0.7);
+\node at (10.6,0.35) {export};
+\draw[-{Latex}, grigiotesto] (-1,-0.15) -- (11.4,-0.15);
+\foreach \t/\l in {0/0, 1/1, 2/2, 4/4, 6/6, 8/8, 10/10} {
+  \draw[grigiotesto] (\t,-0.1) -- (\t,-0.2);
+  \node[below, text=grigiotesto] at (\t,-0.2) {\l};
+}
+\node[below, text=grigiotesto, anchor=north west] at (11.2,-0.2) {min};
+\draw[accento, very thick] (2,-0.25) -- (2,1.05);
+\node[text=accento, above, align=center] at (2,1.05) {guasto $t_g$\\(minuto 2)};
+\draw[accento, densely dashed, thick] (10,-0.25) -- (10,1.05);
+\node[text=accento, above, align=center] at (10,1.05) {tetto: 10 min\\(15 per F6 e W2)};
+\draw[decorate, decoration={brace, amplitude=4pt, mirror}, grigiotesto] (0,-0.75) -- node[below=3pt, etichetta] {escluso dalle statistiche} (1,-0.75);
+\end{tikzpicture}
+\caption{Struttura di un run: la durata tipica è di 5--6 minuti.}
+\label{fig:run}
+\end{figure}
+
+\subsection{Carichi e numero di run}
+
+\begin{table}[H]
+\centering
+\caption{I tre profili di carico. I livelli si fissano rispetto alla capacità misurata nella fase di banco di prova (F4).}
+\label{tab:carichi}
+\begin{tabularx}{\linewidth}{@{}llL@{}}
+\toprule
+\textbf{ID} & \textbf{Profilo} & \textbf{Uso} \\
+\midrule
+W1 & costante, sotto la capacità & Tutti i run con guasto e i run di riferimento. Ritmo uguale per tutte le versioni: il 50\% della capacità della versione più lenta, così il carico non diventa un secondo fattore \\
+W2 & picco improvviso, poi ritorno alla base & Elasticità (RQ5). Base al 50\% della capacità $\mu_1$ di un worker, picco al 500\% di $\mu_1$ per 60~s dal minuto 2: sopra 3 worker e sotto 10 \\
+W3 & sovraccarico prolungato & Comportamento oltre il limite, senza guasti, su V1, V2 e V3: 150\% della capacità di ciascuna \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Numero di run previsti.}
+\label{tab:matrice}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Gruppo} & \textbf{Ripetizioni} & \textbf{Run} \\
+\midrule
+Senza guasti, carico W1 (V1, V2, V3, V4a, V4s) & 5 & 25 \\
+Senza guasti, carico W3 (V1, V2, V3) & 5 & 15 \\
+Con guasti F1--F5 su V1--V3 & 10 & 100 \\
+Guasto del database su V4 (V4a, V4s) & 10 & 20 \\
+Blocco dell'API (F7, due configurazioni delle sonde) & 10 & 20 \\
+Carico W2: V5 e V3 con 3, con 1 e con 10 worker fissi & 10 & 40 \\
+\midrule
+\textbf{Totale} & & \textbf{220} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Il confronto di RQ5 riguarda quattro configurazioni sotto W2, tutte con 10 ripetizioni per avere la stessa precisione. I run senza guasti danno il quadro di base di ogni versione e confermano che, senza guasti, il fermo è zero. La figura~\ref{fig:matrice} mostra come i 180 run con guasto o sotto W2 si distribuiscono; il guasto F6 è facoltativo e non è nel totale.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[x=1.55cm, y=0.62cm, every node/.append style={font=\scriptsize}]
+\foreach \c/\v in {1/V1, 2/V2, 3/V3, 4/V4a, 5/V4s, 6/V5} \node[font=\scriptsize\bfseries, text=unina] at (\c,0.9) {\v};
+\foreach \r/\f in {1/F1 crash API, 2/F2 crash worker, 3/F3 crash broker, 4/F4 crash database, 5/F5 latenza DB, 6/F6 perdita nodo, 7/F7 blocco API, 8/V5 e riferimenti (W2)}
+  \node[anchor=east] at (0.45,-\r+1) {\f};
+\foreach \c in {1,...,6} \foreach \r in {1,...,8}
+  \draw[white, fill=black!4] (\c-0.47,-\r+1-0.45) rectangle (\c+0.47,-\r+1+0.45);
+\newcommand{\cella}[4]{\draw[white, fill=#3] (#1-0.47,-#2+1-0.45) rectangle (#1+0.47,-#2+1+0.45); \node at (#1,-#2+1) {#4};}
+\cella{1}{1}{unina!30}{10}\cella{2}{1}{unina!30}{10}\cella{3}{1}{unina!30}{10}
+\cella{3}{2}{unina!30}{10}
+\cella{3}{3}{unina!30}{10}
+\cella{1}{4}{unina!30}{10}\cella{2}{4}{unina!30}{10}\cella{3}{4}{unina!30}{10}\cella{4}{4}{unina!30}{10}\cella{5}{4}{unina!30}{10}
+\cella{2}{5}{unina!30}{10}\cella{3}{5}{unina!30}{10}
+\cella{2}{6}{black!12}{opz.}\cella{3}{6}{black!12}{opz.}
+\cella{2}{7}{unina!55}{\textcolor{white}{2 $\times$ 10}}
+\cella{3}{8}{unina!55}{\textcolor{white}{3 $\times$ 10}}\cella{6}{8}{unina!55}{\textcolor{white}{10}}
+\end{tikzpicture}
+\caption{Run per guasto e versione (140 con guasto più 40 sotto W2). Ogni cella vale 10 ripetizioni; per F7 le due configurazioni delle sonde, sotto W2 V3 con 3, con 1 e con 10 worker fissi. I 40 run senza guasti non sono nella figura.}
+\label{fig:matrice}
+\end{figure}
+
+I run si eseguono in \textbf{ordine casuale}, mescolando configurazioni e ripetizioni, così un eventuale degrado dell'ambiente non si concentra su una sola configurazione. La campagna richiede circa 22 ore di macchina.
+
+\subsection{Statistica e validità}
+
+Per ogni configurazione si riportano \textbf{mediana} e \textbf{intervallo interquartile}; con 10 ripetizioni anche l'\textbf{intervallo di confidenza al 95\%} della mediana, calcolato con il bootstrap. Con 5 ripetizioni non si traggono conclusioni su differenze piccole, e per ogni confronto si dichiara la differenza minima distinguibile.
+
+Un run è valido se il reset è verificato, se il ritmo inviato resta entro $\pm 5\%$ di quello previsto e se la CPU e la memoria del computer restano entro le soglie fissate nel banco di prova. Un run non valido viene scartato e ripetuto, annotando il motivo nel diario.

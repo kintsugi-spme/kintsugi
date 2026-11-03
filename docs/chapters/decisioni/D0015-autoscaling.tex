@@ -4,9 +4,14 @@
 In V3 i worker sono sempre tre: durante un picco sono pochi, nei momenti tranquilli sono troppi.
 
 \scelta
-V5 aggiunge e toglie worker in base a quanto è lunga la coda (con lo strumento KEDA), da 1 a 10.
+V5 aggiunge e toglie worker in base a quanto è lunga la coda (con lo strumento KEDA), da 1 a 10. I valori di KEDA sono stati fissati il 02/11/2026, dopo la lettura della documentazione di KEDA (versione 2.22) e di Kubernetes:
+\begin{itemize}
+  \item \textbf{Controllo della coda:} da 1 a 10 worker lo decide l'autoscaler di Kubernetes che KEDA pilota, circa ogni 15~s. L'intervallo di controllo di KEDA (30~s) vale solo quando i worker sono 0, quindi non si cambia. Il ritmo dell'autoscaler appartiene al control plane e su EKS non è modificabile: si lascia il valore predefinito, per tenere uguali i due ambienti (RQ6).
+  \item \textbf{Soglia:} tipo \texttt{QueueLength}, con $\mu_1 \times 2$~s ordini per worker, cioè due secondi di lavoro in coda per worker, lo stesso limite del completamento (D0008). Il valore si calcola nella fase F4 dalla capacità misurata $\mu_1$, come il ritmo di W1.
+  \item \textbf{Attesa prima di toglierli:} 60~s, impostati sulla finestra di stabilità dell'autoscaler in discesa. Il valore predefinito (300~s) terrebbe 10 worker accesi per cinque minuti dopo il picco e renderebbe il costo di V5 quasi uguale a quello di V3 con 10 worker fissi, vanificando il confronto di RQ5. Il parametro \texttt{cooldownPeriod} di KEDA non serve: vale solo per scendere a 0 worker.
+\end{itemize}
 
 \conseguenze
-Per un confronto onesto con V3 contiamo anche quante risorse consuma ogni versione (in worker-secondi), non solo quanto è veloce. Poiché V5 parte con 1 worker e V3 ne ha 3, la confrontiamo anche con V3 a 1 worker fisso e V3 a 10 worker fissi, sotto il carico con picco (W2).
+Per un confronto onesto con V3 contiamo anche quante risorse consuma ogni versione (in worker-secondi), non solo quanto è veloce. Poiché V5 parte con 1 worker e V3 ne ha 3, la confrontiamo anche con V3 a 1 worker fisso e V3 a 10 worker fissi, sotto il carico con picco (W2). Con i valori scelti, l'autoscaler aggiunge al più 4 worker o il 100\% ogni 15~s: da 1 si passa a 5 e poi a 10. Il ritardo di reazione previsto è di circa 3--20~s per i primi worker e 18--35~s per tutti e 10 (tabella~\ref{tab:ipotesi}). La compatibilità della versione di KEDA con Kubernetes 1.37 si verifica all'installazione.
 
 \end{decisione}

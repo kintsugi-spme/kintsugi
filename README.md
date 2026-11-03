@@ -3,7 +3,7 @@
 # 🏺 Kintsugi
 ### Laboratorio di affidabilità e asincronia su Kubernetes e AWS
 
-*Cinque architetture, sette guasti, 245 esperimenti: come ridondanza, code asincrone, replica dei dati ed elasticità cambiano l'impatto dei guasti su un servizio distribuito*
+*Cinque architetture, sette guasti, 220 esperimenti: come ridondanza, code asincrone, replica dei dati ed elasticità cambiano l'impatto dei guasti su un servizio distribuito*
 
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-kind%20%7C%20EKS-326CE5?logo=kubernetes&logoColor=white)
 ![AWS](https://img.shields.io/badge/AWS-EKS%20%2B%20ALB-FF9900?logo=amazonwebservices&logoColor=white)
@@ -30,7 +30,7 @@ Kintsugi è un **servizio di ordini volutamente semplice**, usato come veicolo p
 | **RQ2** | Sincrono o asincrono: cosa cambia in latenza end-to-end, ordini persi e recupero? | V2 / V3 |
 | **RQ3** | Rilevamento: quanto dipende il ripristino dal tipo di guasto e dai parametri delle sonde? | tutte |
 | **RQ4** | Ridondanza con stato: quanto downtime evita il failover, e quanti dati si perdono? | V2 / V4 |
-| **RQ5** | Elasticità: l'autoscaling sulla coda assorbe meglio un picco, a parità di costo? | V3 / V5 |
+| **RQ5** | Elasticità: l'autoscaling sulla coda dà un compromesso migliore tra coda massima e costo, durante un picco? | V3 / V5 |
 | **RQ6** | Trasferibilità: quali risultati si ripetono su AWS, e perché gli altri cambiano? | locale / AWS |
 
 > Il nome viene dall'arte giapponese di riparare la ceramica rotta con l'oro, mettendo in evidenza le crepe invece di nasconderle: ogni guasto misurato mostra dove l'architettura cede e come si ricompone.
@@ -106,7 +106,7 @@ Un solo programma Python (FastAPI) e una sola immagine Docker, che parte come AP
 
 - **Iniezione realistica:** `SIGKILL` e `SIGSTOP` inviati dal nodo, non `kubectl delete pod` (che è una terminazione ordinata).
 - **Carico a modello aperto** (W1 costante, W2 picco, W3 sovraccarico), per evitare la *coordinated omission*.
-- **245 run** in ordine casuale (circa 23 ore di macchina), con reset verificato prima di ogni run.
+- **220 run** in ordine casuale (circa 22 ore di macchina), con reset verificato prima di ogni run.
 
 | Ambiente | Infrastruttura |
 |---|---|
@@ -182,8 +182,9 @@ Genera `docs/main.pdf`: architettura, decisioni (ADR), modello dei guasti, proto
 | **M1** | 04/11/2026 | Architettura, decisioni, previsioni |
 | **M2** | 11/11/2026 | Applicazione minima V1–V3 |
 | **M3** | 25/11/2026 | V1–V3 su kind a 3 nodi; primo guasto misurato |
+| **M3b** | 02/12/2026 | Prova AWS: account e allarme di budget, cluster creato e distrutto, costi noti |
 | **M4** | 09/12/2026 | Banco di prova completo; failover di V4 e scalatura di V5 verificati |
-| **M5** | 16/12/2026 | Campagna di misura locale (245 run) |
+| **M5** | 16/12/2026 | Campagna di misura locale (220 run) |
 | **M6** | 30/12/2026 | Sessioni su AWS |
 | **M7** | 13/01/2027 | Consegna |
 

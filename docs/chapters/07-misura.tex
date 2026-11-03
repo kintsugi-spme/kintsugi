@@ -16,17 +16,17 @@ Le definizioni seguenti valgono per tutte le versioni e per entrambi gli ambient
 \midrule
 Richiesta riuscita & Risposta positiva (\texttt{201} o \texttt{202}) ricevuta dal client entro il suo timeout di 2~s (D0008). \\
 Disponibilità di accettazione & Frazione di secondi in cui almeno il 99\% delle richieste inviate riesce, vista dal client. \\
-Disponibilità di completamento & Frazione di secondi in cui almeno il 99\% degli ordini ricevuti in quel secondo è salvato nel database entro un limite fissato (proposto: 2~s). In V1, V2 e V4 coincide quasi con l'accettazione; in V3 e V5 è la misura decisiva, perché con il database fermo l'API continua ad accettare ma nessun ordine viene completato. \\
+Disponibilità di completamento & Frazione di secondi in cui almeno il 99\% degli ordini ricevuti in quel secondo è salvato nel database entro il limite di completamento di 2~s dalla ricezione (tabella~\ref{tab:parametri}, D0008). In V1, V2 e V4 coincide quasi con l'accettazione, perché il limite supera la deadline dell'API (1,5~s); in V3 e V5 è la misura decisiva, perché con il database fermo l'API continua ad accettare ma nessun ordine viene completato. \\
 Ripristinato & Vale separatamente per accettazione e completamento: $t_r$ è il primo istante, dal guasto in poi, da cui seguono 5 secondi consecutivi disponibili in quella misura. Il servizio è ripristinato quando lo sono entrambe. Un pod tornato pronto non basta. \\
 Fermo (\textit{downtime}) & $t_r - t_g$, con $t_g$ istante del guasto, calcolato con il $t_r$ di ciascuna misura. Se un ripristino non avviene entro il tetto del run, il run è valido e registrato come ``non ripristinato''. \\
 Tempo end-to-end & $\texttt{ts\_scrittura} - \texttt{ts\_ricezione}$, entrambi presi nel cluster (D0005). È la metrica comune a tutte le versioni. \\
 Latenza del client & Tempo tra invio e risposta, misurato da JMeter. In V3 e V5 misura solo l'accettazione. \\
-Costo & In locale, worker-secondi: integrale nel tempo del numero di worker attivi (RQ5). Su AWS, costo per mille ordini. \\
+Costo & In locale, worker-secondi: integrale nel tempo del numero di worker attivi (RQ5). Sotto W2 si calcola dall'inizio del picco fino a 10 minuti dopo, uguale per V5 e per le tre configurazioni V3 (con 3, con 1 e con 10 worker): se un run finisce prima, si prosegue con il numero di worker presente alla fine. Su AWS, costo per mille ordini. \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-\paragraph{Sensibilità della soglia del 99\%.} A ritmi bassi la soglia è molto severa: a 50 richieste al secondo basta un errore per rendere indisponibile l'intero secondo. Per questo si riportano sempre anche le \emph{richieste fallite per guasto}, che non dipendono dalla soglia.
+\paragraph{Sensibilità della soglia del 99\%.} A ritmi bassi la soglia è molto severa: a 50 richieste al secondo basta un errore per rendere indisponibile l'intero secondo. Per questo si riportano sempre anche le \emph{richieste fallite per guasto}, che non dipendono dalla soglia. Il limite di completamento si fissa a 2~s prima delle misure; poiché gli istanti di ogni ordine sono registrati, nell'analisi si ripete il calcolo con 1~s e 5~s come verifica di sensibilità, senza cambiare il valore delle previsioni.
 
 \section{Categorie degli ordini}
 \label{sec:categorie}
@@ -63,7 +63,7 @@ A fine run ogni identificativo inviato dal client viene assegnato a una categori
 \end{figure}
 
 \begin{description}
-  \item[Completato in tempo] il client ha ricevuto esito positivo e l'ordine è salvato.
+  \item[Completato in tempo] il client ha ricevuto esito positivo entro il suo timeout e l'ordine è salvato. ``In tempo'' si riferisce alla risposta al client, non al limite di completamento: un ordine di V3 salvato dopo 30~s per un guasto è comunque in questa categoria, e il ritardo si legge nella disponibilità di completamento.
   \item[Completato dopo il timeout] il client ha visto un errore o un timeout, ma l'ordine è stato salvato comunque; è possibile soprattutto in V1 e V2 durante i guasti F4 e F5.
   \item[Fallito] il client ha visto un errore e l'ordine non è salvato. È un fallimento \emph{dichiarato}: il client sa di dover riprovare.
   \item[In dead-letter] accettato, finito nella coda dei falliti, rielaborato a fine run e contato a parte.
@@ -102,7 +102,7 @@ Ogni run è automatico e segue la sequenza della figura~\ref{fig:run}.
 \draw[accento, very thick] (2,-0.25) -- (2,1.05);
 \node[text=accento, above, align=center] at (2,1.05) {guasto $t_g$\\(minuto 2)};
 \draw[accento, densely dashed, thick] (10,-0.25) -- (10,1.05);
-\node[text=accento, above, align=center] at (10,1.05) {tetto: 10 min\\(15 per il guasto F6)};
+\node[text=accento, above, align=center] at (10,1.05) {tetto: 10 min\\(15 per F6 e W2)};
 \draw[decorate, decoration={brace, amplitude=4pt, mirror}, grigiotesto] (0,-0.75) -- node[below=3pt, etichetta] {escluso dalle statistiche} (1,-0.75);
 \end{tikzpicture}
 \caption{Struttura di un run. La durata tipica è di 5--6 minuti; il tetto vale solo quando il ripristino tarda.}
@@ -114,9 +114,11 @@ Ogni run è automatico e segue la sequenza della figura~\ref{fig:run}.
   \item \textbf{Riscaldamento.} Un minuto di carico, escluso dalle statistiche.
   \item \textbf{Riferimento.} Un minuto di carico senza guasti, che fornisce i valori di confronto del run.
   \item \textbf{Guasto.} Iniettato al minuto 2, in un istante registrato al millisecondo.
-  \item \textbf{Osservazione.} Fino al ripristino più 2 minuti, con un tetto di 10 minuti per run (15 per il guasto F6, perché Kubernetes attende alcuni minuti prima di ricollocare i pod di un nodo perso).
+  \item \textbf{Osservazione.} Fino al ripristino più 2 minuti, con un tetto di 10 minuti per run. Il tetto è di 15 minuti per il guasto F6, perché Kubernetes attende alcuni minuti prima di ricollocare i pod di un nodo perso, e per i run sotto W2: con un solo worker, dopo un picco di 60~s la coda si svuota in circa 8 minuti, e il run dura circa 13 minuti. Sotto W2 il ``guasto'' del grafico è l'inizio del picco.
   \item \textbf{Esportazione.} Log del client, ordini salvati, eventi di Kubernetes e metriche di Prometheus vengono salvati in \texttt{data/<ambiente>/<run-id>/} prima del run successivo.
 \end{enumerate}
+
+I run \textbf{senza guasti} (carichi W1 e W3) non hanno un ripristino da attendere: durano 5 minuti fissi, cioè riscaldamento, riferimento e 3 minuti di osservazione.
 
 Il carico segue un \textbf{modello aperto}: le richieste partono a ritmo fisso anche quando il sistema rallenta. Con un modello chiuso il generatore smetterebbe di inviare proprio durante il guasto, nascondendo il problema (\textit{coordinated omission}).
 
@@ -130,9 +132,9 @@ Il carico segue un \textbf{modello aperto}: le richieste partono a ritmo fisso a
 \toprule
 \textbf{ID} & \textbf{Profilo} & \textbf{Uso} \\
 \midrule
-W1 & costante, sotto la capacità & tutti i run con guasto. Ritmo uguale per tutte le versioni: 50\% della capacità più bassa tra V1, V2, V3, V4a e V4s, così il carico non diventa un secondo fattore che cambia \\
-W2 & picco improvviso, poi ritorno al livello di base & elasticità di V5 e riferimenti di V3. Rispetto alla capacità di un solo worker $\mu_1$: base al 50\% di $\mu_1$, picco al 500\% di $\mu_1$, cioè sopra 3 worker e sotto 10 (\todo{durata del picco da fissare}) \\
-W3 & sovraccarico prolungato, sopra la capacità & comportamento oltre il limite, senza guasti. Livello fissato per versione: 150\% della capacità di quella versione \\
+W1 & costante, sotto la capacità & tutti i run con guasto e i run senza guasti di riferimento. Ritmo uguale per tutte le versioni: 50\% della capacità più bassa tra V1, V2, V3, V4a e V4s, così il carico non diventa un secondo fattore che cambia \\
+W2 & picco improvviso, poi ritorno al livello di base & elasticità di V5, confrontata con V3 a 3, a 1 e a 10 worker fissi. Rispetto alla capacità di un solo worker $\mu_1$: base al 50\% di $\mu_1$, picco al 500\% di $\mu_1$, cioè sopra 3 worker e sotto 10. Il picco dura 60~s e parte al minuto 2, come il guasto negli altri run \\
+W3 & sovraccarico prolungato, sopra la capacità & comportamento oltre il limite, senza guasti, su V1, V2 e V3. Livello fissato per versione: 150\% della capacità di quella versione \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -147,24 +149,27 @@ W3 & sovraccarico prolungato, sopra la capacità & comportamento oltre il limite
 \toprule
 \textbf{Gruppo} & \textbf{Ripetizioni} & \textbf{Run} \\
 \midrule
-Senza guasti (riferimento) & 5 & 85 \\
+Senza guasti, carico W1 (V1, V2, V3, V4a, V4s) & 5 & 25 \\
+Senza guasti, carico W3 (V1, V2, V3) & 5 & 15 \\
 Con guasti F1--F5 su V1--V3 & 10 & 100 \\
 Guasto del database su V4 (V4a, V4s) & 10 & 20 \\
 Blocco dell'API (guasto F7, due configurazioni delle sonde) & 10 & 20 \\
-Riferimenti per V5 (V3 con 1 e con 10 worker fissi, W2) & 10 & 20 \\
+Carico W2: V5 e V3 con 3, con 1 e con 10 worker fissi & 10 & 40 \\
 \midrule
-\textbf{Totale} & & \textbf{245} \\
+\textbf{Totale} & & \textbf{220} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-La composizione delle 17 configurazioni senza guasti (85 run) va ancora documentata: \todo{elenco delle configurazioni senza guasti}. La figura~\ref{fig:matrice} mostra i 160 run con guasto o di riferimento per V5. Il guasto F6 è facoltativo e non è incluso nel totale.
+Il confronto di RQ5 riguarda quattro configurazioni sotto W2: V5, V3 con i suoi 3 worker, V3 con 1 e V3 con 10 worker fissi. Serve la stessa precisione su tutte e quattro, quindi 10 ripetizioni ciascuna.
+
+I run senza guasti servono a più scopi. Il carico W1 su V1, V2, V3, V4a e V4s dà il quadro di base di ogni versione: tempo end-to-end (RQ2) e conferma che senza guasti il fermo è zero. Il costo della replica sincrona (RQ4) si misura sul minuto di riferimento dei run con guasto F4 su V4a e V4s (10 ripetizioni ciascuno), con lo stesso carico W1, e si legge nella latenza del client, perché l'attesa della replica non entra nel tempo end-to-end (D0005); i run senza guasti (5 ripetizioni) ne sono una verifica. Il carico W3 su V1, V2 e V3 mostra cosa succede oltre il limite: il sincrono risponde con errori, l'asincrono accumula coda (RQ2). V5 non ha run con W1 o W3, perché la sua capacità cambia nel tempo e ``150\% della capacità'' non ha senso; V4a e V4s non si provano con W3, perché nessuna domanda di ricerca lo richiede. La figura~\ref{fig:matrice} mostra i 180 run con guasto o sotto W2. Il guasto F6 è facoltativo e non è incluso nel totale.
 
 \begin{figure}[htbp]
 \centering
 \begin{tikzpicture}[x=1.55cm, y=0.62cm, every node/.append style={font=\scriptsize}]
 \foreach \c/\v in {1/V1, 2/V2, 3/V3, 4/V4a, 5/V4s, 6/V5} \node[font=\scriptsize\bfseries, text=unina] at (\c,0.9) {\v};
-\foreach \r/\f in {1/F1 crash API, 2/F2 crash worker, 3/F3 crash broker, 4/F4 crash database, 5/F5 latenza DB, 6/F6 perdita nodo, 7/F7 blocco API, 8/Riferimenti V5 (W2)}
+\foreach \r/\f in {1/F1 crash API, 2/F2 crash worker, 3/F3 crash broker, 4/F4 crash database, 5/F5 latenza DB, 6/F6 perdita nodo, 7/F7 blocco API, 8/V5 e riferimenti (W2)}
   \node[anchor=east] at (0.45,-\r+1) {\f};
 \foreach \c in {1,...,6} \foreach \r in {1,...,8}
   \draw[white, fill=black!4] (\c-0.47,-\r+1-0.45) rectangle (\c+0.47,-\r+1+0.45);
@@ -176,13 +181,13 @@ La composizione delle 17 configurazioni senza guasti (85 run) va ancora document
 \cella{2}{5}{unina!30}{10}\cella{3}{5}{unina!30}{10}
 \cella{2}{6}{black!12}{opz.}\cella{3}{6}{black!12}{opz.}
 \cella{2}{7}{unina!55}{\textcolor{white}{2 $\times$ 10}}
-\cella{3}{8}{unina!55}{\textcolor{white}{2 $\times$ 10}}
+\cella{3}{8}{unina!55}{\textcolor{white}{3 $\times$ 10}}\cella{6}{8}{unina!55}{\textcolor{white}{10}}
 \end{tikzpicture}
-\caption{Run per guasto e versione: 140 run con guasto più 20 di riferimento per V5. Ogni cella vale 10 ripetizioni; per il guasto F7 le due configurazioni delle sonde, per i riferimenti V3 con 1 e con 10 worker fissi. V5 si misura senza guasti, sotto W2, tra i run di riferimento.}
+\caption{Run per guasto e versione: 140 run con guasto più 40 sotto W2 per il confronto di V5. Ogni cella vale 10 ripetizioni; per il guasto F7 le due configurazioni delle sonde, sotto W2 V3 con 3, con 1 e con 10 worker fissi. V5 si misura senza guasti, sotto W2, insieme a V3. I run senza guasti con W1 e W3 (40) non sono nella figura.}
 \label{fig:matrice}
 \end{figure}
 
-I run si eseguono in \textbf{ordine casuale}, mescolando configurazioni e ripetizioni, così un eventuale degrado progressivo dell'ambiente non si concentra su una sola configurazione. A circa 5--6 minuti per run, la campagna richiede circa 23 ore di macchina.
+I run si eseguono in \textbf{ordine casuale}, mescolando configurazioni e ripetizioni, così un eventuale degrado progressivo dell'ambiente non si concentra su una sola configurazione. A circa 5--6 minuti per run, la campagna richiede circa 22 ore di macchina (i 10 run di V3 con 1 worker sotto W2 durano circa 13 minuti ciascuno).
 
 \section{Validità di un run}
 
@@ -196,4 +201,4 @@ Un run non valido viene scartato e ripetuto, annotando il motivo nel diario.
 
 \section{Statistica}
 
-Per ogni configurazione si riportano \textbf{mediana} e \textbf{intervallo interquartile}. Per le configurazioni con 10 ripetizioni si aggiunge l'\textbf{intervallo di confidenza al 95\%} della mediana, calcolato con il bootstrap. Con 5 ripetizioni (configurazioni senza guasti) non si traggono conclusioni su differenze piccole. Per ogni confronto si dichiara la differenza minima che il numero di ripetizioni permette di distinguere.
+Per ogni configurazione si riportano \textbf{mediana} e \textbf{intervallo interquartile}. Per le configurazioni con 10 ripetizioni si aggiunge l'\textbf{intervallo di confidenza al 95\%} della mediana, calcolato con il bootstrap. Con 5 ripetizioni (run senza guasti con W1 e W3) non si traggono conclusioni su differenze piccole. Per ogni confronto si dichiara la differenza minima che il numero di ripetizioni permette di distinguere.

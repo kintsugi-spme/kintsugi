@@ -25,13 +25,18 @@ docs/
   figures/                 immagini esterne (logo del frontespizio)
 ```
 
+## Relazione di sintesi
+
+Oltre al documento tecnico c'è una versione breve per la lettura dei docenti, `main-sintesi.tex`, con i sorgenti in `sintesi/` (una sezione per file). Riusa `config/` e `frontmatter/frontespizio.tex`, ma non i capitoli: i numeri comuni ai due documenti vanno tenuti allineati.
+
 ## Compilare
 
 ```bash
-make
+make            # entrambi i PDF
+make sintesi    # solo la relazione di sintesi
 ```
 
-oppure `latexmk -pdf main.tex`. Il PDF e i file intermedi non sono versionati.
+oppure `latexmk -pdf main.tex` e `latexmk -pdf main-sintesi.tex`. I PDF e i file intermedi non sono versionati.
 
 ## Operazioni frequenti
 

@@ -19,7 +19,7 @@ RQ1 & Quanto fermo si evita passando da una a più copie dell'API? & ridondanza 
 RQ2 & Cosa cambia, in tempi, ordini persi e ripristino, inserendo una coda tra API e database? & asincronia & V2 / V3 \\
 RQ3 & Quanto dipende il ripristino dal tipo di guasto e dai parametri delle sonde? & rilevamento & tutte \\
 RQ4 & Quanto fermo evita una replica del database con failover, e quanti dati si rischiano? & ridondanza con stato & V2 / V4 \\
-RQ5 & L'autoscaling sulla lunghezza della coda assorbe meglio un picco, a parità di costo? & elasticità & V3 / V5 \\
+RQ5 & L'autoscaling sulla lunghezza della coda dà un compromesso migliore tra coda massima e costo, durante un picco? & elasticità & V3 / V5 \\
 RQ6 & Quali risultati locali si ripetono su AWS, e perché gli altri cambiano? & trasferibilità & locale / AWS \\
 \bottomrule
 \end{tabularx}
