@@ -26,3 +26,7 @@
 \usepackage{tcolorbox}
 
 \usepackage{hyperref}
+
+% Valori numerici generati da config/parametri.yaml (li crea make): si usano con \parametro{chiave}.
+\IfFileExists{config/parametri.tex}{\input{config/parametri}}{%
+  \PackageError{parametri}{Manca config/parametri.tex}{Lancia make nella cartella docs: crea il file da config/parametri.yaml.}}

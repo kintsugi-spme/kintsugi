@@ -71,7 +71,7 @@ Tre regole guidano tutto il lavoro.
 \textbf{Concetto (lezioni)} & \textbf{Dove lo misuriamo} \\
 \midrule
 Scalabilità orizzontale e bilanciamento del carico~\cite{dimartino-architetture} & V1 contro V2: tre copie dell'API dietro un bilanciatore (RQ1). Un bilanciatore unico è un punto unico di guasto: nel nostro caso il punto d'ingresso, che in kind è il nodo del control plane e non viene mai guastato (sezione~\ref{s:limiti}). \\
-Disponibilità e ``numero di nove''~\cite{dimartino-architetture} & Obiettivo del 99,9\% e budget di errore: ogni fermo misurato si traduce in guasti sopportabili al mese (sezione~\ref{s:previsioni}). \\
+Disponibilità e ``numero di nove''~\cite{dimartino-architetture} & Obiettivo del \parametro{obiettivo_percentuale}\% e budget di errore: ogni fermo misurato si traduce in guasti sopportabili al mese (sezione~\ref{s:previsioni}). \\
 Failover attivo-attivo e attivo-passivo; \textit{heartbeat} e osservabilità~\cite{dimartino-architetture} & Attivo-attivo: le copie dell'API in V2. Attivo-passivo: primario e standby del database in V4. I controlli periodici sono le sonde di Kubernetes, che misuriamo con il blocco di un'istanza (RQ3). \\
 Replica del database e suo costo di sincronizzazione~\cite{dimartino-architetture} & V4a con replica asincrona (possibile perdita di dati) contro V4s con replica sincrona (scritture più lente) (RQ4). \\
 Interazione sincrona e asincrona, coda e broker~\cite{dimartino-architetture} & V2 contro V3: la coda separa chi produce gli ordini da chi li salva, e si riempie se i produttori superano i consumatori (RQ2). \\

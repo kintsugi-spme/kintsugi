@@ -13,8 +13,8 @@ Tempi di fermo e di ripristino si calcolano dal log del client e dagli istanti r
 \toprule
 \textbf{Misura} & \textbf{In parole} & \textbf{Significato} \\
 \midrule
-Disponibilità di accettazione & Il cliente riceve una risposta positiva? & Frazione di secondi in cui almeno il 99\% delle richieste inviate riceve esito positivo (201 o 202) entro 2~s, visto dal client. \\
-Disponibilità di completamento & L'ordine è stato davvero salvato, e in tempo? & Frazione di secondi in cui almeno il 99\% degli ordini ricevuti è salvato nel database entro 2~s dalla ricezione. In V3 e V5 è la misura decisiva: con il database fermo l'API continua ad accettare, ma nessun ordine viene completato. \\
+Disponibilità di accettazione & Il cliente riceve una risposta positiva? & Frazione di secondi in cui almeno il \parametro{soglia_secondo_disponibile_percentuale}\% delle richieste inviate riceve esito positivo (201 o 202) entro \parametro{timeout_client_s}~s, visto dal client. \\
+Disponibilità di completamento & L'ordine è stato davvero salvato, e in tempo? & Frazione di secondi in cui almeno il \parametro{soglia_secondo_disponibile_percentuale}\% degli ordini ricevuti è salvato nel database entro \parametro{limite_completamento_s}~s dalla ricezione. In V3 e V5 è la misura decisiva: con il database fermo l'API continua ad accettare, ma nessun ordine viene completato. \\
 Ripristino $t_r$ & Da quando il servizio funziona di nuovo, in modo stabile & Vale separatamente per accettazione e completamento: primo istante, dal guasto in poi, da cui seguono 5 secondi consecutivi disponibili in quella misura. Un pod tornato pronto non basta. Il servizio è ripristinato quando lo sono sia l'accettazione sia il completamento. \\
 Fermo $D$ & Quanto è durato il disservizio & $t_r - t_g$, con $t_g$ istante del guasto, calcolato con il $t_r$ di ciascuna misura. Se il ripristino non avviene entro il tetto del run, il run è valido e registrato come ``non ripristinato''. \\
 Tempo end-to-end & Quanto passa dall'arrivo dell'ordine al suo salvataggio & Scrittura nel database meno ricezione da parte dell'API, entrambi presi nel cluster. \\
@@ -23,7 +23,7 @@ Costo & Quante risorse abbiamo usato & In locale, \emph{worker-secondi}: la somm
 \end{tabularx}
 \end{table}
 
-La soglia del 99\% è severa a ritmi bassi: a 50 richieste al secondo basta un errore per rendere indisponibile l'intero secondo. Per questo si riportano sempre anche le \emph{richieste fallite per guasto}, che non dipendono dalla soglia, e nell'analisi il limite di completamento si ripete con 1~s e 5~s come verifica di sensibilità.
+La soglia del \parametro{soglia_secondo_disponibile_percentuale}\% è severa a ritmi bassi: a 50 richieste al secondo basta un errore per rendere indisponibile l'intero secondo. Per questo si riportano sempre anche le \emph{richieste fallite per guasto}, che non dipendono dalla soglia, e nell'analisi il limite di completamento si ripete con 1~s e 5~s come verifica di sensibilità.
 
 \subsection{Dove finisce ogni ordine}
 
@@ -61,7 +61,7 @@ A fine run ogni identificativo inviato dal client viene assegnato a una categori
 
 \subsection{Un run}
 
-Ogni run è automatico (figura~\ref{fig:run}): reset verificato (coda vuota, tabelle ripulite, pod nello stato iniziale), un minuto di riscaldamento escluso dalle statistiche, un minuto di riferimento senza guasti, guasto al minuto 2, osservazione fino al ripristino più 2 minuti, ed esportazione dei dati. Il tetto è di 10 minuti, 15 per il guasto F6 (Kubernetes attende alcuni minuti prima di ricollocare i pod di un nodo perso) e per i run sotto W2 (con un solo worker la coda si svuota in circa 8 minuti). I run senza guasti durano 5 minuti fissi.
+Ogni run è automatico (figura~\ref{fig:run}): reset verificato (coda vuota, tabelle ripulite, pod nello stato iniziale), un minuto di riscaldamento escluso dalle statistiche, un minuto di riferimento senza guasti, guasto al minuto 2, osservazione fino al ripristino più 2 minuti, ed esportazione dei dati. Il tetto è di \parametro{tetto_min} minuti, \parametro{tetto_min_f6_e_w2} per il guasto F6 (Kubernetes attende alcuni minuti prima di ricollocare i pod di un nodo perso) e per i run sotto W2 (con un solo worker la coda si svuota in circa 8 minuti). I run senza guasti durano 5 minuti fissi.
 
 Il carico segue un \textbf{modello aperto}: le richieste partono a ritmo fisso anche quando il sistema rallenta. Con un modello chiuso il generatore smetterebbe di inviare proprio durante il guasto, nascondendo il problema (\textit{coordinated omission}).
 
@@ -90,7 +90,7 @@ Il carico segue un \textbf{modello aperto}: le richieste partono a ritmo fisso a
 \draw[accento, very thick] (2,-0.25) -- (2,1.05);
 \node[text=accento, above, align=center] at (2,1.05) {guasto $t_g$\\(minuto 2)};
 \draw[accento, densely dashed, thick] (10,-0.25) -- (10,1.05);
-\node[text=accento, above, align=center] at (10,1.05) {tetto: 10 min\\(15 per F6 e W2)};
+\node[text=accento, above, align=center] at (10,1.05) {tetto: \parametro{tetto_min} min\\(\parametro{tetto_min_f6_e_w2} per F6 e W2)};
 \draw[decorate, decoration={brace, amplitude=4pt, mirror}, grigiotesto] (0,-0.75) -- node[below=3pt, etichetta] {escluso dalle statistiche} (1,-0.75);
 \end{tikzpicture}
 \caption{Struttura di un run: la durata tipica è di 5--6 minuti.}
@@ -107,9 +107,9 @@ Il carico segue un \textbf{modello aperto}: le richieste partono a ritmo fisso a
 \toprule
 \textbf{ID} & \textbf{Profilo} & \textbf{Uso} \\
 \midrule
-W1 & costante, sotto la capacità & Tutti i run con guasto e i run di riferimento. Ritmo uguale per tutte le versioni: il 50\% della capacità della versione più lenta, così il carico non diventa un secondo fattore \\
-W2 & picco improvviso, poi ritorno alla base & Elasticità (RQ5). Base al 50\% della capacità $\mu_1$ di un worker, picco al 500\% di $\mu_1$ per 60~s dal minuto 2: sopra 3 worker e sotto 10 \\
-W3 & sovraccarico prolungato & Comportamento oltre il limite, senza guasti, su V1, V2 e V3: 150\% della capacità di ciascuna \\
+W1 & costante, sotto la capacità & Tutti i run con guasto e i run di riferimento. Ritmo uguale per tutte le versioni: il \parametro{w1_percentuale_capacita_minima}\% della capacità della versione più lenta, così il carico non diventa un secondo fattore \\
+W2 & picco improvviso, poi ritorno alla base & Elasticità (RQ5). Base al \parametro{w2_base_percentuale_mu1}\% della capacità $\mu_1$ di un worker, picco al \parametro{w2_picco_percentuale_mu1}\% di $\mu_1$ per \parametro{w2_durata_picco_s}~s dal minuto 2: sopra 3 worker e sotto 10 \\
+W3 & sovraccarico prolungato & Comportamento oltre il limite, senza guasti, su V1, V2 e V3: \parametro{w3_percentuale_capacita}\% della capacità di ciascuna \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -129,7 +129,7 @@ Guasto del database su V4 (V4a, V4s) & 10 & 20 \\
 Blocco dell'API (F7, due configurazioni delle sonde) & 10 & 20 \\
 Carico W2: V5 e V3 con 3, con 1 e con 10 worker fissi & 10 & 40 \\
 \midrule
-\textbf{Totale} & & \textbf{220} \\
+\textbf{Totale} & & \textbf{\parametro{run_totali}} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -158,7 +158,7 @@ Il confronto di RQ5 riguarda quattro configurazioni sotto W2, tutte con 10 ripet
 \label{fig:matrice}
 \end{figure}
 
-I run si eseguono in \textbf{ordine casuale}, mescolando configurazioni e ripetizioni, così un eventuale degrado dell'ambiente non si concentra su una sola configurazione. La campagna richiede circa 22 ore di macchina.
+I run si eseguono in \textbf{ordine casuale}, mescolando configurazioni e ripetizioni, così un eventuale degrado dell'ambiente non si concentra su una sola configurazione. La campagna richiede circa \parametro{ore_campagna_circa} ore di macchina.
 
 \subsection{Statistica e validità}
 

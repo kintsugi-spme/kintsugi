@@ -17,7 +17,7 @@ Progettare e scrivere le previsioni (M1) → costruire l'app (M2) → portarla s
 | **M3** Kubernetes locale | S5 · 25/11/2026 | F3 | V1-V3 su kind a 3 nodi; l'harness minimo misura un crash F1 iniettato dal nodo con risoluzione sotto il secondo | Rivedere il metodo di misura prima di proseguire |
 | **M3b** Prova AWS | S6 · 02/12/2026 | F6 (prova) | Account con allarme di budget attivo; cluster creato e distrutto, costi e limiti noti | Ripianificare (o ridurre) subito la fase AWS, non in S9 |
 | **M4** Banco di prova | S7 · 09/12/2026 | F4 | I criteri di F4 soddisfatti, compresi failover di V4 e scalatura di V5 | **Non parte la campagna F5** |
-| **M5** Campagna locale | S8 · 16/12/2026 | F5 | 220 run validi. **Decisione sulla fase AWS:** sessioni complete, una sola sessione o solo la prova di S6 | Applicare il piano di taglio; mai sotto 10 ripetizioni per F1-F4 e F7 |
+| **M5** Campagna locale | S8 · 16/12/2026 | F5 | <!-- num:run_totali -->220<!-- /num --> run validi. **Decisione sulla fase AWS:** sessioni complete, una sola sessione o solo la prova di S6 | Applicare il piano di taglio; mai sotto 10 ripetizioni per F1-F4 e F7 |
 | **M6** Sessioni AWS | S10 · 30/12/2026 | F6 (sessioni) | Sessioni fatte, risorse distrutte, costi annotati | Ridurre a una sola sessione |
 | **M7** Consegna | S12 · 13/01/2027 | F7, F8 | Report, diario, repository e orale pronti | — |
 
@@ -81,7 +81,7 @@ Progettare e scrivere le previsioni (M1) → costruire l'app (M2) → portarla s
 5. misurata la capacità con 1, 3 e 10 worker; se con 10 è sotto 10×μ1, si annota quale componente satura.
 
 ### F5 — Campagna locale · S7-S8 · ~48 h · → M5
-**Attività:** 220 run sul MacBook M5 da 16 GB (D0013), in blocchi automatici (matrice nel capitolo "Protocollo di misura" del documento; F6 se c'è tempo) · controllo periodico dei dati e della coerenza delle categorie · ogni run scartato e ogni anomalia nel diario · analisi preliminare di RQ1-RQ5.
+**Attività:** <!-- num:run_totali -->220<!-- /num --> run sul MacBook M5 da 16 GB (D0013), in blocchi automatici (matrice nel capitolo "Protocollo di misura" del documento; F6 se c'è tempo) · controllo periodico dei dati e della coerenza delle categorie · ogni run scartato e ogni anomalia nel diario · analisi preliminare di RQ1-RQ5.
 **Fatto quando:** ogni configurazione ha il numero previsto di run validi e ogni run supera il controllo di coerenza.
 
 ### F6 — Fase AWS · prova in S6, sessioni in S9-S10 · ~40 h · → M3b, M6

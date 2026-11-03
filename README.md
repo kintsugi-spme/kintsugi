@@ -3,7 +3,7 @@
 # 🏺 Kintsugi
 ### Laboratorio di affidabilità e asincronia su Kubernetes e AWS
 
-*Cinque architetture, sette guasti, 220 esperimenti: come ridondanza, code asincrone, replica dei dati ed elasticità cambiano l'impatto dei guasti su un servizio distribuito*
+*Cinque architetture, sette guasti, <!-- num:run_totali -->220<!-- /num --> esperimenti: come ridondanza, code asincrone, replica dei dati ed elasticità cambiano l'impatto dei guasti su un servizio distribuito*
 
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-kind%20%7C%20EKS-326CE5?logo=kubernetes&logoColor=white)
 ![AWS](https://img.shields.io/badge/AWS-EKS%20%2B%20ALB-FF9900?logo=amazonwebservices&logoColor=white)
@@ -106,7 +106,7 @@ Un solo programma Python (FastAPI) e una sola immagine Docker, che parte come AP
 
 - **Iniezione realistica:** `SIGKILL` e `SIGSTOP` inviati dal nodo, non `kubectl delete pod` (che è una terminazione ordinata).
 - **Carico a modello aperto** (W1 costante, W2 picco, W3 sovraccarico), per evitare la *coordinated omission*.
-- **220 run** in ordine casuale (circa 22 ore di macchina), con reset verificato prima di ogni run.
+- **<!-- num:run_totali -->220<!-- /num --> run** in ordine casuale (circa <!-- num:ore_campagna_circa -->22<!-- /num --> ore di macchina), con reset verificato prima di ogni run.
 
 | Ambiente | Infrastruttura |
 |---|---|
@@ -117,7 +117,7 @@ Un solo programma Python (FastAPI) e una sola immagine Docker, che parte come AP
 
 ## 4. Metodo
 
-- **SLI e SLO:** disponibilità di accettazione e di completamento con obiettivo del 99,9% su 30 giorni; ogni guasto si legge come quota del budget di errore consumata.
+- **SLI e SLO:** disponibilità di accettazione e di completamento con obiettivo del <!-- num:obiettivo_percentuale -->99,9<!-- /num -->% su <!-- num:finestra_giorni -->30<!-- /num --> giorni; ogni guasto si legge come quota del budget di errore consumata.
 - **Previsioni preregistrate:** downtime, richieste fallite e ordini persi si prevedono con modelli espliciti e si committano prima della campagna.
 - **Minacce alla validità:** interne, di costrutto, esterne e delle conclusioni, ognuna con la sua mitigazione.
 - **Decisioni tracciate:** ogni scelta è un ADR nel documento di architettura.
@@ -129,6 +129,7 @@ Un solo programma Python (FastAPI) e una sola immagine Docker, che parte come AP
 ```
 kintsugi/
 ├── app/                  # API e worker (un solo codice, MODE=sync|async)
+├── config/               # valori numerici del progetto, scritti una volta sola (vedi config/README.md)
 ├── deploy/
 │   ├── k8s/
 │   │   ├── base/         # manifest comuni
@@ -184,7 +185,7 @@ Genera `docs/main.pdf`: architettura, decisioni (ADR), modello dei guasti, proto
 | **M3** | 25/11/2026 | V1–V3 su kind a 3 nodi; primo guasto misurato |
 | **M3b** | 02/12/2026 | Prova AWS: account e allarme di budget, cluster creato e distrutto, costi noti |
 | **M4** | 09/12/2026 | Banco di prova completo; failover di V4 e scalatura di V5 verificati |
-| **M5** | 16/12/2026 | Campagna di misura locale (220 run) |
+| **M5** | 16/12/2026 | Campagna di misura locale (<!-- num:run_totali -->220<!-- /num --> run) |
 | **M6** | 30/12/2026 | Sessioni su AWS |
 | **M7** | 13/01/2027 | Consegna |
 

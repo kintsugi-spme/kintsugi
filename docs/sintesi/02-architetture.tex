@@ -53,7 +53,7 @@ Nei diagrammi che seguono i blocchi con bordo sono programmi nostri, quelli pien
 \subsection{V1 -- istanza singola, sincrona}
 \label{s:v1}
 
-È la versione di riferimento. L'API riceve l'ordine, lo scrive nel database e risponde \texttt{201} solo dopo il salvataggio; se non riesce entro 1,5~s risponde \texttt{503}, perché un errore dichiarato è più chiaro di un'attesa senza risposta. Il kubelet, l'agente di Kubernetes su ogni nodo, controlla l'API con due sonde indipendenti dal database, perché un database fermo non deve far escludere tutte le copie: una verifica che sia \emph{viva} (ogni 2~s) e una che sia \emph{pronta} a ricevere richieste (ogni 1~s). Con un'unica istanza, un guasto dell'API ferma il servizio fino al riavvio.
+È la versione di riferimento. L'API riceve l'ordine, lo scrive nel database e risponde \texttt{201} solo dopo il salvataggio; se non riesce entro \parametro{deadline_api_s}~s risponde \texttt{503}, perché un errore dichiarato è più chiaro di un'attesa senza risposta. Il kubelet, l'agente di Kubernetes su ogni nodo, controlla l'API con due sonde indipendenti dal database, perché un database fermo non deve far escludere tutte le copie: una verifica che sia \emph{viva} (ogni 2~s) e una che sia \emph{pronta} a ricevere richieste (ogni 1~s). Con un'unica istanza, un guasto dell'API ferma il servizio fino al riavvio.
 
 \begin{figure}[H]
 \centering
@@ -73,7 +73,7 @@ Nei diagrammi che seguono i blocchi con bordo sono programmi nostri, quelli pien
 \begin{scope}[on background layer]
 \node[cluster, fit=(svc)(kl)(db)(n1), label={[etichetta, anchor=north east]south east:cluster Kubernetes}] {};
 \end{scope}
-\draw[risposta] (api.south) -- ++(0,-1.5) -| node[etichetta, pos=0.25, below] {201 dopo il salvataggio $\cdot$ 503 entro 1,5 s} (cl.south);
+\draw[risposta] (api.south) -- ++(0,-1.5) -| node[etichetta, pos=0.25, below] {201 dopo il salvataggio $\cdot$ 503 entro \parametro{deadline_api_s} s} (cl.south);
 \end{tikzpicture}}
 \caption{V1: un'unica istanza dell'API, sorvegliata dalle sonde del kubelet; risposta \texttt{201} solo dopo il salvataggio.}
 \label{fig:v1}
@@ -185,7 +185,7 @@ Come V2, ma PostgreSQL è gestito da CloudNativePG con un primario e uno standby
 \subsection{V5 -- autoscaling dei worker}
 \label{s:v5}
 
-Come V3, ma il numero di worker non è fisso: KEDA osserva la lunghezza della coda e ne aggiunge quando si allunga, ne toglie quando si svuota, tra 1 e 10. Controlla la coda circa ogni 15~s, aggiunge worker quando in coda ci sono più di 2 secondi di lavoro per worker e aspetta 60~s prima di toglierli: con l'attesa predefinita di 300~s i 10 worker resterebbero accesi a lungo dopo il picco e il confronto di costo perderebbe senso. Ogni worker, come ogni copia dell'API, usa al massimo 5 connessioni al database: con 10 worker sono 50 sulle 100 che PostgreSQL accetta, quindi il limite del database non falsa il confronto. È l'elasticità del corso~\cite{starace-elasticita}: le risorse seguono la domanda.
+Come V3, ma il numero di worker non è fisso: KEDA osserva la lunghezza della coda e ne aggiunge quando si allunga, ne toglie quando si svuota, tra 1 e 10. Controlla la coda circa ogni \parametro{controllo_coda_s}~s, aggiunge worker quando in coda ci sono più di \parametro{soglia_secondi_di_lavoro_per_worker} secondi di lavoro per worker e aspetta \parametro{attesa_prima_di_togliere_s}~s prima di toglierli: con l'attesa predefinita di 300~s i 10 worker resterebbero accesi a lungo dopo il picco e il confronto di costo perderebbe senso. Ogni worker, come ogni copia dell'API, usa al massimo 5 connessioni al database: con 10 worker sono 50 sulle 100 che PostgreSQL accetta, quindi il limite del database non falsa il confronto. È l'elasticità del corso~\cite{starace-elasticita}: le risorse seguono la domanda.
 
 \begin{figure}[H]
 \centering
