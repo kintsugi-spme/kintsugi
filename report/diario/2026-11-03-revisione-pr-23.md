@@ -48,7 +48,7 @@ cd docs && make
 ## Risultato
 
 - Documento tecnico: 51 pagine, stessi avvisi di impaginazione di prima.
-- Relazione di sintesi: 18 pagine (erano 19), con la sezione «Riferimenti».
+- Relazione di sintesi: 19 pagine, con la sezione «Riferimenti» su una pagina propria.
 - Da fare per chiudere M1: approvazione di Gianmarco, poi tag `m1`; #10 (conferma dei valori principali).
 
 ## Problemi e soluzioni

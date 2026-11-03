@@ -48,7 +48,7 @@ La figura~\ref{fig:panoramica} riunisce i componenti di tutte le versioni. Nelle
 \label{fig:panoramica}
 \end{figure}
 
-Nei diagrammi che seguono i blocchi con bordo sono programmi nostri, quelli pieni sono parti di Kubernetes, il cilindro è il database; la freccia continua è una richiesta, quella tratteggiata una risposta, quella a puntini un controllo. Un \emph{nodo} è una macchina del cluster (in locale, un container Docker); un \emph{pod} è un'istanza di un nostro programma in esecuzione su un nodo. Un \emph{Service} è l'indirizzo stabile che Kubernetes dà a un gruppo di pod identici: distribuisce le richieste tra quelli pronti. Per semplicità manca Toxiproxy, il proxy tra applicazione e database che serve solo per il guasto F5 (sezione~\ref{s:guasti}).
+Nei diagrammi che seguono i blocchi con bordo sono programmi nostri, quelli pieni sono parti di Kubernetes, il cilindro è il database; la freccia continua è una richiesta, quella tratteggiata una risposta, quella a puntini un controllo. Un \emph{nodo} è una macchina del cluster (in locale, un container Docker); un \emph{pod} è un programma in esecuzione su un nodo (la nostra API e i nostri worker, ma anche RabbitMQ e PostgreSQL). Un \emph{Service} è l'indirizzo stabile che Kubernetes dà a un gruppo di pod identici: distribuisce le richieste tra quelli pronti. Per semplicità manca Toxiproxy, il proxy tra applicazione e database che serve solo per il guasto F5 (sezione~\ref{s:guasti}).
 
 \subsection{V1 -- istanza singola, sincrona}
 \label{s:v1}
