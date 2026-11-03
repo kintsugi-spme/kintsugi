@@ -68,7 +68,7 @@ Progettare e scrivere le previsioni (M1) → costruire l'app (M2) → portarla s
 4. con il database fermo per 60 s in V3, a fine run gli ordini persi sono 0.
 
 ### F3 — Kubernetes locale e harness minimo · S3-S5 · ~48 h · → M3
-**Attività:** cluster kind a 3 nodi (control plane + 2 worker) · manifest con base comune e overlay V1-V5 · DB e broker fissati a worker-1 · punto di ingresso NodePort sul control plane · sonde (D0007) · richieste e limiti di risorse · repliche · installazione di CloudNativePG (V4) e KEDA (V5) · misura a vuoto dei tempi di avvio · **harness minimo in S4**: carico a modello aperto con log per richiesta e crash F1 iniettato dal nodo.
+**Attività:** cluster kind a 3 nodi (control plane + 2 worker) · manifest con base comune e overlay V1-V5 · DB e broker fissati a worker1 · punto di ingresso NodePort sul control plane · sonde (D0007) · richieste e limiti di risorse · repliche · installazione di CloudNativePG (V4) e KEDA (V5) · misura a vuoto dei tempi di avvio · **harness minimo in S4**: carico a modello aperto con log per richiesta e crash F1 iniettato dal nodo.
 **Fatto quando:** V1-V3 funzionano su Kubernetes; con un crash F1 l'harness minimo restituisce downtime e istante di ripristino con risoluzione sotto il secondo.
 
 ### F4 — Osservabilità e banco di prova completo · S5-S7 · ~55 h · → M4
@@ -88,7 +88,7 @@ Progettare e scrivere le previsioni (M1) → costruire l'app (M2) → portarla s
 **Account (da aprire in S5, prima della prova):** account AWS con autenticazione a due fattori, utente non amministratore e allarme di budget attivo. Il piano gratuito di un account nuovo potrebbe non includere EKS: alla creazione scegliere il piano Paid e verificare i servizi inclusi.
 **Prova (S6):** creare e distruggere il cluster con infrastruttura come codice (eksctl, D0009) per scoprire limiti, permessi e costi reali.
 **Prima delle sessioni:** manifest parametrizzati, tabella dei parametri allineata (ALB compreso), piano delle 2-3 sessioni, previsione del guasto F6 se si decide di eseguirlo (scritta e committata prima del primo run). Si fanno solo se confermate a M5.
-**Sessioni:** EKS su 2-3 zone, ALB con pod readiness gate, DB e broker in una zona, JMeter su EC2 nella stessa regione · V2 e V3 con W1 e i guasti F1, F2, F3 (e F6, facoltativo); V3 anche con W2, senza guasti.
+**Sessioni:** EKS su 2-3 zone, ALB con pod readiness gate, DB e broker in una zona, JMeter su EC2 nella stessa regione · V2 e V3 con W1 e il guasto F1 (e F6, facoltativo); V3 anche con i guasti F2 e F3 e, senza guasti, con W2.
 **Dopo ogni sessione:** distruggere tutto e verificare che non restino risorse a pagamento (load balancer, NAT gateway, volumi, IP elastici).
 **Fatto quando:** risultati per RQ6 raccolti con la tabella delle differenze tra ambienti, console AWS pulita, costi annotati.
 
@@ -108,7 +108,7 @@ Progettare e scrivere le previsioni (M1) → costruire l'app (M2) → portarla s
 | **Auspicabile** | V4 (RQ4) · V5 (RQ5) · guasto F5 · sessioni AWS (RQ6), da confermare a M5 |
 | **Facoltativo** | Guasto F6 · V4 su AWS con standby in un'altra zona |
 
-**Ordine dei tagli in caso di ritardo:** F6 → V5 → F5 → sessioni AWS ridotte a una (o alla sola prova di S6, con RQ6 dichiarata come non risposta) → V4 ridotta alla sola replica asincrona. Non si tagliano mai il protocollo di misura, le 10 ripetizioni dei guasti F1-F4 e F7, RQ1-RQ3, le previsioni e il diario.
+**Ordine dei tagli in caso di ritardo:** guasto F6 → V5 → guasto F5 → sessioni AWS ridotte a una (o alla sola prova di S6, con RQ6 dichiarata come non risposta) → V4 ridotta alla sola replica asincrona. Non si tagliano mai il protocollo di misura, le 10 ripetizioni dei guasti F1-F4 e F7, RQ1-RQ3, le previsioni e il diario.
 
 **Sforzo stimato:** circa 306 ore (da 265), cioè ~12,7 ore a settimana a testa. Dettaglio per fase nell'appendice "Pianificazione" del documento.
 

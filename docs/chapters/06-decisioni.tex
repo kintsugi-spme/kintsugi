@@ -1,7 +1,7 @@
 \chapter{Decisioni architetturali}
 \label{cap:decisioni}
 
-Ogni scelta rilevante è documentata in una scheda ADR con tre parti: contesto, decisione e conseguenze. Una decisione nasce \emph{proposta} e diventa \emph{accettata} dopo la revisione e l'approvazione dell'altro autore. Le schede ancora da scrivere vanno completate entro la milestone M1 (04/11/2026).
+Ogni scelta rilevante è documentata in una scheda ADR con tre parti: contesto, decisione e conseguenze. Una decisione nasce \emph{proposta} e diventa \emph{accettata} dopo la revisione e l'approvazione dell'altro autore.
 
 \begin{table}[htbp]
 \centering
@@ -37,7 +37,7 @@ D0017 & Come esprimere la disponibilità & accettata \\
 
 \begin{table}[htbp]
 \centering
-\caption{Parametri proposti, uguali per tutte le versioni salvo dove indicato.}
+\caption{Parametri, uguali per tutte le versioni salvo dove indicato.}
 \label{tab:parametri}
 \begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.5\linewidth}L@{}}
 \toprule
@@ -68,7 +68,7 @@ Costo di una versione in locale & worker-secondi: la somma, nel tempo, del numer
 \end{tabularx}
 \end{table}
 
-I valori della configurazione \emph{standard} sono quelli predefiniti di Kubernetes (controllo ogni 10 secondi, guasto dopo 3 fallimenti di fila): vanno verificati sulla versione 1.37. Per la configurazione \emph{veloce} i 3 fallimenti di fila non erano stati fissati prima: sono scritti perché le due configurazioni siano confrontabili e vanno confermati.
+I valori della configurazione \emph{standard} sono quelli predefiniti di Kubernetes (controllo ogni 10 secondi, guasto dopo 3 fallimenti di fila): vanno verificati sulla versione 1.37. Anche nella configurazione \emph{veloce} i fallimenti di fila sono 3, come nella standard, così le due configurazioni differiscono solo per il periodo dei controlli.
 
 \input{chapters/decisioni/D0001-sincrono-o-coda}
 \input{chapters/decisioni/D0002-configurazione-coda}

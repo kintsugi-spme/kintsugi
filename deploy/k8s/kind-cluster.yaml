@@ -24,14 +24,14 @@ nodes:
         hostPort: 3000         # dashboard su http://localhost:3000
         listenAddress: "127.0.0.1"
 
-  # worker-1: ospita i componenti con stato (PostgreSQL, RabbitMQ, primario di V4)
+  # worker1 (il container kintsugi-worker): ospita i componenti con stato (PostgreSQL, RabbitMQ, primario di V4)
   # e l'osservabilità. Regole di piazzamento: D0006.
   - role: worker
     image: kindest/node:v1.37.0
     labels:
       kintsugi/ruolo: dati
 
-  # worker-2: nodo preferito dai componenti senza stato (API, worker); ospita anche
+  # worker2 (il container kintsugi-worker2): nodo preferito dai componenti senza stato (API, worker); ospita anche
   # lo standby di V4. È il nodo spento in F6. Regole di piazzamento: D0006.
   - role: worker
     image: kindest/node:v1.37.0
