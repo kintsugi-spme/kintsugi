@@ -36,8 +36,16 @@
 \input{sintesi/03-guasti}
 \input{sintesi/04-misura}
 \input{sintesi/05-previsioni}
-\input{sintesi/06-decisioni}
 \input{sintesi/07-limiti}
 \input{sintesi/08-piano}
+
+% Riferimenti come sezione, non come capitolo (la sintesi non usa i capitoli).
+{\renewcommand{\chapter}{\section}\renewcommand{\bibname}{Riferimenti}
+\begin{thebibliography}{9}
+\addcontentsline{toc}{section}{Riferimenti}
+\markboth{Riferimenti}{}
+\bibitem{dimartino-architetture} S.~Di Martino, \emph{Modern Software Architectures}, slide del corso Software Project Management and Evolution (lezioni 13--14), Università degli Studi di Napoli Federico II.
+\bibitem{starace-elasticita} L.~L.~L.~Starace, \emph{On the quest for Elasticity: an architectural journey from servers to serverless computing}, slide del corso Software Project Management and Evolution, Università degli Studi di Napoli Federico II, 22/04/2026.
+\end{thebibliography}}
 
 \end{document}

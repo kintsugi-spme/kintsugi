@@ -67,4 +67,4 @@ La figura~\ref{fig:anatomia} scompone il fermo in rilevamento, riavvio e ritorno
 \label{fig:anatomia}
 \end{figure}
 
-\paragraph{Come si provocano.} I segnali \texttt{SIGKILL} (crash) e \texttt{SIGSTOP} (blocco) sono inviati dal nodo che ospita il processo, non con \texttt{kubectl delete pod}, che è una terminazione ordinata e non un guasto (D0016). L'istante del guasto è registrato al millisecondo. Prima di ogni run il sistema viene riportato a uno stato iniziale verificato. La latenza del guasto F5 è di 200~ms: con 500~ms il sincrono fallirebbe quasi del tutto e il guasto non direbbe nulla di nuovo rispetto all'arresto del database.
+\paragraph{Come si provocano.} I segnali \texttt{SIGKILL} (crash) e \texttt{SIGSTOP} (blocco) sono inviati dal nodo che ospita il processo, non con \texttt{kubectl delete pod}, che è una terminazione ordinata e non un guasto. L'istante del guasto è registrato al millisecondo. Prima di ogni run il sistema viene riportato a uno stato iniziale verificato. La latenza del guasto F5 è di 200~ms: con 500~ms il sincrono fallirebbe quasi del tutto e il guasto non direbbe nulla di nuovo rispetto all'arresto del database.

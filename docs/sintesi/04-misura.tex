@@ -9,16 +9,16 @@ Tempi di fermo e di ripristino si calcolano dal log del client e dagli istanti r
 \centering
 \caption{Le misure e il loro significato.}
 \label{tab:definizioni}
-\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{3.6cm}L@{}}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{2.9cm}>{\raggedright\arraybackslash}p{3.6cm}L@{}}
 \toprule
-\textbf{Misura} & \textbf{Significato} \\
+\textbf{Misura} & \textbf{In parole} & \textbf{Significato} \\
 \midrule
-Disponibilità di accettazione & Frazione di secondi in cui almeno il 99\% delle richieste inviate riceve esito positivo (201 o 202) entro 2~s, visto dal client. \\
-Disponibilità di completamento & Frazione di secondi in cui almeno il 99\% degli ordini ricevuti è salvato nel database entro 2~s dalla ricezione. In V3 e V5 è la misura decisiva: con il database fermo l'API continua ad accettare, ma nessun ordine viene completato. \\
-Ripristino $t_r$ & Primo istante, dal guasto in poi, da cui seguono 5 secondi consecutivi disponibili. Un pod tornato pronto non basta. Il servizio è ripristinato quando lo sono sia l'accettazione sia il completamento. \\
-Fermo $D$ & $t_r - t_g$, con $t_g$ istante del guasto. Se il ripristino non avviene entro il tetto del run, il run è valido e registrato come ``non ripristinato''. \\
-Tempo end-to-end & Scrittura nel database meno ricezione da parte dell'API, entrambi presi nel cluster (D0005). \\
-Costo & In locale, \emph{worker-secondi}: la somma nel tempo del numero di worker accesi (RQ5). Su AWS, costo per mille ordini. \\
+Disponibilità di accettazione & Il cliente riceve una risposta positiva? & Frazione di secondi in cui almeno il 99\% delle richieste inviate riceve esito positivo (201 o 202) entro 2~s, visto dal client. \\
+Disponibilità di completamento & L'ordine è stato davvero salvato, e in tempo? & Frazione di secondi in cui almeno il 99\% degli ordini ricevuti è salvato nel database entro 2~s dalla ricezione. In V3 e V5 è la misura decisiva: con il database fermo l'API continua ad accettare, ma nessun ordine viene completato. \\
+Ripristino $t_r$ & Da quando il servizio funziona di nuovo, in modo stabile & Vale separatamente per accettazione e completamento: primo istante, dal guasto in poi, da cui seguono 5 secondi consecutivi disponibili in quella misura. Un pod tornato pronto non basta. Il servizio è ripristinato quando lo sono sia l'accettazione sia il completamento. \\
+Fermo $D$ & Quanto è durato il disservizio & $t_r - t_g$, con $t_g$ istante del guasto, calcolato con il $t_r$ di ciascuna misura. Se il ripristino non avviene entro il tetto del run, il run è valido e registrato come ``non ripristinato''. \\
+Tempo end-to-end & Quanto passa dall'arrivo dell'ordine al suo salvataggio & Scrittura nel database meno ricezione da parte dell'API, entrambi presi nel cluster. \\
+Costo & Quante risorse abbiamo usato & In locale, \emph{worker-secondi}: la somma nel tempo del numero di worker accesi (RQ5). Su AWS, costo per mille ordini. \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -27,7 +27,7 @@ La soglia del 99\% è severa a ritmi bassi: a 50 richieste al secondo basta un e
 
 \subsection{Dove finisce ogni ordine}
 
-A fine run ogni identificativo inviato dal client viene assegnato a una categoria, incrociando il log del client con il database e la coda dei falliti (figura~\ref{fig:categorie}). Il caso grave è il \textbf{perso}: il client ha ricevuto esito positivo, ma l'ordine non è mai stato salvato. Distinguere \emph{fallito} (errore dichiarato, il client riprova) da \emph{perso} è ciò che permette di confrontare sincrono e asincrono: nel sincrono un errore è visibile subito, nell'asincrono un ``ricevuto'' non garantisce il completamento. I \textbf{doppi} (lo stesso ordine consegnato due volte) si contano a parte (D0004).
+A fine run ogni identificativo inviato dal client viene assegnato a una categoria, incrociando il log del client con il database e la coda dei falliti (figura~\ref{fig:categorie}). Il caso grave è il \textbf{perso}: il client ha ricevuto esito positivo, ma l'ordine non è mai stato salvato. Distinguere \emph{fallito} (errore dichiarato, il client riprova) da \emph{perso} è ciò che permette di confrontare sincrono e asincrono: nel sincrono un errore è visibile subito, nell'asincrono un ``ricevuto'' non garantisce il completamento. I \textbf{doppi} (lo stesso ordine consegnato due volte) si contano a parte: l'identificativo dell'ordine lo sceglie il client e il database inserisce un ordine solo se non esiste già, registrando i doppi in una tabella separata.
 
 \begin{figure}[H]
 \centering

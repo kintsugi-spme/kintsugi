@@ -1,6 +1,6 @@
 # 2026-11-02 — Prima bozza della relazione di sintesi
 
-**Chi:** Francesco · **Fase:** F1 · **Durata:** ? h · **Issue:** nessuna ancora (proposta di Francesco: affiancare al documento tecnico una versione breve per i docenti)
+**Chi:** Francesco · **Fase:** F1 · **Durata:** 1 h · **Issue:** nessuna ancora (proposta di Francesco: affiancare al documento tecnico una versione breve per i docenti)
 
 ## Cosa abbiamo fatto
 

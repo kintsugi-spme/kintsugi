@@ -58,6 +58,7 @@ $T_{\text{DB}}$ & riavvio di PostgreSQL dopo \texttt{SIGKILL} & 3--8~s \\
 $T_{\text{MQ}}$ & riavvio di RabbitMQ con la coda durevole & 5--15~s \\
 $T_{\text{prom}}$ & promozione dello standby da parte di CloudNativePG & 3--10~s \\
 $T_{\text{KEDA}}$ & reazione di V5 al picco (controllo ogni 15~s, nuovi worker pronti in 2--5~s) & 3--20~s i primi worker; 18--35~s tutti e 10 \\
+$\mu_N$ & capacità con $N$ worker; se è più bassa, nel report si indica quale componente si è saturato & $N\mu_1$, fino a 10 worker \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -118,7 +119,7 @@ RQ6 & Su AWS il fermo di F1 su V2 è più lungo che in locale, perché l'ALB tog
 
 \subsection{Dal fermo alla disponibilità}
 
-Un fermo di 4~s, da solo, non dice se il servizio è buono: dipende da quante volte il guasto si ripete. Portiamo i secondi misurati sulla scala dei servizi reali, la disponibilità del 99,9\% (D0017). Un mese di 30 giorni ha 43\,200 minuti, quindi il \textbf{budget di errore} è
+Un fermo di 4~s, da solo, non dice se il servizio è buono: dipende da quante volte il guasto si ripete. Portiamo i secondi misurati sulla scala dei servizi reali, la disponibilità del 99,9\%. Un mese di 30 giorni ha 43\,200 minuti, quindi il \textbf{budget di errore} è
 \[
 B = 0{,}001 \cdot 43\,200 \text{ min} = 43{,}2 \text{ min} = 2592 \text{ s al mese.}
 \]

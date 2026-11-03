@@ -1,6 +1,6 @@
 # 2026-11-02 — Correzione delle incoerenze del documento (issue #20)
 
-**Chi:** Francesco · **Fase:** F1 · **Durata:** ? h · **Issue:** #20, #22 (documentazione AWS) e, in parte, #10 (valori principali)
+**Chi:** Francesco · **Fase:** F1 · **Durata:** 1 h · **Issue:** #20, #22 (documentazione AWS) e, in parte, #10 (valori principali)
 
 ## Cosa abbiamo fatto
 
@@ -112,12 +112,11 @@ cd docs && make
 
 ## Risultato
 
-- Matrice: 80 run senza guasti (16 configurazioni × 5) + 100 + 20 + 20 + 30 (V5 e riferimenti, 10 ripetizioni) = **250**.
-- Ipotesi di lavoro: V5 sotto W2 era già una delle 17 configurazioni senza guasti da 5 ripetizioni (come da piano precedente); ora è contata nel gruppo da 10. Se così non fosse, il totale sarebbe 255. L'elenco delle configurazioni senza guasti resta un `\todo` del capitolo 7, da chiudere separatamente.
+- Matrice: 25 + 15 + 100 + 20 + 20 + 40 = **220** run, circa 22 ore; nessun `\todo` rimasto nel documento.
 
 ## Problemi e soluzioni
 
-- Il numero 85 (17 × 5) non aveva un calcolo nel documento (già segnalato nel diario del 23/10): ora è 80 + V5 sotto W2, ma l'elenco completo delle configurazioni non è ancora scritto.
+- Il numero 85 (17 × 5) non aveva un calcolo nel documento (già segnalato nel diario del 23/10): ora l'elenco è nel capitolo 7 (W1 su 5 versioni e W3 su 3, 40 run).
 
 ## Limiti dello strumento emersi
 

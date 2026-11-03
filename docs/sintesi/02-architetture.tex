@@ -1,7 +1,7 @@
 \section{Le cinque architetture}
 \label{s:architetture}
 
-Le cinque versioni sono configurazioni dello stesso codice e della stessa immagine (D0012): cambiano solo impostazioni e manifest. Ognuna deriva da un'altra modificando \textbf{un solo fattore} (figura~\ref{fig:derivazione}).
+Le cinque versioni sono configurazioni dello stesso codice, scritto in Python, e della stessa immagine: cambiano solo impostazioni e manifest, così il confronto tra versioni avviene sempre sullo stesso codice. Ognuna deriva da un'altra modificando \textbf{un solo fattore} (figura~\ref{fig:derivazione}).
 
 \begin{figure}[H]
 \centering
@@ -48,12 +48,12 @@ La figura~\ref{fig:panoramica} riunisce i componenti di tutte le versioni. Nelle
 \label{fig:panoramica}
 \end{figure}
 
-Nei diagrammi che seguono i blocchi con bordo sono programmi nostri, quelli pieni sono parti di Kubernetes, il cilindro è il database; la freccia continua è una richiesta, quella tratteggiata una risposta, quella a puntini un controllo. Per semplicità manca Toxiproxy, il proxy tra applicazione e database che serve solo per il guasto F5 (sezione~\ref{s:guasti}).
+Nei diagrammi che seguono i blocchi con bordo sono programmi nostri, quelli pieni sono parti di Kubernetes, il cilindro è il database; la freccia continua è una richiesta, quella tratteggiata una risposta, quella a puntini un controllo. Un \emph{nodo} è una macchina del cluster (in locale, un container Docker); un \emph{pod} è un'istanza di un nostro programma in esecuzione su un nodo. Un \emph{Service} è l'indirizzo stabile che Kubernetes dà a un gruppo di pod identici: distribuisce le richieste tra quelli pronti. Per semplicità manca Toxiproxy, il proxy tra applicazione e database che serve solo per il guasto F5 (sezione~\ref{s:guasti}).
 
 \subsection{V1 -- istanza singola, sincrona}
 \label{s:v1}
 
-È la versione di riferimento. L'API riceve l'ordine, lo scrive nel database e risponde \texttt{201} solo dopo il salvataggio; se non riesce entro 1,5~s risponde \texttt{503} (D0008). Il kubelet, l'agente di Kubernetes su ogni nodo, controlla l'API con due sonde indipendenti dal database (D0007): una verifica che sia \emph{viva} (ogni 2~s) e una che sia \emph{pronta} a ricevere richieste (ogni 1~s). Con un'unica istanza, un guasto dell'API ferma il servizio fino al riavvio.
+È la versione di riferimento. L'API riceve l'ordine, lo scrive nel database e risponde \texttt{201} solo dopo il salvataggio; se non riesce entro 1,5~s risponde \texttt{503}, perché un errore dichiarato è più chiaro di un'attesa senza risposta. Il kubelet, l'agente di Kubernetes su ogni nodo, controlla l'API con due sonde indipendenti dal database, perché un database fermo non deve far escludere tutte le copie: una verifica che sia \emph{viva} (ogni 2~s) e una che sia \emph{pronta} a ricevere richieste (ogni 1~s). Con un'unica istanza, un guasto dell'API ferma il servizio fino al riavvio.
 
 \begin{figure}[H]
 \centering
@@ -114,7 +114,7 @@ Come V1, con tre repliche dell'API. Il Service distribuisce le richieste solo tr
 \subsection{V3 -- asincrona con coda}
 \label{s:v3}
 
-Come V2, ma l'API non scrive nel database: pubblica l'ordine su RabbitMQ e risponde \texttt{202} (``ricevuto'') appena il broker conferma di averlo conservato (D0001, D0002). Tre worker leggono la coda, scrivono nel database e confermano al broker (\textit{ack}) solo dopo il salvataggio. Se il database si ferma, gli ordini restano in coda e i worker ritentano (D0003); quelli che non si riesce a salvare entro 120~s finiscono nella coda dei falliti. Il cliente attende meno, ma ora il broker è il punto unico di guasto per l'accettazione.
+Come V2, ma l'API non scrive nel database: pubblica l'ordine su RabbitMQ e risponde \texttt{202} (``ricevuto'') appena il broker conferma di averlo conservato. Tre worker leggono la coda, scrivono nel database e confermano al broker (\textit{ack}) solo dopo il salvataggio. Se il database si ferma, gli ordini restano in coda e i worker ritentano tenendo l'ordine con sé, con attese crescenti da 0,5 a 10~s, perché rimetterlo subito in coda creerebbe un giro continuo senza risultato; quelli che non si riesce a salvare entro 120~s finiscono nella coda dei falliti. Il cliente attende meno, ma ora il broker è il punto unico di guasto per l'accettazione.
 
 \begin{figure}[H]
 \centering
@@ -149,7 +149,7 @@ Come V2, ma l'API non scrive nel database: pubblica l'ordine su RabbitMQ e rispo
 \subsection{V4 -- database replicato}
 \label{s:v4}
 
-Come V2, ma PostgreSQL è gestito da CloudNativePG con un primario e uno standby aggiornato in continuo (D0014). L'API scrive sempre allo stesso indirizzo, il Service di scrittura (\texttt{-rw}); se il primario cade, l'operatore promuove lo standby e sposta l'indirizzo su di esso (attivo-passivo). Primario e standby stanno su nodi diversi, altrimenti la replica non proteggerebbe dal guasto di una macchina (D0006). Si provano due modalità:
+Come V2, ma PostgreSQL è gestito da CloudNativePG con un primario e uno standby aggiornato in continuo. L'API scrive sempre allo stesso indirizzo, il Service di scrittura (\texttt{-rw}); se il primario cade, l'operatore promuove lo standby e sposta l'indirizzo su di esso (attivo-passivo). Primario e standby stanno su nodi diversi, altrimenti la replica non proteggerebbe dal guasto di una macchina. Si provano due modalità:
 \begin{description}
   \item[V4a, asincrona] il primario conferma senza attendere lo standby: scritture più rapide, ma gli ultimi ordini confermati possono andare persi nel failover.
   \item[V4s, sincrona] il primario conferma solo dopo che lo standby ha ricevuto la scrittura: nessuna perdita, ma ogni scrittura è più lenta.
@@ -185,7 +185,7 @@ Come V2, ma PostgreSQL è gestito da CloudNativePG con un primario e uno standby
 \subsection{V5 -- autoscaling dei worker}
 \label{s:v5}
 
-Come V3, ma il numero di worker non è fisso: KEDA osserva la lunghezza della coda e ne aggiunge quando si allunga, ne toglie quando si svuota, tra 1 e 10 (D0015). È l'elasticità del corso (T12): le risorse seguono la domanda.
+Come V3, ma il numero di worker non è fisso: KEDA osserva la lunghezza della coda e ne aggiunge quando si allunga, ne toglie quando si svuota, tra 1 e 10. Controlla la coda circa ogni 15~s, aggiunge worker quando in coda ci sono più di 2 secondi di lavoro per worker e aspetta 60~s prima di toglierli: con l'attesa predefinita di 300~s i 10 worker resterebbero accesi a lungo dopo il picco e il confronto di costo perderebbe senso. Ogni worker, come ogni copia dell'API, usa al massimo 5 connessioni al database: con 10 worker sono 50 sulle 100 che PostgreSQL accetta, quindi il limite del database non falsa il confronto. È l'elasticità del corso~\cite{starace-elasticita}: le risorse seguono la domanda.
 
 \begin{figure}[H]
 \centering
@@ -235,13 +235,13 @@ V4s & Lo standby: se cade le scritture possono bloccarsi\textsuperscript{*} \\
 \end{tabularx}
 
 \vspace{2pt}
-{\footnotesize\textsuperscript{*} Comportamento da verificare sulla versione di CloudNativePG adottata (D0014).\par}
+{\footnotesize\textsuperscript{*} Comportamento da verificare sulla versione di CloudNativePG adottata.\par}
 \end{table}
 
-\paragraph{Il tempo di un ordine.} In ogni versione si registrano due istanti, entrambi presi nel cluster per evitare orologi diversi (D0005): la ricezione da parte dell'API e la scrittura nel database. La loro differenza è il \emph{tempo end-to-end}, la metrica comune a tutte le versioni. Con la coda il client attende meno, ma l'ordine viene salvato più tardi.
+\paragraph{Il tempo di un ordine.} In ogni versione si registrano due istanti, entrambi presi nel cluster per evitare orologi diversi: la ricezione da parte dell'API e la scrittura nel database. La loro differenza è il \emph{tempo end-to-end}, la metrica comune a tutte le versioni. Con la coda il client attende meno, ma l'ordine viene salvato più tardi.
 
 \subsection{Dove si esegue}
 
-Una campagna completa si svolge in \textbf{locale}, su \textbf{kind}, con tre nodi simulati da container Docker (un control plane che non viene mai guastato e due worker, uno per i dati e uno per il calcolo), Kubernetes 1.37 e misure ufficiali su un solo computer (D0013). Una parte degli esperimenti (V2 e V3, carichi W1 e W2, guasti F1, F2 e F3) si ripete su \textbf{AWS}, con EKS, nodi EC2 in tre zone, bilanciatore ALB e dischi EBS, nella regione di Irlanda (D0009). Il costo previsto è di circa 15--20 dollari, con allarme di budget attivo prima di ogni sessione e distruzione del cluster al termine.
+Una campagna completa si svolge in \textbf{locale}, su \textbf{kind}, con tre nodi simulati da container Docker (un control plane che non viene mai guastato e due worker: uno ospita database e coda, l'altro i componenti senza stato) e Kubernetes 1.37. La collocazione dei componenti è fissa: se cambiasse tra un run e l'altro sarebbe una causa nascosta delle differenze. Le misure ufficiali si fanno su un solo computer da 16~GB, per avere risorse stabili tra i run. Una parte degli esperimenti (V2 e V3 con il carico W1 e i guasti F1, F2 e F3; V3 anche con il carico W2, senza guasti) si ripete su \textbf{AWS}, con EKS, nodi EC2 a prestazioni fisse in tre zone, bilanciatore ALB e dischi EBS, nella regione di Irlanda; il cluster si crea e si distrugge con \texttt{eksctl}. Il costo previsto è di circa 15--20 dollari, con allarme di budget attivo prima di ogni sessione e distruzione del cluster al termine.
 
 Il limite principale dell'ambiente locale è che i nodi di kind sono container sullo stesso computer: la perdita di un nodo è simulata, e per questo la ripetizione su AWS serve a RQ6.

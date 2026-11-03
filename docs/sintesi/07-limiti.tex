@@ -1,7 +1,13 @@
 \section{I limiti dell'esperimento}
 \label{s:limiti}
 
-Nessun esperimento è privo di limiti. Le minacce principali sono classificate nelle quattro categorie usuali, ognuna con la sua contromisura. \emph{Interna}: un altro fattore causa la differenza osservata. \emph{Di costrutto}: la misura non rappresenta ciò che vogliamo misurare. \emph{Esterna}: i risultati non valgono fuori dall'ambiente di prova. \emph{Delle conclusioni}: la statistica porta a conclusioni sbagliate.
+Ogni esperimento ha limiti: cose che potrebbero falsare le misure o impedirci di estenderle ad altri casi. Dichiariamo i principali e per ciascuno diciamo che cosa facciamo per ridurlo. Li raggruppiamo per ciò che mettono a rischio:
+\begin{itemize}
+  \item \textbf{Interni:} un altro fattore, non quello che cambiamo, causa la differenza che vediamo (per esempio, il portatile e il generatore di carico si contendono la CPU).
+  \item \textbf{Di costrutto:} ciò che misuriamo non è davvero ciò che vogliamo misurare (un pod ``pronto'' non vuol dire servizio ripristinato).
+  \item \textbf{Esterni:} i risultati valgono nel nostro ambiente ma non è detto fuori (kind su un portatile non è un cluster reale).
+  \item \textbf{Delle conclusioni:} la statistica potrebbe portarci a conclusioni sbagliate (un solo run può essere un caso).
+\end{itemize}
 
 \begin{table}[H]
 \centering

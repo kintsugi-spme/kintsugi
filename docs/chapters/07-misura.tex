@@ -21,7 +21,7 @@ Ripristinato & Vale separatamente per accettazione e completamento: $t_r$ è il 
 Fermo (\textit{downtime}) & $t_r - t_g$, con $t_g$ istante del guasto, calcolato con il $t_r$ di ciascuna misura. Se un ripristino non avviene entro il tetto del run, il run è valido e registrato come ``non ripristinato''. \\
 Tempo end-to-end & $\texttt{ts\_scrittura} - \texttt{ts\_ricezione}$, entrambi presi nel cluster (D0005). È la metrica comune a tutte le versioni. \\
 Latenza del client & Tempo tra invio e risposta, misurato da JMeter. In V3 e V5 misura solo l'accettazione. \\
-Costo & In locale, worker-secondi: integrale nel tempo del numero di worker attivi (RQ5). Sotto W2 si calcola dall'inizio del picco fino a 10 minuti dopo, uguale per V5 e per i due riferimenti V3: se un run finisce prima, si prosegue con il numero di worker presente alla fine. Su AWS, costo per mille ordini. \\
+Costo & In locale, worker-secondi: integrale nel tempo del numero di worker attivi (RQ5). Sotto W2 si calcola dall'inizio del picco fino a 10 minuti dopo, uguale per V5 e per le tre configurazioni V3 (con 3, con 1 e con 10 worker): se un run finisce prima, si prosegue con il numero di worker presente alla fine. Su AWS, costo per mille ordini. \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -161,9 +161,9 @@ Carico W2: V5 e V3 con 3, con 1 e con 10 worker fissi & 10 & 40 \\
 \end{tabular}
 \end{table}
 
-Il confronto di RQ5 riguarda quattro configurazioni sotto W2: V5, V3 con i suoi 3 worker, V3 con 1 e V3 con 10 worker fissi. Servono la stessa precisione su tutte e quattro, quindi 10 ripetizioni ciascuna.
+Il confronto di RQ5 riguarda quattro configurazioni sotto W2: V5, V3 con i suoi 3 worker, V3 con 1 e V3 con 10 worker fissi. Serve la stessa precisione su tutte e quattro, quindi 10 ripetizioni ciascuna.
 
-I run senza guasti servono a tre scopi. Il carico W1 su V1, V2, V3, V4a e V4s dà il quadro di base di ogni versione: tempo end-to-end (RQ2), costo della replica sincrona (RQ4) e conferma che senza guasti il fermo è zero. Il carico W3 su V1, V2 e V3 mostra cosa succede oltre il limite: il sincrono risponde con errori, l'asincrono accumula coda (RQ2). V5 non ha run con W1 o W3, perché la sua capacità cambia nel tempo e ``150\% della capacità'' non ha senso; V4a e V4s non si provano con W3, perché nessuna domanda di ricerca lo richiede. La figura~\ref{fig:matrice} mostra i 180 run con guasto o sotto W2. Il guasto F6 è facoltativo e non è incluso nel totale.
+I run senza guasti servono a più scopi. Il carico W1 su V1, V2, V3, V4a e V4s dà il quadro di base di ogni versione: tempo end-to-end (RQ2) e conferma che senza guasti il fermo è zero. Il costo della replica sincrona (RQ4) si misura sul minuto di riferimento dei run con guasto F4 su V4a e V4s (10 ripetizioni ciascuno), con lo stesso carico W1, e si legge nella latenza del client, perché l'attesa della replica non entra nel tempo end-to-end (D0005); i run senza guasti (5 ripetizioni) ne sono una verifica. Il carico W3 su V1, V2 e V3 mostra cosa succede oltre il limite: il sincrono risponde con errori, l'asincrono accumula coda (RQ2). V5 non ha run con W1 o W3, perché la sua capacità cambia nel tempo e ``150\% della capacità'' non ha senso; V4a e V4s non si provano con W3, perché nessuna domanda di ricerca lo richiede. La figura~\ref{fig:matrice} mostra i 180 run con guasto o sotto W2. Il guasto F6 è facoltativo e non è incluso nel totale.
 
 \begin{figure}[htbp]
 \centering

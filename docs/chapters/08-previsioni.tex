@@ -85,6 +85,7 @@ $T_{\text{riconn}}$ & riconnessione di API e worker al broker & 1--5~s \\
 $T_{\text{prom}}$ & promozione dello standby da parte di CloudNativePG & 3--10~s \\
 $R$ & attesa del worker fino al tentativo successivo, dopo il ritorno del database (D0003: tentativi a 0,5, 1,5, 3,5, 7,5, 15,5~s) & 0--8~s \\
 $T_{\text{KEDA}}$ & reazione di V5 al picco: l'autoscaler controlla la coda ogni 15~s e aggiunge al più 4 worker o il 100\% per volta; un nuovo worker è pronto in 2--5~s (D0015) & 3--20~s (primi worker); 18--35~s (tutti e 10) \\
+$\mu_N$ & capacità con $N$ worker; se è più bassa, nel report si indica quale componente (database, broker o computer di misura) si è saturato & $N\mu_1$, fino a 10 worker \\
 $k$ & scambi con il database per ogni ordine (controllo della connessione, inserimento, conferma) & 2--3 \\
 $S$ & tempo di servizio di un ordine al database, senza latenza aggiunta & trascurabile rispetto a $kL$, da misurare nella fase F4 \\
 --- & ritardo della replica asincrona di V4a & $< 0{,}1$~s \\

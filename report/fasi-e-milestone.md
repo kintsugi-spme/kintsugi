@@ -77,7 +77,8 @@ Progettare e scrivere le previsioni (M1) → costruire l'app (M2) → portarla s
 1. due ripetizioni dello stesso test sono entro una tolleranza dichiarata (es. 10% sulla mediana), anche con un run con guasto in mezzo;
 2. durante un guasto il ritmo inviato resta entro ±5%, anche con F4 su V1;
 3. F1 su V2 produce un downtime coerente con la previsione, oppure la differenza è spiegata;
-4. il failover di V4 avviene e il reset ripristina la topologia; KEDA scala i worker di V5 sotto W2 e il reset li riporta al minimo.
+4. il failover di V4 avviene e il reset ripristina la topologia; KEDA scala i worker di V5 sotto W2 e il reset li riporta al minimo;
+5. misurata la capacità con 1, 3 e 10 worker; se con 10 è sotto 10×μ1, si annota quale componente satura.
 
 ### F5 — Campagna locale · S7-S8 · ~48 h · → M5
 **Attività:** 220 run sul MacBook M5 da 16 GB (D0013), in blocchi automatici (matrice nel capitolo "Protocollo di misura" del documento; F6 se c'è tempo) · controllo periodico dei dati e della coerenza delle categorie · ogni run scartato e ogni anomalia nel diario · analisi preliminare di RQ1-RQ5.
@@ -87,12 +88,12 @@ Progettare e scrivere le previsioni (M1) → costruire l'app (M2) → portarla s
 **Account (da aprire in S5, prima della prova):** account AWS con autenticazione a due fattori, utente non amministratore e allarme di budget attivo. Il piano gratuito di un account nuovo potrebbe non includere EKS: alla creazione scegliere il piano Paid e verificare i servizi inclusi.
 **Prova (S6):** creare e distruggere il cluster con infrastruttura come codice (eksctl, D0009) per scoprire limiti, permessi e costi reali.
 **Prima delle sessioni:** manifest parametrizzati, tabella dei parametri allineata (ALB compreso), piano delle 2-3 sessioni, previsione del guasto F6 se si decide di eseguirlo (scritta e committata prima del primo run). Si fanno solo se confermate a M5.
-**Sessioni:** EKS su 2-3 zone, ALB con pod readiness gate, DB e broker in una zona, JMeter su EC2 nella stessa regione · V2 e V3 con W1 e W2, guasti F1, F2, F3 (e F6, facoltativo).
+**Sessioni:** EKS su 2-3 zone, ALB con pod readiness gate, DB e broker in una zona, JMeter su EC2 nella stessa regione · V2 e V3 con W1 e i guasti F1, F2, F3 (e F6, facoltativo); V3 anche con W2, senza guasti.
 **Dopo ogni sessione:** distruggere tutto e verificare che non restino risorse a pagamento (load balancer, NAT gateway, volumi, IP elastici).
 **Fatto quando:** risultati per RQ6 raccolti con la tabella delle differenze tra ambienti, console AWS pulita, costi annotati.
 
 ### F7 — Analisi e confronto con la teoria · S10-S11 · ~26 h · → M7
-**Attività:** downtime, richieste fallite e ordini persi previsti contro misurati · budget di errore consumato per guasto e disponibilità proiettata in "nove" · mediane, intervalli interquartili, intervalli di confidenza bootstrap, analisi di sensibilità (compreso il limite di completamento a 1 s e 5 s) · sincrono contro asincrono · crash contro blocco · failover con replica asincrona e sincrona · V5 contro V3 a parità di costo · pod pronto contro servizio ripristinato · locale contro AWS · risposta a ogni domanda · cosa non possiamo concludere.
+**Attività:** downtime, richieste fallite e ordini persi previsti contro misurati · budget di errore consumato per guasto e disponibilità proiettata in "nove" · mediane, intervalli interquartili, intervalli di confidenza bootstrap, analisi di sensibilità (compreso il limite di completamento a 1 s e 5 s) · sincrono contro asincrono · crash contro blocco · failover con replica asincrona e sincrona · V5 contro V3 su coda massima e costo · pod pronto contro servizio ripristinato · locale contro AWS · risposta a ogni domanda · cosa non possiamo concludere.
 **Fatto quando:** ogni RQ ha una risposta con dati, incertezza e limiti dichiarati.
 
 ### F8 — Report, diario e orale · S11-S12 · ~27 h · → M7

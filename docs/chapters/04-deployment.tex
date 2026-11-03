@@ -57,7 +57,7 @@ Tutti i nodi usano l'immagine \texttt{kindest/node:v1.37.0}, quindi Kubernetes 1
 \section{Ambiente B -- AWS}
 \label{sec:aws}
 
-Una parte degli esperimenti (V2 e V3, carichi W1 e W2, guasti F1, F2 e F3) si ripete su AWS, con macchine reali distribuite su zone di disponibilità diverse. Il guasto F6 (perdita di un nodo) è facoltativo anche su AWS: si esegue solo se c'è tempo, con una previsione scritta e registrata su Git prima del primo run. I servizi usati sono:
+Una parte degli esperimenti (V2 e V3 con il carico W1 e i guasti F1, F2 e F3; V3 anche con il carico W2, senza guasti) si ripete su AWS, con macchine reali distribuite su zone di disponibilità diverse. Il guasto F6 (perdita di un nodo) è facoltativo anche su AWS: si esegue solo se c'è tempo, con una previsione scritta e registrata su Git prima del primo run. I servizi usati sono:
 
 \begin{description}
   \item[EKS] il control plane di Kubernetes, gestito da AWS.
