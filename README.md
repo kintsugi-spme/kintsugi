@@ -188,7 +188,7 @@ Genera `docs/main.pdf`: architettura, decisioni (ADR), modello dei guasti, proto
 | **M6** | 30/12/2026 | Sessioni su AWS |
 | **M7** | 13/01/2027 | Consegna |
 
-Avanzamento: [milestone su GitHub](https://github.com/terrecruis/kintsugi/milestones).
+Avanzamento: [milestone su GitHub](https://github.com/kintsugi-spme/kintsugi/milestones).
 
 ---
 
