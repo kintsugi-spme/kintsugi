@@ -198,3 +198,10 @@ Avanzamento: [milestone su GitHub](https://github.com/terrecruis/kintsugi/milest
 2. Lo sviluppo avviene su un branch breve (`feat/`, `fix/`, `docs/`, `exp/`).
 3. Le modifiche rientrano in `main` tramite **pull request** rivista dall'altro autore.
 4. Ogni decisione architetturale diventa un **ADR** in `docs/chapters/decisioni/`.
+
+---
+
+## 9. Licenza
+
+- **Codice** (`app/`, `deploy/`, `harness/`, `analysis/` e gli script): [MIT](LICENSE).
+- **Documentazione** (`docs/`, `report/` e i file Markdown): [CC BY 4.0](LICENSE-DOCS.md). Chi la riusa deve citare gli autori.
