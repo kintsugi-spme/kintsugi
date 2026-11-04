@@ -1,6 +1,6 @@
 # 2026-11-04 — Controlli automatici sulle pull request
 
-**Chi:** Francesco · **Fase:** F1 (documenti) · **Durata:** ? h · **Issue:** #41 (parte 2, controlli sui documenti)
+**Chi:** Francesco · **Fase:** F1 (documenti) · **Durata:** 1.5 h · **Issue:** #41 (parte 2, controlli sui documenti)
 
 ## Cosa abbiamo fatto
 
