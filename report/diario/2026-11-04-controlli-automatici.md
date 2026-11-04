@@ -9,8 +9,10 @@ Aggiunto `.github/workflows/controlli.yml`, un flusso di GitHub Actions che part
 | Controllo | Cosa verifica | Come |
 |---|---|---|
 | La PR punta a `main` | la base della PR è `main` | script di una riga nel flusso |
-| Numeri coerenti | i numeri marcati nei Markdown coincidono con `config/parametri.yaml` | `python docs/scripts/parametri.py controlla` (lo stesso di `make controlla`) |
-| I PDF compilano | il documento di architettura e la relazione di sintesi si compilano senza errori | `parametri.py genera` e poi `latexmk` tramite `xu-cheng/latex-action` |
+| Numeri coerenti | i numeri marcati nei Markdown coincidono con `config/parametri.yaml` | `make -C docs controlla` |
+| I PDF compilano | il documento di architettura e la relazione di sintesi si compilano senza errori | `make -C docs parametri` (genera le macro) e poi `latexmk` tramite `xu-cheng/latex-action` |
+
+I due comandi passano dal `Makefile` (su suggerimento di Gianmarco), così il comando sta in un solo posto e, se il `Makefile` cambia, il flusso lo segue. La compilazione dei PDF resta all'azione di LaTeX.
 
 I due PDF restano scaricabili dalla pagina del controllo (artefatto `pdf`), così chi rivede una PR può leggerli senza compilare. Aggiunti il badge nel README e un paragrafo in `docs/README.md`.
 

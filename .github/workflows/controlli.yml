@@ -35,7 +35,7 @@ jobs:
           python-version: "3.12"
       - run: pip install pyyaml
       - name: I numeri nei Markdown coincidono con config/parametri.yaml
-        run: python docs/scripts/parametri.py controlla
+        run: make -C docs controlla
 
   pdf:
     name: I PDF compilano
@@ -47,7 +47,7 @@ jobs:
           python-version: "3.12"
       - run: pip install pyyaml
       - name: Genera le macro dai parametri
-        run: python docs/scripts/parametri.py genera
+        run: make -C docs parametri
       - name: Compila documento di architettura e relazione di sintesi
         uses: xu-cheng/latex-action@v3
         with:
