@@ -200,6 +200,8 @@ Avanzamento: [milestone su GitHub](https://github.com/kintsugi-spme/kintsugi/mil
 3. Le modifiche rientrano in `main` tramite **pull request** rivista dall'altro autore.
 4. Ogni decisione architetturale diventa un **ADR** in `docs/chapters/decisioni/`.
 
+Per aiutarci (segnalazioni, revisioni, issue con `good first issue` e `help wanted`) le regole sono in [`CONTRIBUTING.md`](CONTRIBUTING.md); domande e idee nelle [Discussions](https://github.com/kintsugi-spme/kintsugi/discussions).
+
 ---
 
 ## 9. Licenza
