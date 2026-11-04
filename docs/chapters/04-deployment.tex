@@ -9,8 +9,8 @@ Kubernetes avvia i componenti, ne controlla lo stato con le sonde e li riavvia q
 
 \begin{description}
   \item[\texttt{kintsugi-control-plane}] ospita il control plane ed è il punto d'ingresso: le porte 8080 (API) e 3000 (Grafana) del computer, esposte solo su \texttt{127.0.0.1}, arrivano alle NodePort 30080 e 30030. Non viene mai guastato.
-  \item[\texttt{kintsugi-worker}] etichetta \texttt{kintsugi/ruolo: dati}: ospita i componenti con stato, cioè database e broker (e il primario di V4), con i dischi locali del nodo, e l'osservabilità (Prometheus, Grafana).
-  \item[\texttt{kintsugi-worker2}] etichetta \texttt{kintsugi/ruolo: calcolo}: è il nodo preferito dai componenti senza stato (API e worker) e ospita anche lo standby di V4. È il nodo che si spegne nel guasto F6. Le regole di piazzamento sono in D0006.
+  \item[\texttt{worker1}] il container \texttt{kintsugi-worker} di kind; etichetta \texttt{kintsugi/ruolo: dati}: ospita i componenti con stato, cioè database e broker (e il primario di V4), con i dischi locali del nodo, e l'osservabilità (Prometheus, Grafana).
+  \item[\texttt{worker2}] il container \texttt{kintsugi-worker2} di kind; etichetta \texttt{kintsugi/ruolo: calcolo}: è il nodo preferito dai componenti senza stato (API e worker) e ospita anche lo standby di V4. È il nodo che si spegne nel guasto F6. Le regole di piazzamento sono in D0006.
 \end{description}
 
 Tutti i nodi usano l'immagine \texttt{kindest/node:v1.37.0}, quindi Kubernetes 1.37.
@@ -25,12 +25,12 @@ Tutti i nodi usano l'immagine \texttt{kindest/node:v1.37.0}, quindi Kubernetes 1
 % Nodo calcolo
 \node[copie] (api) at (4.2,0.7) {API};
 \node[copie] (wk) at (4.2,-0.9) {Worker};
-\node[gruppo, fit=(api)(wk), inner sep=9pt, label={[etichetta, align=center]above:\texttt{kintsugi-worker2}\\ruolo: \texttt{calcolo}}] (nc) {};
+\node[gruppo, fit=(api)(wk), inner sep=9pt, label={[etichetta, align=center]above:\texttt{worker2}\\ruolo: \texttt{calcolo}}] (nc) {};
 % Nodo dati
 \node[db, minimum width=1.7cm] (pg) at (8.6,0.7) {PostgreSQL};
 \node[coda] (mq) at (8.6,-0.95) {};
 \node[etichetta, below=0.5mm of mq] (mql) {RabbitMQ};
-\node[gruppo, fit=(pg)(mq)(mql), inner sep=7pt, label={[etichetta, align=center]above:\texttt{kintsugi-worker}\\ruolo: \texttt{dati}}] (nd) {};
+\node[gruppo, fit=(pg)(mq)(mql), inner sep=7pt, label={[etichetta, align=center]above:\texttt{worker1}\\ruolo: \texttt{dati}}] (nd) {};
 % Cornice Docker e host
 \begin{scope}[on background layer]
 \coordinate (alto) at (4.2,2.55);
@@ -57,7 +57,7 @@ Tutti i nodi usano l'immagine \texttt{kindest/node:v1.37.0}, quindi Kubernetes 1
 \section{Ambiente B -- AWS}
 \label{sec:aws}
 
-Una parte degli esperimenti (V2 e V3 con il carico W1 e i guasti F1, F2 e F3; V3 anche con il carico W2, senza guasti) si ripete su AWS, con macchine reali distribuite su zone di disponibilità diverse. Il guasto F6 (perdita di un nodo) è facoltativo anche su AWS: si esegue solo se c'è tempo, con una previsione scritta e registrata su Git prima del primo run. I servizi usati sono:
+Una parte degli esperimenti (V2 e V3 con il carico W1 e il guasto F1; V3 anche con i guasti F2 e F3 e, senza guasti, con il carico W2) si ripete su AWS, con macchine reali distribuite su zone di disponibilità diverse. Il guasto F6 (perdita di un nodo) è facoltativo anche su AWS: si esegue solo se c'è tempo, con una previsione scritta e registrata su Git prima del primo run. I servizi usati sono:
 
 \begin{description}
   \item[EKS] il control plane di Kubernetes, gestito da AWS.

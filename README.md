@@ -167,7 +167,7 @@ cd docs
 make
 ```
 
-Genera `docs/main.pdf`: architettura, decisioni (ADR), modello dei guasti, protocollo di misura, previsioni e minacce alla validità.
+Genera due PDF: `docs/main.pdf` (architettura, decisioni (ADR), modello dei guasti, protocollo di misura, previsioni e minacce alla validità) e `docs/main-sintesi.pdf` (la versione breve per i docenti). `make sintesi` compila solo la sintesi.
 
 ### 6.3 Cluster ed esperimenti
 

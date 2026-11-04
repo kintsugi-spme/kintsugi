@@ -1,21 +1,21 @@
 \begin{decisione}{D0006}{Dove stanno i pod sui nodi}{Accettata}{27/10/2026}
 
 \contesto
-Il cluster ha due worker, con le etichette \texttt{kintsugi/ruolo: dati} (\texttt{kintsugi-worker}) e \texttt{kintsugi/ruolo: calcolo} (\texttt{kintsugi-worker2}). Le etichette da sole non dicono ai pod dove andare: servono regole nei manifest. Tre vincoli le guidano. I dischi di database e coda sono locali al nodo (\textit{local-path}) e non si spostano. Primario e standby di V4 proteggono da un guasto di macchina solo se stanno su nodi diversi. Il guasto F6 spegne \texttt{kintsugi-worker2}, e deve esserci un nodo dove Kubernetes possa ricreare i pod. Senza regole esplicite, la collocazione cambierebbe da un run all'altro e sarebbe una causa nascosta delle differenze misurate (capitolo~\ref{cap:validita}).
+Il cluster ha due worker, con le etichette \texttt{kintsugi/ruolo: dati} (\texttt{worker1}) e \texttt{kintsugi/ruolo: calcolo} (\texttt{worker2}). Le etichette da sole non dicono ai pod dove andare: servono regole nei manifest. Tre vincoli le guidano. I dischi di database e coda sono locali al nodo (\textit{local-path}) e non si spostano. Primario e standby di V4 proteggono da un guasto di macchina solo se stanno su nodi diversi. Il guasto F6 spegne \texttt{worker2}, e deve esserci un nodo dove Kubernetes possa ricreare i pod. Senza regole esplicite, la collocazione cambierebbe da un run all'altro e sarebbe una causa nascosta delle differenze misurate (capitolo~\ref{cap:validita}).
 
 \scelta
 \begin{itemize}
-  \item \textbf{Database e coda} (V1--V3, V5): su \texttt{kintsugi-worker} (\texttt{dati}), con regola \emph{rigida}: se il nodo non c'è, il pod non parte altrove.
-  \item \textbf{V4}: il primario su \texttt{kintsugi-worker}, lo standby su \texttt{kintsugi-worker2}, con regola rigida di non stare mai sullo stesso nodo.
-  \item \textbf{API e worker dell'applicazione}: \emph{preferiscono} \texttt{kintsugi-worker2} (\texttt{calcolo}); se questo nodo cade, possono partire su \texttt{kintsugi-worker}. Così, con il cluster integro, la topologia è la stessa in ogni run.
-  \item \textbf{Osservabilità} (Prometheus, Grafana): su \texttt{kintsugi-worker}, così il guasto F6 non la spegne insieme al resto.
+  \item \textbf{Database e coda} (V1--V3, V5): su \texttt{worker1} (\texttt{dati}), con regola \emph{rigida}: se il nodo non c'è, il pod non parte altrove.
+  \item \textbf{V4}: il primario su \texttt{worker1}, lo standby su \texttt{worker2}, con regola rigida di non stare mai sullo stesso nodo.
+  \item \textbf{API e worker dell'applicazione}: \emph{preferiscono} \texttt{worker2} (\texttt{calcolo}); se questo nodo cade, possono partire su \texttt{worker1}. Così, con il cluster integro, la topologia è la stessa in ogni run.
+  \item \textbf{Osservabilità} (Prometheus, Grafana): su \texttt{worker1}, così il guasto F6 non la spegne insieme al resto.
   \item Il control plane non ospita pod dell'applicazione (da verificare all'installazione).
   \item L'etichetta \texttt{calcolo} vuol dire ``preferito dai componenti senza stato''; ospita anche lo standby di V4. Le etichette non cambiano.
   \item Prima di ogni run, il reset confronta la collocazione effettiva dei pod con quella attesa (capitolo~\ref{cap:misura}); se non coincide, il run non parte.
 \end{itemize}
 
 \conseguenze
-Con il cluster integro la collocazione è ripetibile. Nel guasto F6 (solo V2 e V3) le API e i worker si ricreano su \texttt{kintsugi-worker} dopo che Kubernetes dichiara perso il nodo, e il tempo di attesa è già nel tetto di 15 minuti del run. Lo standby di V4, con regola rigida, non può ripartire altrove: per questo V4 non è nel guasto F6. La perdita di \texttt{kintsugi-worker} (database e coda) non è un esperimento previsto, perché i dati sono legati al suo disco: è un limite dichiarato, e il failover del database di V4 si prova già con il guasto F4. Il guasto di macchina resta simulato, perché i nodi di kind sono container sullo stesso computer.
+Con il cluster integro la collocazione è ripetibile. Nel guasto F6 (solo V2 e V3) le API e i worker si ricreano su \texttt{worker1} dopo che Kubernetes dichiara perso il nodo, e il tempo di attesa è già nel tetto di 15 minuti del run. Lo standby di V4, con regola rigida, non può ripartire altrove: per questo V4 non è nel guasto F6. La perdita di \texttt{worker1} (database e coda) non è un esperimento previsto, perché i dati sono legati al suo disco: è un limite dichiarato, e il failover del database di V4 si prova già con il guasto F4. Il guasto di macchina resta simulato, perché i nodi di kind sono container sullo stesso computer.
 
 Un terzo worker libero (nodo ``jolly'') non è previsto ora. Se avanza tempo si aggiunge, per ricostruire lo standby di V4 e provare nel guasto F6 il ricollocamento su un nodo di riserva; richiederebbe di aggiornare il cluster, il README, il capitolo~\ref{cap:deployment}, il piano e i diagrammi.
 

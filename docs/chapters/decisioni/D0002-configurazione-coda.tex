@@ -5,7 +5,7 @@ Con la coda, un ordine a cui abbiamo risposto ``ricevuto'' esiste solo dentro Ra
 
 \scelta
 \begin{itemize}
-  \item \textbf{Una sola istanza} di RabbitMQ, fissata a worker-1, con i dati su disco: è volutamente un punto unico di guasto (guasto F3).
+  \item \textbf{Una sola istanza} di RabbitMQ, fissata a worker1, con i dati su disco: è volutamente un punto unico di guasto (guasto F3).
   \item \textbf{Coda e messaggi durevoli}: sopravvivono al riavvio di RabbitMQ.
   \item \textbf{Conferma all'API} (\textit{publisher confirm}): l'API risponde 202 solo quando RabbitMQ conferma di aver scritto il messaggio.
   \item \textbf{Conferma del worker} (\textit{ack}) solo \emph{dopo} il salvataggio nel database: se il worker si spegne prima, RabbitMQ consegna l'ordine a un altro worker.
