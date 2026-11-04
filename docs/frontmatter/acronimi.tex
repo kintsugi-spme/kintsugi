@@ -15,7 +15,7 @@ API      & Servizio che riceve gli ordini dal client \\
 Blocco   & Guasto in cui il processo resta vivo ma non risponde (\textit{hang}) \\
 Bootstrap & Tecnica statistica che stima l'incertezza di una misura ricampionando i dati osservati \\
 Broker   & Programma che gestisce le code di messaggi; nel progetto è RabbitMQ \\
-Budget di errore & Indisponibilità ammessa da uno SLO in un periodo (con 99,9\% su 30 giorni: 43,2 minuti) \\
+Budget di errore & Indisponibilità ammessa da uno SLO in un periodo (con \parametro{obiettivo_percentuale}\% su \parametro{finestra_giorni} giorni: \parametro{budget_errore_minuti} minuti) \\
 CNPG     & CloudNativePG: operatore Kubernetes che gestisce cluster PostgreSQL con failover \\
 Control plane & Insieme dei componenti che governano il cluster Kubernetes (API server, scheduler, controller) \\
 Crash    & Guasto in cui il processo termina \\

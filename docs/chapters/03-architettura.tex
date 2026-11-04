@@ -79,7 +79,7 @@ I diagrammi delle versioni usano la notazione della figura~\ref{fig:legenda}.
 \begin{scope}[on background layer]
 \node[cluster, fit=(svc)(kl)(db)(n1), label={[etichetta, anchor=north east]south east:cluster Kubernetes}] {};
 \end{scope}
-\draw[risposta] (api.south) -- ++(0,-1.5) -| node[etichetta, pos=0.25, below] {201 dopo il salvataggio $\cdot$ 503 entro 1,5 s} (cl.south);
+\draw[risposta] (api.south) -- ++(0,-1.5) -| node[etichetta, pos=0.25, below] {201 dopo il salvataggio $\cdot$ 503 entro \parametro{deadline_api_s} s} (cl.south);
 \end{tikzpicture}
 \caption{V1: un'unica istanza dell'API, sorvegliata dalle sonde del kubelet; risposta \texttt{201} solo dopo il salvataggio.}
 \label{fig:v1}

@@ -32,6 +32,8 @@ docs/*.lot
 docs/*.fls
 docs/*.fdb_latexmk
 docs/*.synctex.gz
+# Macro generate da docs/scripts/parametri.py (make le rigenera)
+docs/config/parametri.tex
 
 # Assistenti AI (configurazioni locali, non fanno parte del progetto)
 .claude/

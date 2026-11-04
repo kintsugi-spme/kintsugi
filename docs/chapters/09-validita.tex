@@ -23,7 +23,7 @@ Interna & Un run può lasciare tracce (code non vuote, pod degradati) che influe
 Interna & Il guasto di un componente può dipendere da dove Kubernetes ha collocato i pod & Regole di piazzamento esplicite (D0006); topologia verificata al reset \\
 Di costrutto & Un generatore a modello chiuso smetterebbe di inviare durante il guasto, nascondendolo & Carico a modello aperto; ritmo inviato controllato entro $\pm5\%$ \\
 Di costrutto & Un pod ``pronto'' non significa servizio ripristinato & Ripristino definito come 5~s consecutivi disponibili in accettazione e completamento \\
-Di costrutto & La soglia del 99\% al secondo è severa a ritmi bassi & Si riportano anche le richieste fallite per guasto, indipendenti dalla soglia \\
+Di costrutto & La soglia del \parametro{soglia_secondo_disponibile_percentuale}\% al secondo è severa a ritmi bassi & Si riportano anche le richieste fallite per guasto, indipendenti dalla soglia \\
 Di costrutto & Su AWS gli istanti di ricezione e scrittura vengono da nodi con orologi diversi & Sfasamento verificato e dichiarato prima delle sessioni (D0005) \\
 Esterna & In locale i nodi sono container sullo stesso hardware: la perdita di un nodo è simulata & Parte degli esperimenti ripetuta su AWS con macchine reali (RQ6). La perdita di un nodo è provata su AWS solo se si esegue il guasto F6 (facoltativo): altrimenti il limite resta non mitigato \\
 Esterna & Il servizio è molto più semplice di uno reale & Le conclusioni riguardano i meccanismi (rilevamento, riparazione, smaltimento), non i valori assoluti \\

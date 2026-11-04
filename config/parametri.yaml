@@ -1,0 +1,94 @@
+# Valori numerici di Kintsugi, scritti qui una sola volta.
+# Perché questo file sta in config/ e dove si usa: config/README.md.
+#
+# REGOLE (valgono per entrambi gli autori)
+#  1. Una chiave per significato, non per numero: due valori uguali con significati diversi
+#     (il 2 s del timeout e il 2 s del limite di completamento) sono due chiavi.
+#  2. Un numero entra qui solo se compare in più punti oppure cambierà dopo F4.
+#  3. Le macro non si usano dove il testo è congelato o è storia: previsioni, schede delle
+#     decisioni, storico delle revisioni (scheda-documento) e diario.
+#  4. Il nome di una chiave non si cambia alla leggera: lo usano i documenti.
+#  5. run_totali e budget_errore_minuti non si scrivono qui: li calcola lo script.
+#
+# STATO: i numeri di questo file sono già collegati ai documenti (\parametro{chiave} nei .tex,
+# marcatori <!-- num:chiave --> nei Markdown). Le chiavi che nel testo sono scritte in parole
+# («un minuto», «tre copie») non hanno ancora un punto collegato: restano per il banco di prova (F4).
+#
+# Valori presi dal documento di architettura alla versione 0.10 (pull request n. 23, 03/11/2026).
+# Un numero che non è qui sotto è ancora scritto solo nel documento.
+
+# --- Campagna di misura ---------------------------------------------------------------
+# Il totale dei run non si scrive: lo calcola lo script sommando, per ogni gruppo,
+# ripetizioni x numero di configurazioni. Ogni configurazione è "guasto versione" o, per i
+# run senza guasti, "carico versione". La struttura sarà raffinata in F4, quando servirà
+# all'harness (il banco di misura) per lanciare i run.
+matrice:
+  - gruppo: "Senza guasti, carico W1"
+    ripetizioni: 5
+    configurazioni: ["W1 V1", "W1 V2", "W1 V3", "W1 V4a", "W1 V4s"]
+  - gruppo: "Senza guasti, carico W3"
+    ripetizioni: 5
+    configurazioni: ["W3 V1", "W3 V2", "W3 V3"]
+  - gruppo: "Con guasti F1-F5 su V1-V3"
+    ripetizioni: 10
+    configurazioni: ["F1 V1", "F1 V2", "F1 V3", "F2 V3", "F3 V3", "F4 V1", "F4 V2", "F4 V3", "F5 V2", "F5 V3"]
+  - gruppo: "Guasto del database su V4"
+    ripetizioni: 10
+    configurazioni: ["F4 V4a", "F4 V4s"]
+  - gruppo: "Blocco dell'API (F7), due configurazioni delle sonde"
+    ripetizioni: 10
+    configurazioni: ["F7 V2 sonde veloci", "F7 V2 sonde standard"]
+  - gruppo: "Carico W2: V5 e V3 con 3, 1 e 10 worker fissi"
+    ripetizioni: 10
+    configurazioni: ["W2 V5", "W2 V3 3 worker", "W2 V3 1 worker", "W2 V3 10 worker"]
+# F6 (perdita di un nodo) è facoltativo e non fa parte della matrice.
+
+# Stima scritta a mano: circa 5-6 minuti per run e circa 13 minuti per i 10 run di V3 con
+# 1 worker sotto W2. Il reset tra un run e l'altro non è contato: si misura in F4.
+ore_campagna_circa: 22
+
+# --- Struttura di un run --------------------------------------------------------------
+run:
+  riscaldamento_min: 1
+  riferimento_min: 1
+  guasto_al_minuto: 2
+  osservazione_dopo_ripristino_min: 2
+  ripristino_secondi_consecutivi: 5      # "ripristinato" = 5 secondi consecutivi disponibili
+  tetto_min: 10
+  tetto_min_f6_e_w2: 15
+  senza_guasti_min: 5                    # riscaldamento + riferimento + 3 di osservazione
+
+# --- Tempi e soglie -------------------------------------------------------------------
+tempi:
+  timeout_client_s: 2                    # il generatore di carico rinuncia dopo
+  deadline_api_s: 1.5                    # l'API rinuncia dopo
+  limite_completamento_s: 2              # un ordine è completato se salvato entro questo tempo
+  limite_completamento_sensibilita_s: [1, 5]   # calcolo ripetuto in F7, senza toccare le previsioni
+  soglia_secondo_disponibile_percentuale: 99   # secondo "disponibile" se almeno il 99% delle richieste riesce
+
+# --- Obiettivo di disponibilità -------------------------------------------------------
+slo:
+  obiettivo_percentuale: 99.9
+  finestra_giorni: 30
+
+# --- Carichi --------------------------------------------------------------------------
+carichi:
+  w1_percentuale_capacita_minima: 50     # della capacità più bassa tra V1, V2, V3, V4a, V4s
+  w3_percentuale_capacita: 150           # della capacità di quella versione
+  w2_base_percentuale_mu1: 50            # mu1 = capacità di un worker
+  w2_picco_percentuale_mu1: 500
+  w2_durata_picco_s: 60
+  w2_inizio_picco_minuto: 2
+  w2_finestra_costo_min: 10              # costo in worker-secondi: dall'inizio del picco a 10 minuti dopo
+
+# --- Versioni e autoscaling -----------------------------------------------------------
+versioni:
+  copie_api: 3                           # V2-V5
+  worker_v3: 3
+  worker_v5_min: 1
+  worker_v5_max: 10
+keda:
+  controllo_coda_s: 15                   # ritmo predefinito dell'autoscaler, da 1 a 10 worker
+  controllo_keda_da_0_a_1_s: 30          # vale solo da 0 a 1 worker
+  soglia_secondi_di_lavoro_per_worker: 2 # ordini in coda per worker = mu1 x 2 s, calcolato in F4
+  attesa_prima_di_togliere_s: 60         # il predefinito è 300 s
