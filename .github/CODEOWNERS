@@ -2,6 +2,5 @@
 # (GitHub non chiede la revisione a chi ha scritto la PR).
 *                                   @terrecruis @gianmarcoVellotti
 
-# Le parti che dopo il tag m1 non cambiano senza una discussione
-/config/parametri.yaml              @terrecruis @gianmarcoVellotti
+# Le previsioni sono congelate dal tag m1: non cambiano dopo aver visto una misura
 /docs/chapters/08-previsioni.tex    @terrecruis @gianmarcoVellotti

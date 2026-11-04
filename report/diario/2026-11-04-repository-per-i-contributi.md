@@ -8,7 +8,7 @@ Dopo lo spostamento nell'organizzazione `kintsugi-spme` e la richiesta di aiuto 
 
 **Nei file (questa PR):**
 - `CONTRIBUTING.md`: flusso issue → fork o branch → PR verso `main` → revisione → diario; nomi dei branch; cosa non si tocca dopo il tag `m1` (previsioni, tag, `main`).
-- `.github/CODEOWNERS`: ogni PR chiede in automatico la revisione di entrambi gli autori; `config/parametri.yaml` e il capitolo delle previsioni sono elencati a parte.
+- `.github/CODEOWNERS`: ogni PR chiede in automatico la revisione di entrambi gli autori; il capitolo delle previsioni (`docs/chapters/08-previsioni.tex`), congelato dal tag `m1`, è elencato a parte. `config/parametri.yaml` non c'è: i suoi valori possono cambiare dopo la fase F4 e allora cambiano gli altri capitoli, non le previsioni (revisione di Gianmarco).
 - `.github/ISSUE_TEMPLATE/config.yml`: issue vuote disattivate, rimando alle Discussions.
 - Template della PR: nuova voce «La PR punta a `main`».
 - README, sezione «Contribuire»: rimando a `CONTRIBUTING.md` e alle Discussions.
