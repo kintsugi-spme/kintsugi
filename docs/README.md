@@ -43,6 +43,10 @@ make controlla  # verifica i numeri marcati nei file Markdown
 
 oppure `latexmk -pdf main.tex` e `latexmk -pdf main-sintesi.tex`, dopo aver creato `config/parametri.tex` con `make parametri`. Serve PyYAML (`pip install pyyaml`). I PDF, i file intermedi e `config/parametri.tex` non sono versionati.
 
+## Controlli automatici
+
+`.github/workflows/controlli.yml` parte a ogni pull request e a ogni fusione su `main`. Tre controlli: la PR punta a `main`, i numeri marcati nei Markdown coincidono con `config/parametri.yaml` (`make controlla`), i due PDF compilano. I PDF restano scaricabili dalla pagina del controllo (artefatto `pdf`).
+
 ## Numeri del progetto
 
 I numeri che compaiono in più punti, o che cambieranno dopo la fase F4 (misura della capacità), stanno in un solo file, [`../config/parametri.yaml`](../config/parametri.yaml). Le regole sono in testa al file e il perché sta in [`../config/README.md`](../config/README.md). Qui l'uso nel documento:
