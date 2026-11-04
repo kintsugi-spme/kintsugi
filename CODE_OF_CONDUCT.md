@@ -23,7 +23,12 @@ Gli autori del progetto, `@terrecruis` e `@gianmarcoVellotti`, che possono modif
 
 ## Come segnalare
 
-Per un comportamento inappropriato, scrivi in privato a Francesco Terrecuso: [terrecuso.francesco@libero.it](mailto:terrecuso.francesco@libero.it). Le segnalazioni sono trattate con riservatezza e rispetto.
+Per un comportamento inappropriato, scrivi in privato a uno dei due autori:
+
+- Francesco Terrecuso: [terrecuso.francesco@libero.it](mailto:terrecuso.francesco@libero.it)
+- Gianmarco Vellotti: [gianmarcovellotti@gmail.com](mailto:gianmarcovellotti@gmail.com)
+
+Le segnalazioni sono trattate con riservatezza e rispetto.
 
 ## Ambito
 
