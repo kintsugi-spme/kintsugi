@@ -13,6 +13,7 @@
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![JMeter](https://img.shields.io/badge/JMeter-Open%20model-D22128?logo=apachejmeter&logoColor=white)
 ![Status](https://img.shields.io/badge/Status-F1%20Architettura-yellow)
+![Controlli](https://github.com/kintsugi-spme/kintsugi/actions/workflows/controlli.yml/badge.svg)
 
 **Autori:** Terrecuso Francesco (DE5000005), Vellotti Gianmarco (DE5000041)
 **Corso:** Software Project Management & Evolution — Università degli Studi di Napoli Federico II

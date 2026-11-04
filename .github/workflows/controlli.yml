@@ -1,0 +1,63 @@
+name: Controlli
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: controlli-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  base-main:
+    name: La PR punta a main
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Controlla la base
+        run: |
+          if [ "${{ github.base_ref }}" != "main" ]; then
+            echo "::error::La base è '${{ github.base_ref }}', deve essere 'main' (vedi CONTRIBUTING.md)"
+            exit 1
+          fi
+
+  numeri:
+    name: Numeri coerenti
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+      - name: I numeri nei Markdown coincidono con config/parametri.yaml
+        run: make -C docs controlla
+
+  pdf:
+    name: I PDF compilano
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+      - name: Genera le macro dai parametri
+        run: make -C docs parametri
+      - name: Compila documento di architettura e relazione di sintesi
+        uses: xu-cheng/latex-action@v3
+        with:
+          root_file: |
+            main.tex
+            main-sintesi.tex
+          working_directory: docs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pdf
+          path: |
+            docs/main.pdf
+            docs/main-sintesi.pdf
