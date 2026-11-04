@@ -1,6 +1,6 @@
 # Come contribuire
 
-Grazie dell'interesse. Kintsugi è un progetto d'esame (*Software Project Management & Evolution*, Federico II): le decisioni di architettura, le previsioni e le misure sono degli autori. Gli aiuti più utili sono **segnalazioni, revisioni e correzioni**; per le issue con `good first issue` e `help wanted` va bene anche il codice. Per una modifica più grande apri prima una [discussione](https://github.com/kintsugi-spme/kintsugi/discussions) o un'issue, così ci mettiamo d'accordo prima che tu lavori.
+Grazie dell'interesse. Kintsugi è un progetto d'esame (*Software Project Management & Evolution*, Federico II): le decisioni di architettura, le previsioni e le misure sono degli autori. Secondo il regolamento universitario l'aiuto esterno è ammesso solo **dopo la presentazione del progetto**: fino ad allora non accettiamo pull request da chi non è un autore. Segnalazioni, domande e idee sono invece benvenute fin da subito nelle [Discussions](https://github.com/kintsugi-spme/kintsugi/discussions) e nelle issue. Dopo la presentazione apriremo il repository anche alle modifiche e rimetteremo le etichette `good first issue` e `help wanted` sulle issue adatte; per una modifica più grande conviene aprire prima una discussione, così ci mettiamo d'accordo prima che tu lavori.
 
 Partecipando accetti il [codice di condotta](CODE_OF_CONDUCT.md).
 
@@ -13,7 +13,7 @@ Partecipando accetti il [codice di condotta](CODE_OF_CONDUCT.md).
 ## Come proporre una modifica
 
 1. **Parti da un'issue.** Cerca una issue aperta o aprine una. Ogni PR ne chiude una.
-2. **Crea un branch dal `main` aggiornato.** Gli esterni lavorano su un fork, gli autori su un branch del repository. Il nome ha un prefisso e un argomento breve, in minuscolo e con i trattini: `feat/`, `fix/`, `docs/`, `exp/` (per esempio `docs/guasto-f6`).
+2. **Crea un branch dal `main` aggiornato.** Gli esterni lavorano su un fork, gli autori su un branch del repository. Il nome ha un prefisso e un argomento breve, in minuscolo e con i trattini: `feat/`, `fix/`, `docs/`, `ci/`, `exp/` (per esempio `docs/guasto-f6`).
 3. **Fai commit piccoli**, con un messaggio breve in italiano che dice cosa cambia.
 4. **Apri la PR verso `main`.** Mai verso un altro branch: se il tuo lavoro dipende da un'altra PR, aspetta che sia fusa. Compila il modulo e scrivi `Closes #n` con il numero dell'issue.
 5. **Scrivi il diario.** Una voce in `report/diario/` (parti da `_template.md`) con cosa è stato fatto, i comandi, i problemi e i limiti degli strumenti.
