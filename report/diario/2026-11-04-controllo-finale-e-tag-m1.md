@@ -45,12 +45,9 @@ git ls-remote --tags origin                        # il tag m1 su origin
 
 ## Problemi e soluzioni
 
-- **Prima prova del caso rosso senza effetto:** `sed` di macOS non accetta l'indirizzo `0,/re/`, il numero non è stato cambiato e il controllo è rimasto verde. Rifatta con Python: il controllo diventa rosso.
-- **Errore 502 di GitHub nell'invio delle review:** quella sulla #48 era stata pubblicata comunque. Ho controllato l'elenco delle review prima di riprovare, per non duplicarla.
-
 ## Limiti dello strumento emersi
 
 - **Il tag `m1` non è protetto:** le regole attive riguardano solo il branch `main`. `CONTRIBUTING.md` dice che il tag non si sposta e non si cancella, ma nulla lo impedisce: va creata una regola per i tag.
-- **I controlli automatici non sono ancora obbligatori per il merge:** vanno aggiunti ai controlli richiesti della regola di `main`.
+- **Dei tre controlli automatici, due sono obbligatori per il merge:** dalle 12:08 la regola di `main` richiede «Numeri coerenti» e «I PDF compilano». «La PR punta a `main`» non è richiesto e non potrebbe bloccare una PR verso un altro branch, perché la regola vale solo per `main`.
 - **Il controllo dei PDF verifica che compilino, non che siano privi di avvisi:** nel documento tecnico restano 4 avvisi di impaginazione e 6 righe che sporgono, già presenti prima. Il controllo dei numeri vede solo quelli marcati nei file Markdown.
 - **Il CODEOWNERS chiede la revisione ma non la rende obbligatoria** (`require_code_owner_review` è falso).
