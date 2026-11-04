@@ -196,9 +196,11 @@ Avanzamento: [milestone su GitHub](https://github.com/kintsugi-spme/kintsugi/mil
 ## 8. Contribuire
 
 1. Ogni attività parte da una **issue** assegnata a una milestone.
-2. Lo sviluppo avviene su un branch breve (`feat/`, `fix/`, `docs/`, `exp/`).
+2. Lo sviluppo avviene su un branch breve (`feat/`, `fix/`, `docs/`, `ci/`, `exp/`).
 3. Le modifiche rientrano in `main` tramite **pull request** rivista dall'altro autore.
 4. Ogni decisione architetturale diventa un **ADR** in `docs/chapters/decisioni/`.
+
+Segnalazioni, domande e idee sono benvenute nelle [Discussions](https://github.com/kintsugi-spme/kintsugi/discussions); le modifiche di chi non è un autore si accettano dopo la presentazione del progetto. Le regole sono in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ---
 
