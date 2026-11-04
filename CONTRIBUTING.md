@@ -2,6 +2,8 @@
 
 Grazie dell'interesse. Kintsugi è un progetto d'esame (*Software Project Management & Evolution*, Federico II): le decisioni di architettura, le previsioni e le misure sono degli autori. Gli aiuti più utili sono **segnalazioni, revisioni e correzioni**; per le issue con `good first issue` e `help wanted` va bene anche il codice. Per una modifica più grande apri prima una [discussione](https://github.com/kintsugi-spme/kintsugi/discussions) o un'issue, così ci mettiamo d'accordo prima che tu lavori.
 
+Partecipando accetti il [codice di condotta](CODE_OF_CONDUCT.md).
+
 ## Domande, idee, problemi
 
 - **Domande e idee:** [Discussions](https://github.com/kintsugi-spme/kintsugi/discussions).

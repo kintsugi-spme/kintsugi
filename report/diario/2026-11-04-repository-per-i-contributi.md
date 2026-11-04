@@ -12,6 +12,7 @@ Dopo lo spostamento nell'organizzazione `kintsugi-spme` e la richiesta di aiuto 
 - `.github/ISSUE_TEMPLATE/config.yml`: issue vuote disattivate, rimando alle Discussions.
 - Template della PR: nuova voce «La PR punta a `main`».
 - README, sezione «Contribuire»: rimando a `CONTRIBUTING.md` e alle Discussions.
+- `CODE_OF_CONDUCT.md`: codice di condotta breve, adattato dal Contributor Covenant 2.1 (CC BY 4.0). Le segnalazioni vanno in privato a uno dei due autori tramite l'email del profilo GitHub: nel file non c'è nessun indirizzo.
 
 **Sulle impostazioni di GitHub (non versionate):**
 - Discussions attivate.
@@ -46,4 +47,4 @@ Il repository ha le regole di contributo scritte, il revisore automatico e un pu
 - **Il tag `m1` non è ancora protetto:** non esiste una regola sui tag. Va creata insieme al tag.
 - **Nessun controllo impedisce una PR verso un branch diverso da `main`:** le regole valgono solo per il branch protetto. Per ora lo dice solo `CONTRIBUTING.md`.
 - **Impostazioni non versionate:** Discussions, etichette e regole stanno su GitHub e non in Git; questa voce di diario le documenta.
-- **Da fare ancora:** controlli automatici (#41), tag `m1` e release con i PDF, invito di Gianmarco come membro dell'organizzazione, profilo dell'organizzazione, annuncio del repository.
+- **Da fare ancora:** controlli automatici (PR #48, per la #41), tag `m1` e release con i PDF, invito di Gianmarco come membro dell'organizzazione, profilo dell'organizzazione, annuncio del repository.
