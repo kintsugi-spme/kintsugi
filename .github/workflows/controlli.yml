@@ -61,3 +61,36 @@ jobs:
           path: |
             docs/main.pdf
             docs/main-sintesi.pdf
+
+  immagine:
+    name: Immagine (${{ matrix.arch }})
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Costruisce l'immagine
+        run: docker build -t kintsugi:${GITHUB_SHA::7} app
+      - name: Parte come API sincrona, API asincrona e worker
+        run: |
+          for modo in "MODE=sync" "MODE=async" "MODE=async ROLE=worker"; do
+            env_args=()
+            for kv in $modo; do env_args+=(-e "$kv"); done
+            id=$(docker run -d -p 8000:8000 "${env_args[@]}" kintsugi:${GITHUB_SHA::7})
+            ok=no
+            for i in $(seq 50); do
+              if curl -sf -o /dev/null localhost:8000/openapi.json; then ok=yes; break; fi
+              sleep 0.2
+            done
+            # D0016: i segnali dal nodo devono arrivare a uvicorn, non a una shell.
+            pid1=$(docker exec "$id" cat /proc/1/comm)
+            [ "$pid1" = uvicorn ] || { echo "::error::il processo 1 è $pid1, non uvicorn"; ok=no; }
+            docker logs "$id" 2>&1 | grep "avvio:"
+            docker rm -f "$id" >/dev/null
+            [ "$ok" = yes ] || { echo "::error::$modo non risponde"; exit 1; }
+          done
