@@ -129,7 +129,7 @@ Un solo programma Python (FastAPI) e una sola immagine Docker, che parte come AP
 
 ```
 kintsugi/
-├── app/                  # API e worker (un solo codice, MODE=sync|async)
+├── app/                  # API e worker (un solo codice: MODE=sync|async, ROLE=api|worker)
 ├── config/               # valori numerici del progetto, scritti una volta sola (vedi config/README.md)
 ├── deploy/
 │   ├── k8s/
