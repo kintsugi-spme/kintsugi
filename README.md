@@ -10,7 +10,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-CloudNativePG-4169E1?logo=postgresql&logoColor=white)
 ![RabbitMQ](https://img.shields.io/badge/RabbitMQ-Broker-FF6600?logo=rabbitmq&logoColor=white)
 ![KEDA](https://img.shields.io/badge/KEDA-Autoscaling-0F3F71)
-![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)
 ![JMeter](https://img.shields.io/badge/JMeter-Open%20model-D22128?logo=apachejmeter&logoColor=white)
 ![Status](https://img.shields.io/badge/Status-F1%20Architettura-yellow)
 ![Controlli](https://github.com/kintsugi-spme/kintsugi/actions/workflows/controlli.yml/badge.svg)
@@ -159,8 +159,20 @@ kintsugi/
 | Docker Desktop | Runtime dei container (5–8 GB di memoria) |
 | kind, kubectl, Helm | Cluster Kubernetes locale |
 | JMeter 5.5+ | Generazione del carico a modello aperto |
-| Python 3.10+ | Applicazione e analisi |
+| Python 3.14 | Applicazione e analisi: la versione sta in `.python-version` ed è la stessa in locale, nella CI e nell'immagine Docker (D0011) |
 | TeX Live + `latexmk` | Documentazione |
+
+Per preparare l'ambiente Python (con `pyenv`, che legge `.python-version` da solo):
+
+```bash
+pyenv install 3.14
+python --version
+python -m venv .venv
+source .venv/bin/activate
+pip install -r app/requirements-dev.txt
+```
+
+`python --version` deve rispondere `3.14.x` entrando nella cartella del repository; se risponde un'altra versione, l'ambiente virtuale va ricreato.
 
 ### 6.2 Documento di architettura
 

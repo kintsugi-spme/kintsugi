@@ -35,7 +35,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version-file: .python-version
+      - name: Il Dockerfile usa la stessa versione di Python (D0011)
+        run: |
+          versione=$(cat ../.python-version)
+          grep -q "^FROM python:${versione}-slim@" Dockerfile \
+            || { echo "::error::il FROM del Dockerfile non è python:${versione}-slim (vedi .python-version)"; exit 1; }
       - run: pip install -r requirements-dev.txt
       - run: pytest -q
 
@@ -46,7 +51,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version-file: .python-version
       - run: pip install pyyaml
       - name: I numeri nei Markdown coincidono con config/parametri.yaml
         run: make -C docs controlla
@@ -58,7 +63,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version-file: .python-version
       - run: pip install pyyaml
       - name: Genera le macro dai parametri
         run: make -C docs parametri

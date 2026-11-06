@@ -1,6 +1,6 @@
 # Una sola immagine per API e worker (D0012): cosa fa il processo lo decidono MODE e ROLE.
 # La base è fissata all'indice multi-architettura: stessa base su arm64 (Mac, kind) e amd64 (AWS).
-FROM python:3.12-slim@sha256:e695ab189fa2d082b1c61c69a6b888a5adeca61ceeccad107b1ed2a125721a9e
+FROM python:3.14-slim@sha256:af8a5aa14780025dbfbcfbc81bd8a91ebd87711dd5b0f48ed71090949dd7cb1d
 
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /app
