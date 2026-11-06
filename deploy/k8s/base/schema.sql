@@ -1,8 +1,9 @@
 -- Schema del database di Kintsugi (PostgreSQL).
 --
 -- Si esegue una sola volta, all'avvio di un database vuoto: docker-compose monta questo file
--- in /docker-entrypoint-initdb.d/ (issue #35); su Kubernetes lo si porta nel database allo
--- stesso modo (fase F3).
+-- in /docker-entrypoint-initdb.d/ (issue #35); su Kubernetes (fase F3) Kustomize ne fa un
+-- ConfigMap per il PostgreSQL di V1-V3 e per CloudNativePG di V4. Per questo il file sta qui:
+-- Kustomize non legge file fuori da deploy/k8s/base, e così lo schema resta uno solo.
 --
 -- Gli istanti seguono D0005: entrambi vengono dal cluster, mai dal client.
 --   ts_ricezione  lo prende l'API quando arriva la richiesta

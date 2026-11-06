@@ -4,7 +4,7 @@
 
 ## Cosa abbiamo fatto
 
-Aggiunto `app/schema.sql`, lo script che crea la tabella `ordini` in un database vuoto:
+Aggiunto `deploy/k8s/base/schema.sql`, lo script che crea la tabella `ordini` in un database vuoto:
 
 | Colonna | Tipo | Cosa contiene |
 |---|---|---|
@@ -12,13 +12,15 @@ Aggiunto `app/schema.sql`, lo script che crea la tabella `ordini` in un database
 | `ts_ricezione` | `timestamptz`, obbligatorio | istante in cui l'API riceve la richiesta (D0005) |
 | `ts_scrittura` | `timestamptz`, obbligatorio, predefinito `clock_timestamp()` | istante dell'inserimento nel database (D0005) |
 
-Lo script è pensato per essere eseguito una sola volta, all'avvio del database: con `docker-compose` (#35) si monta in `/docker-entrypoint-initdb.d/`; su Kubernetes (fase F3) si porta nel database allo stesso modo.
+Lo script è pensato per essere eseguito una sola volta, all'avvio del database: con `docker-compose` (#35) si monta in `/docker-entrypoint-initdb.d/`; su Kubernetes (fase F3) Kustomize ne fa un ConfigMap, per il PostgreSQL di V1–V3 e per CloudNativePG di V4.
 
 ## Perché
 
 **`clock_timestamp()` e non `now()`.** `now()` è l'istante di inizio della transazione e accorcerebbe il tempo end-to-end (D0005). Con `clock_timestamp()` come valore predefinito, chi inserisce non deve ricordarsi di passare l'istante.
 
 **La chiave primaria sta qui, non nella #29.** D0004 vuole l'identificativo come chiave primaria. Una tabella nata senza chiave e corretta dopo costringerebbe la #29 a modificare il `CREATE TABLE` di questa PR. Alla #29 restano la tabella dei doppi e l'inserimento «se esiste non fare nulla» (`ON CONFLICT DO NOTHING`).
+
+**Il file sta in `deploy/k8s/base/`, non in `app/`.** Era in `app/`; Francesco, nella revisione della PR, ha provato che Kustomize rifiuta i file fuori dalla propria cartella (`file ... is not in or below deploy/k8s/base`). Lasciarlo in `app/` avrebbe obbligato a tenere due copie dello schema, e lo avrebbe fatto entrare nell'immagine dell'app, che non lo usa. Da `deploy/k8s/base/` lo leggono Kustomize e `docker-compose` (#35), quindi il file è uno solo.
 
 **Solo tre colonne.** I documenti definiscono dell'ordine soltanto l'identificativo e i due istanti. Altri campi, se servono, si decidono con le API (#30, #32).
 
@@ -27,7 +29,7 @@ Lo script è pensato per essere eseguito una sola volta, all'avvio del database:
 ## Comandi e configurazione
 
 ```bash
-docker run -d --rm --name kintsugi-pg-prova -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=kintsugi -v "$PWD/app/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro" postgres:17-alpine
+docker run -d --rm --name kintsugi-pg-prova -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=kintsugi -v "$PWD/deploy/k8s/base/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro" postgres:17-alpine
 docker exec -i kintsugi-pg-prova psql -U postgres -d kintsugi
 docker stop kintsugi-pg-prova
 ```
