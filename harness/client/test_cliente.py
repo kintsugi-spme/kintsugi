@@ -42,8 +42,14 @@ class ApiFinta:
             def log_message(self, *_):
                 pass
 
-        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Gestore)
-        self.server.daemon_threads = True
+        class Server(ThreadingHTTPServer):
+            daemon_threads = True
+            # Collegamenti in attesa di essere accettati: il predefinito (5) è troppo poco per un
+            # client che invia 500 richieste al secondo, e le richieste in più verrebbero rifiutate
+            # (successo sul runner della CI, con poca CPU).
+            request_queue_size = 256
+
+        self.server = Server(("127.0.0.1", 0), Gestore)
         self.url = f"http://127.0.0.1:{self.server.server_port}/ordini"
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
 
