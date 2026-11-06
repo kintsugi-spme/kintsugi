@@ -38,6 +38,8 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements-dev.txt
       - run: pytest -q
+      - name: Prove del client (harness/client)
+        run: pytest -q ../harness/client
 
   numeri:
     name: Numeri coerenti
