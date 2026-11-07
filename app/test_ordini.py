@@ -87,5 +87,5 @@ def test_il_broker_si_chiude_all_arresto():
 
 def test_l_endpoint_degli_ordini_c_e_solo_nell_api_con_la_coda():
     ordine = {"id": str(uuid.uuid4())}
-    assert TestClient(app_con(ROLE="worker")).post("/ordini", json=ordine).status_code == 404
+    assert TestClient(app_con(ROLE="worker", DATABASE_URL="postgresql://db/k", BROKER_URL="amqp://broker")).post("/ordini", json=ordine).status_code == 404
     assert TestClient(crea_app(da_ambiente({"MODE": "sync"}))).post("/ordini", json=ordine).status_code == 404
