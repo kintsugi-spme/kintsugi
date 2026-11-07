@@ -32,9 +32,39 @@ class BrokerFinto:
         self.chiuso = True
 
 
+class SalvaFinto:
+    """Al posto di PostgreSQL per l'API sincrona: annota gli ordini, oppure ritarda o fallisce.
+
+    `pulizia_s` imita psycopg con il database congelato: annullato, impiega ancora del tempo a finire.
+    """
+
+    def __init__(self, ritardo_s=0.0, errore=None, pulizia_s=0.0):
+        self.ordini = []
+        self.ritardo_s = ritardo_s
+        self.errore = errore
+        self.pulizia_s = pulizia_s
+
+    async def __call__(self, id_ordine, ts_ricezione):
+        if self.ritardo_s:
+            try:
+                await asyncio.sleep(self.ritardo_s)
+            except asyncio.CancelledError:
+                await asyncio.sleep(self.pulizia_s)
+                raise
+        if self.errore:
+            raise self.errore
+        self.ordini.append((id_ordine, ts_ricezione))
+        return True
+
+
 def app_con(broker=None, **ambiente):
     env = {"MODE": "async", "DEADLINE_S": str(DEADLINE_S), **ambiente}
     return crea_app(da_ambiente(env), broker)
+
+
+def app_sincrona(salva):
+    env = {"MODE": "sync", "DEADLINE_S": str(DEADLINE_S), "DATABASE_URL": "postgresql://db/k"}
+    return crea_app(da_ambiente(env), salva=salva)
 
 
 def test_ordine_accettato_solo_dopo_la_conferma_del_broker():
@@ -85,7 +115,46 @@ def test_il_broker_si_chiude_all_arresto():
     assert broker.chiuso
 
 
-def test_l_endpoint_degli_ordini_c_e_solo_nell_api_con_la_coda():
+def test_il_worker_non_ha_l_endpoint_degli_ordini():
     ordine = {"id": str(uuid.uuid4())}
-    assert TestClient(app_con(ROLE="worker")).post("/ordini", json=ordine).status_code == 404
-    assert TestClient(crea_app(da_ambiente({"MODE": "sync"}))).post("/ordini", json=ordine).status_code == 404
+    app = app_con(ROLE="worker", DATABASE_URL="postgresql://db/k", BROKER_URL="amqp://broker")
+    assert TestClient(app).post("/ordini", json=ordine).status_code == 404
+
+
+def test_ordine_sincrono_confermato_solo_dopo_il_salvataggio():
+    salva = SalvaFinto()
+    prima = datetime.now(timezone.utc)
+    risposta = TestClient(app_sincrona(salva)).post("/ordini", json={"id": str(uuid.uuid4())})
+    assert risposta.status_code == 201
+    assert len(salva.ordini) == 1
+    id_ordine, istante = salva.ordini[0]
+    assert risposta.json() == {"id": str(id_ordine), "stato": "salvato"}
+    assert prima <= istante <= datetime.now(timezone.utc)
+
+
+def test_se_il_database_fallisce_l_ordine_sincrono_non_e_accettato():
+    salva = SalvaFinto(errore=OSError("database spento"))
+    risposta = TestClient(app_sincrona(salva)).post("/ordini", json={"id": str(uuid.uuid4())})
+    assert risposta.status_code == 503
+    assert "database" in risposta.text
+
+
+def test_il_salvataggio_lento_viene_abbandonato_alla_deadline():
+    """Criterio della #31, in scala: tempo di servizio oltre la deadline, 503 alla deadline."""
+    salva = SalvaFinto(ritardo_s=5)
+    inizio = time.perf_counter()
+    risposta = TestClient(app_sincrona(salva)).post("/ordini", json={"id": str(uuid.uuid4())})
+    durata = time.perf_counter() - inizio
+    assert risposta.status_code == 503
+    assert DEADLINE_S <= durata < DEADLINE_S + 0.5
+    assert salva.ordini == []
+
+
+def test_la_deadline_non_aspetta_la_pulizia_del_lavoro_annullato():
+    """Con il database congelato psycopg impiega fino a 10 s ad arrendersi: il 503 arriva lo stesso alla deadline."""
+    salva = SalvaFinto(ritardo_s=5, pulizia_s=2)
+    inizio = time.perf_counter()
+    risposta = TestClient(app_sincrona(salva)).post("/ordini", json={"id": str(uuid.uuid4())})
+    durata = time.perf_counter() - inizio
+    assert risposta.status_code == 503
+    assert DEADLINE_S <= durata < DEADLINE_S + 0.5

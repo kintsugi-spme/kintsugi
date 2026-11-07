@@ -4,17 +4,34 @@ from config import ErroreConfigurazione, da_ambiente
 from main import crea_app
 
 
+INDIRIZZI = {"DATABASE_URL": "postgresql://db/kintsugi", "BROKER_URL": "amqp://broker"}
+SYNC = {"MODE": "sync", "DATABASE_URL": INDIRIZZI["DATABASE_URL"]}
+
+
 def test_mode_sync_con_i_predefiniti():
-    c = da_ambiente({"MODE": "sync"})
+    c = da_ambiente(SYNC)
     assert (c.mode, c.role) == ("sync", "api")
     assert c.service_time_s == 0.0
     assert c.deadline_s is None
-    assert c.database_url is None and c.broker_url is None
+    assert c.broker_url is None
+
+
+def test_l_api_sincrona_richiede_il_database():
+    with pytest.raises(ErroreConfigurazione, match="MODE=sync richiede DATABASE_URL"):
+        da_ambiente({"MODE": "sync"})
 
 
 def test_mode_async_api_e_worker():
     assert da_ambiente({"MODE": "async"}).role == "api"
-    assert da_ambiente({"MODE": "async", "ROLE": "worker"}).role == "worker"
+    assert da_ambiente({"MODE": "async", "ROLE": "worker", **INDIRIZZI}).role == "worker"
+
+
+@pytest.mark.parametrize("manca", ["DATABASE_URL", "BROKER_URL"])
+def test_il_worker_richiede_database_e_broker(manca):
+    env = {"MODE": "async", "ROLE": "worker", **INDIRIZZI}
+    del env[manca]
+    with pytest.raises(ErroreConfigurazione, match=f"ROLE=worker richiede {manca}"):
+        da_ambiente(env)
 
 
 def test_legge_tutte_le_variabili():
@@ -40,8 +57,8 @@ def test_mode_obbligatoria():
     ({"MODE": "ibrido"}, "MODE='ibrido'"),
     ({"MODE": "sync", "ROLE": "cuoco"}, "ROLE='cuoco'"),
     ({"MODE": "sync", "ROLE": "worker"}, "richiede MODE=async"),
-    ({"MODE": "sync", "SERVICE_TIME_S": "tanto"}, "SERVICE_TIME_S='tanto'"),
-    ({"MODE": "sync", "DEADLINE_S": "-1"}, "DEADLINE_S='-1'"),
+    (SYNC | {"SERVICE_TIME_S": "tanto"}, "SERVICE_TIME_S='tanto'"),
+    (SYNC | {"DEADLINE_S": "-1"}, "DEADLINE_S='-1'"),
 ])
 def test_valori_non_validi(env, messaggio):
     with pytest.raises(ErroreConfigurazione, match=messaggio):
@@ -55,5 +72,5 @@ def test_il_riassunto_non_stampa_gli_indirizzi():
 
 
 def test_crea_app_tiene_la_configurazione():
-    c = da_ambiente({"MODE": "async", "ROLE": "worker"})
+    c = da_ambiente({"MODE": "async", "ROLE": "worker", **INDIRIZZI})
     assert crea_app(c).state.config is c

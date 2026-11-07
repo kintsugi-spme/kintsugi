@@ -12,8 +12,9 @@ codice e la stessa immagine, cambiano solo queste variabili e i manifest.
     DATABASE_URL    indirizzo       PostgreSQL.
     BROKER_URL      indirizzo       RabbitMQ.
 
-I due indirizzi e la deadline non sono ancora obbligatori: li rende tali chi comincia a usarli
-(#30, #31, #32, #33).
+Gli indirizzi che servono al processo sono obbligatori: senza, il processo non avrebbe nulla da
+fare e lo farebbe in silenzio. Il worker richiede entrambi, l'API sincrona DATABASE_URL. Per l'API
+con la coda BROKER_URL resta facoltativo: senza, ogni ordine riceve 503.
 """
 
 import os
@@ -77,11 +78,19 @@ def da_ambiente(env: Mapping[str, str] | None = None) -> Config:
     if mode == "sync" and role == "worker":
         # V1, V2 e V4 non hanno la coda: non c'è nessun worker da avviare.
         raise ErroreConfigurazione("ROLE=worker richiede MODE=async: con MODE=sync non c'è nessuna coda")
+    database_url = env.get("DATABASE_URL") or None
+    broker_url = env.get("BROKER_URL") or None
+    if role == "worker":
+        mancanti = [nome for nome, valore in (("DATABASE_URL", database_url), ("BROKER_URL", broker_url)) if not valore]
+        if mancanti:
+            raise ErroreConfigurazione(f"ROLE=worker richiede {' e '.join(mancanti)}")
+    if mode == "sync" and not database_url:
+        raise ErroreConfigurazione("MODE=sync richiede DATABASE_URL: l'API salva gli ordini nel database")
     return Config(
         mode=mode,
         role=role,
         service_time_s=_secondi(env, "SERVICE_TIME_S", 0.0),
         deadline_s=_secondi(env, "DEADLINE_S", None),
-        database_url=env.get("DATABASE_URL") or None,
-        broker_url=env.get("BROKER_URL") or None,
+        database_url=database_url,
+        broker_url=broker_url,
     )
