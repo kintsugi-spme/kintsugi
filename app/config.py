@@ -12,8 +12,9 @@ codice e la stessa immagine, cambiano solo queste variabili e i manifest.
     DATABASE_URL    indirizzo       PostgreSQL.
     BROKER_URL      indirizzo       RabbitMQ.
 
-Con ROLE=worker i due indirizzi sono obbligatori: senza, il worker non avrebbe nulla da fare e lo
-farebbe in silenzio. Per l'API restano facoltativi finché non li rendono tali #30 e #31.
+Gli indirizzi che servono al processo sono obbligatori: senza, il processo non avrebbe nulla da
+fare e lo farebbe in silenzio. Il worker richiede entrambi, l'API sincrona DATABASE_URL. Per l'API
+con la coda BROKER_URL resta facoltativo: senza, ogni ordine riceve 503.
 """
 
 import os
@@ -83,6 +84,8 @@ def da_ambiente(env: Mapping[str, str] | None = None) -> Config:
         mancanti = [nome for nome, valore in (("DATABASE_URL", database_url), ("BROKER_URL", broker_url)) if not valore]
         if mancanti:
             raise ErroreConfigurazione(f"ROLE=worker richiede {' e '.join(mancanti)}")
+    if mode == "sync" and not database_url:
+        raise ErroreConfigurazione("MODE=sync richiede DATABASE_URL: l'API salva gli ordini nel database")
     return Config(
         mode=mode,
         role=role,

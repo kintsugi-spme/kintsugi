@@ -4,15 +4,21 @@ from config import ErroreConfigurazione, da_ambiente
 from main import crea_app
 
 
+INDIRIZZI = {"DATABASE_URL": "postgresql://db/kintsugi", "BROKER_URL": "amqp://broker"}
+SYNC = {"MODE": "sync", "DATABASE_URL": INDIRIZZI["DATABASE_URL"]}
+
+
 def test_mode_sync_con_i_predefiniti():
-    c = da_ambiente({"MODE": "sync"})
+    c = da_ambiente(SYNC)
     assert (c.mode, c.role) == ("sync", "api")
     assert c.service_time_s == 0.0
     assert c.deadline_s is None
-    assert c.database_url is None and c.broker_url is None
+    assert c.broker_url is None
 
 
-INDIRIZZI = {"DATABASE_URL": "postgresql://db/kintsugi", "BROKER_URL": "amqp://broker"}
+def test_l_api_sincrona_richiede_il_database():
+    with pytest.raises(ErroreConfigurazione, match="MODE=sync richiede DATABASE_URL"):
+        da_ambiente({"MODE": "sync"})
 
 
 def test_mode_async_api_e_worker():
@@ -51,8 +57,8 @@ def test_mode_obbligatoria():
     ({"MODE": "ibrido"}, "MODE='ibrido'"),
     ({"MODE": "sync", "ROLE": "cuoco"}, "ROLE='cuoco'"),
     ({"MODE": "sync", "ROLE": "worker"}, "richiede MODE=async"),
-    ({"MODE": "sync", "SERVICE_TIME_S": "tanto"}, "SERVICE_TIME_S='tanto'"),
-    ({"MODE": "sync", "DEADLINE_S": "-1"}, "DEADLINE_S='-1'"),
+    (SYNC | {"SERVICE_TIME_S": "tanto"}, "SERVICE_TIME_S='tanto'"),
+    (SYNC | {"DEADLINE_S": "-1"}, "DEADLINE_S='-1'"),
 ])
 def test_valori_non_validi(env, messaggio):
     with pytest.raises(ErroreConfigurazione, match=messaggio):
