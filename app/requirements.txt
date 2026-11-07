@@ -1,6 +1,6 @@
 # Tutte le librerie con versione esatta, anche quelle installate in automatico (D0011):
 # la stessa versione in ogni ambiente e in ogni build dell'immagine.
-# Per aggiornare: cambiare fastapi, uvicorn, aio-pika o psycopg, poi rigenerare l'elenco dentro la base del Dockerfile
+# Per aggiornare: cambiare fastapi, uvicorn, aio-pika, psycopg o psycopg-pool, poi rigenerare l'elenco dentro la base del Dockerfile
 #   docker run --rm -v "$PWD:/src:ro" python:3.14-slim sh -c \
 #     "pip install -r /src/requirements.txt && pip freeze --all"
 # (togliere pip, setuptools e wheel se compaiono) e incollare il risultato qui sotto.
@@ -19,6 +19,7 @@ pamqp==5.0.0
 propcache==0.5.4
 psycopg==3.3.6
 psycopg-binary==3.3.6
+psycopg-pool==3.3.3
 pydantic==2.14.3
 pydantic_core==2.50.4
 starlette==1.10.0

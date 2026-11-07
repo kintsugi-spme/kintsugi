@@ -9,8 +9,8 @@ La connessione si apre alla prima pubblicazione, non all'avvio: con il broker sp
 partire lo stesso e le sonde rispondere (D0007). Una volta aperta, la connessione si ripristina
 da sola se il broker si ferma e riparte.
 
-La coda è dichiarata senza argomenti aggiuntivi. Chi la dichiara dopo (il worker, #33) deve usare
-gli stessi argomenti, altrimenti RabbitMQ rifiuta la dichiarazione.
+Le code si dichiarano solo con `dichiara_code`, che usano sia l'API sia il worker: RabbitMQ rifiuta
+una seconda dichiarazione con argomenti diversi, quindi gli argomenti stanno in un posto solo.
 """
 
 import asyncio
@@ -18,6 +18,22 @@ import asyncio
 import aio_pika
 
 NOME_CODA = "ordini"
+
+
+async def dichiara_code(canale: aio_pika.abc.AbstractChannel, nome_coda: str = NOME_CODA) -> aio_pika.abc.AbstractQueue:
+    """Dichiara la coda degli ordini e la sua coda dei falliti, entrambe durevoli (D0002).
+
+    Un messaggio rifiutato senza rimetterlo in coda (`reject(requeue=False)`) passa da solo nella
+    coda dei falliti: è RabbitMQ a spostarlo, in un passo solo, quindi un worker che si spegne a
+    metà non lo lascia in tutte e due le code (D0003).
+    """
+    falliti = f"{nome_coda}.falliti"
+    await canale.declare_queue(falliti, durable=True)
+    return await canale.declare_queue(
+        nome_coda,
+        durable=True,
+        arguments={"x-dead-letter-exchange": "", "x-dead-letter-routing-key": falliti},
+    )
 
 
 class BrokerNonDisponibile(Exception):
@@ -41,7 +57,7 @@ class Broker:
                     self._connessione = await aio_pika.connect_robust(self._url)
                     # Le conferme di pubblicazione sono attive per impostazione predefinita.
                     canale = await self._connessione.channel()
-                    await canale.declare_queue(self._nome_coda, durable=True)
+                    await dichiara_code(canale, self._nome_coda)
                 except BaseException:
                     await self.chiudi()
                     raise
