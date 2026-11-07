@@ -1,12 +1,19 @@
-"""Endpoint HTTP dell'API, raccolti in un router che `main.py` include.
+"""Endpoint HTTP dell'API, raccolti in router che `main.py` include.
 
-Per ora ci sono solo le sonde. Gli endpoint degli ordini arrivano con le issue #30 (versione
-sincrona) e #32 (versione con la coda): si aggiungono qui, senza toccare `main.py`.
+`router` ha le sonde, presenti in ogni processo. `router_ordini` ha l'endpoint degli ordini, solo
+nell'API. L'endpoint non contiene logica: chiama `servizio.accetta_ordine`, che sceglie cosa fare
+in base a MODE. La versione sincrona (#30) si aggiunge in `servizio.py`.
 """
 
-from fastapi import APIRouter
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, HTTPException, Request
+
+from modelli import OrdineIn
+from servizio import ServizioNonDisponibile, accetta_ordine
 
 router = APIRouter()
+router_ordini = APIRouter()
 
 
 # Le sonde controllano solo che il processo risponda, mai database o broker (D0007):
@@ -19,3 +26,15 @@ def healthz() -> dict[str, str]:
 @router.get("/readyz")
 def readyz() -> dict[str, str]:
     return {"stato": "pronto"}
+
+
+@router_ordini.post("/ordini", status_code=202)
+async def crea_ordine(ordine: OrdineIn, richiesta: Request) -> dict[str, str]:
+    # D0005: l'istante di ricezione si prende subito, all'arrivo della richiesta.
+    ts_ricezione = datetime.now(timezone.utc)
+    stato = richiesta.app.state
+    try:
+        await accetta_ordine(ordine, ts_ricezione, stato.config, stato.broker)
+    except ServizioNonDisponibile as errore:
+        raise HTTPException(status_code=503, detail=str(errore)) from errore
+    return {"id": str(ordine.id), "stato": "ricevuto"}
