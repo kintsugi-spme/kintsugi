@@ -43,6 +43,8 @@ jobs:
             || { echo "::error::il FROM del Dockerfile non è python:${versione}-slim (vedi .python-version)"; exit 1; }
       - run: pip install -r requirements-dev.txt
       - run: pytest -q
+      - name: Prove del client (harness/client)
+        run: pytest -q ../harness/client
 
   numeri:
     name: Numeri coerenti

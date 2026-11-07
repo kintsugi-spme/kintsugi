@@ -137,6 +137,7 @@ kintsugi/
 │   │   └── overlays/     # v1/ … v5/
 │   └── aws/              # infrastruttura come codice per EKS
 ├── harness/
+│   ├── client/           # client minimo di F2 (provvisorio, prima di JMeter)
 │   ├── jmeter/           # piani di carico W1–W3
 │   └── faults/           # iniezione dei guasti F1–F7
 ├── analysis/             # categorizzazione degli ordini e statistiche
