@@ -6,14 +6,17 @@ codice e la stessa immagine, cambiano solo queste variabili e i manifest.
     MODE            sync | async    come si riceve un ordine (D0001). Obbligatoria.
     ROLE            api | worker    che cosa fa questo processo. Predefinito: api.
     SERVICE_TIME_S  secondi         tempo di servizio aggiunto a ogni ordine. Predefinito: 0.
-    DEADLINE_S      secondi         dopo quanto l'API risponde 503 (D0008). Nessun predefinito:
-                                    il valore sta in config/parametri.yaml (tempi.deadline_api_s)
-                                    e lo passano docker-compose e i manifest.
+    DEADLINE_S      secondi         dopo quanto l'API risponde 503 (D0008). Obbligatoria per l'API,
+                                    senza predefinito: il valore sta in config/parametri.yaml
+                                    (tempi.deadline_api_s) e lo passano docker-compose e i manifest.
     DATABASE_URL    indirizzo       PostgreSQL.
     BROKER_URL      indirizzo       RabbitMQ.
 
-Con ROLE=worker i due indirizzi sono obbligatori: senza, il worker non avrebbe nulla da fare e lo
-farebbe in silenzio. Per l'API restano facoltativi finché non li rendono tali #30 e #31.
+Gli indirizzi che servono al processo sono obbligatori: senza, il processo non avrebbe nulla da
+fare e lo farebbe in silenzio. Il worker richiede entrambi, l'API sincrona DATABASE_URL. Per l'API
+con la coda BROKER_URL resta facoltativo: senza, ogni ordine riceve 503. Ogni API richiede anche
+DEADLINE_S: senza, un database o un broker congelati non darebbero mai 503 e il client
+rinuncerebbe da solo.
 """
 
 import os
@@ -83,11 +86,16 @@ def da_ambiente(env: Mapping[str, str] | None = None) -> Config:
         mancanti = [nome for nome, valore in (("DATABASE_URL", database_url), ("BROKER_URL", broker_url)) if not valore]
         if mancanti:
             raise ErroreConfigurazione(f"ROLE=worker richiede {' e '.join(mancanti)}")
+    if mode == "sync" and not database_url:
+        raise ErroreConfigurazione("MODE=sync richiede DATABASE_URL: l'API salva gli ordini nel database")
+    deadline_s = _secondi(env, "DEADLINE_S", None)
+    if role == "api" and deadline_s is None:
+        raise ErroreConfigurazione("ROLE=api richiede DEADLINE_S (D0008): il valore è tempi.deadline_api_s")
     return Config(
         mode=mode,
         role=role,
         service_time_s=_secondi(env, "SERVICE_TIME_S", 0.0),
-        deadline_s=_secondi(env, "DEADLINE_S", None),
+        deadline_s=deadline_s,
         database_url=database_url,
         broker_url=broker_url,
     )

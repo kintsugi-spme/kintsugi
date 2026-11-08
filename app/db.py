@@ -51,7 +51,7 @@ async def salva_ordine(
 
 
 def crea_pool(url: str) -> AsyncConnectionPool:
-    """Il pool di connessioni di un pod (D0010), da aprire con `await pool.open(wait=False)`.
+    """Il pool di connessioni di un pod (D0010), da aprire con `async with`, che non aspetta il database.
 
     Non si collega alla creazione: con il database spento il processo parte lo stesso e le sonde
     rispondono (D0007). Prima di consegnare una connessione il pool controlla che sia viva e

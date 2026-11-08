@@ -4,19 +4,36 @@ from config import ErroreConfigurazione, da_ambiente
 from main import crea_app
 
 
+INDIRIZZI = {"DATABASE_URL": "postgresql://db/kintsugi", "BROKER_URL": "amqp://broker"}
+SYNC = {"MODE": "sync", "DATABASE_URL": INDIRIZZI["DATABASE_URL"], "DEADLINE_S": "1.5"}
+ASYNC = {"MODE": "async", "DEADLINE_S": "1.5"}
+
+
 def test_mode_sync_con_i_predefiniti():
-    c = da_ambiente({"MODE": "sync"})
+    c = da_ambiente(SYNC)
     assert (c.mode, c.role) == ("sync", "api")
     assert c.service_time_s == 0.0
-    assert c.deadline_s is None
-    assert c.database_url is None and c.broker_url is None
+    assert c.broker_url is None
 
 
-INDIRIZZI = {"DATABASE_URL": "postgresql://db/kintsugi", "BROKER_URL": "amqp://broker"}
+@pytest.mark.parametrize("env", [SYNC, ASYNC])
+def test_ogni_api_richiede_la_deadline(env):
+    senza = {k: v for k, v in env.items() if k != "DEADLINE_S"}
+    with pytest.raises(ErroreConfigurazione, match="ROLE=api richiede DEADLINE_S"):
+        da_ambiente(senza)
+
+
+def test_il_worker_non_richiede_la_deadline():
+    assert da_ambiente({"MODE": "async", "ROLE": "worker", **INDIRIZZI}).deadline_s is None
+
+
+def test_l_api_sincrona_richiede_il_database():
+    with pytest.raises(ErroreConfigurazione, match="MODE=sync richiede DATABASE_URL"):
+        da_ambiente({"MODE": "sync"})
 
 
 def test_mode_async_api_e_worker():
-    assert da_ambiente({"MODE": "async"}).role == "api"
+    assert da_ambiente(ASYNC).role == "api"
     assert da_ambiente({"MODE": "async", "ROLE": "worker", **INDIRIZZI}).role == "worker"
 
 
@@ -51,8 +68,8 @@ def test_mode_obbligatoria():
     ({"MODE": "ibrido"}, "MODE='ibrido'"),
     ({"MODE": "sync", "ROLE": "cuoco"}, "ROLE='cuoco'"),
     ({"MODE": "sync", "ROLE": "worker"}, "richiede MODE=async"),
-    ({"MODE": "sync", "SERVICE_TIME_S": "tanto"}, "SERVICE_TIME_S='tanto'"),
-    ({"MODE": "sync", "DEADLINE_S": "-1"}, "DEADLINE_S='-1'"),
+    (SYNC | {"SERVICE_TIME_S": "tanto"}, "SERVICE_TIME_S='tanto'"),
+    (SYNC | {"DEADLINE_S": "-1"}, "DEADLINE_S='-1'"),
 ])
 def test_valori_non_validi(env, messaggio):
     with pytest.raises(ErroreConfigurazione, match=messaggio):
@@ -60,7 +77,7 @@ def test_valori_non_validi(env, messaggio):
 
 
 def test_il_riassunto_non_stampa_gli_indirizzi():
-    c = da_ambiente({"MODE": "sync", "DATABASE_URL": "postgresql://utente:segreta@db/k"})
+    c = da_ambiente(SYNC | {"DATABASE_URL": "postgresql://utente:segreta@db/k"})
     assert "segreta" not in c.riassunto()
     assert "database=impostato" in c.riassunto()
 

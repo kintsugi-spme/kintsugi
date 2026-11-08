@@ -2,12 +2,12 @@
 
 `router` ha le sonde, presenti in ogni processo. `router_ordini` ha l'endpoint degli ordini, solo
 nell'API. L'endpoint non contiene logica: chiama `servizio.accetta_ordine`, che sceglie cosa fare
-in base a MODE. La versione sincrona (#30) si aggiunge in `servizio.py`.
+in base a MODE.
 """
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 
 from modelli import OrdineIn
 from servizio import ServizioNonDisponibile, accetta_ordine
@@ -28,13 +28,19 @@ def readyz() -> dict[str, str]:
     return {"stato": "pronto"}
 
 
-@router_ordini.post("/ordini", status_code=202)
-async def crea_ordine(ordine: OrdineIn, richiesta: Request) -> dict[str, str]:
+# Il codice di risposta dice al cliente che cosa è successo all'ordine (D0001):
+# 201 se è già nel database (MODE=sync), 202 se è in coda e lo salverà un worker (MODE=async).
+RISPOSTE = {"sync": (201, "salvato"), "async": (202, "ricevuto")}
+
+
+@router_ordini.post("/ordini", responses={201: {}, 202: {}, 503: {}})
+async def crea_ordine(ordine: OrdineIn, richiesta: Request, risposta: Response) -> dict[str, str]:
     # D0005: l'istante di ricezione si prende subito, all'arrivo della richiesta.
     ts_ricezione = datetime.now(timezone.utc)
     stato = richiesta.app.state
     try:
-        await accetta_ordine(ordine, ts_ricezione, stato.config, stato.broker)
+        await accetta_ordine(ordine, ts_ricezione, stato.config, stato.broker, stato.salva)
     except ServizioNonDisponibile as errore:
         raise HTTPException(status_code=503, detail=str(errore)) from errore
-    return {"id": str(ordine.id), "stato": "ricevuto"}
+    risposta.status_code, esito = RISPOSTE[stato.config.mode]
+    return {"id": str(ordine.id), "stato": esito}
