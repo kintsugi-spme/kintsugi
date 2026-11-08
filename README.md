@@ -132,6 +132,7 @@ kintsugi/
 ├── app/                  # API e worker (un solo codice: MODE=sync|async, ROLE=api|worker)
 ├── config/               # valori numerici del progetto, scritti una volta sola (vedi config/README.md)
 ├── deploy/
+│   ├── compose/          # V1, V2 e V3 sul computer con Docker Compose (fase F2)
 │   ├── k8s/
 │   │   ├── base/         # manifest comuni
 │   │   └── overlays/     # v1/ … v5/

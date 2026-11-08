@@ -1,0 +1,40 @@
+# V2: tre copie dell'API sincrona dietro un bilanciatore, sullo stesso database.
+# Si avvia con `make v2`, dopo base.yaml.
+#
+# Il bilanciatore (nginx) serve solo a provare l'app sul computer: nel confronto vero, su
+# Kubernetes, le copie stanno dietro un Service. Qui distribuisce le richieste a turno.
+# L'immagine la costruisce `make` una volta sola (vedi Makefile): qui si usa e basta.
+x-app: &app
+  image: kintsugi:dev
+  pull_policy: never
+  stop_grace_period: 10s
+
+services:
+  api:
+    <<: *app
+    deploy:
+      replicas: 3
+    environment:
+      MODE: sync
+      DEADLINE_S: "${DEADLINE_S:?avvia con make v2, che la legge da config/parametri.yaml}"
+      SERVICE_TIME_S: ${SERVICE_TIME_S:-0}
+      DATABASE_URL: postgresql://kintsugi:kintsugi@db:5432/kintsugi
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2)"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  bilanciatore:
+    image: nginx:1.29.8-alpine
+    stop_grace_period: 10s
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      api:
+        condition: service_healthy

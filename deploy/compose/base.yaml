@@ -1,0 +1,34 @@
+# Parte comune a V1, V2 e V3: il database (fase F2, solo per provare l'app sul computer).
+# Non si avvia da solo: lo avviano i comandi di `make` (vedi README.md in questa cartella).
+#
+# Le password sono valori di prova, validi solo dentro la rete Docker di questo progetto.
+name: kintsugi
+
+services:
+  db:
+    image: postgres:18.6-alpine
+    # Docker Desktop concede di suo meno dei 10 s documentati prima di SIGKILL (circa 1,5 s su un Mac, 3,2 s
+    # su un altro): PostgreSQL verrebbe ucciso a metà dell'arresto. Qui il tempo è fissato, uguale su ogni
+    # computer; lo stesso vale per tutti i servizi degli altri file.
+    stop_grace_period: 10s
+    environment:
+      POSTGRES_USER: kintsugi
+      POSTGRES_PASSWORD: kintsugi
+      POSTGRES_DB: kintsugi
+    volumes:
+      - db-dati:/var/lib/postgresql
+      # Lo schema è uno solo e sta dove lo legge anche Kustomize (deploy/k8s/base). PostgreSQL lo
+      # esegue una volta sola, quando il volume è vuoto.
+      - ../k8s/base/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      # `-h 127.0.0.1`: durante la creazione del volume PostgreSQL risponde solo sul socket
+      # locale; senza questo il controllo direbbe «pronto» troppo presto.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U kintsugi -d kintsugi"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  db-dati:
+  # Dichiarato qui, anche se lo usa solo V3, perché `make giu` lo cancelli insieme agli altri.
+  coda-dati:
