@@ -29,6 +29,10 @@ Relazione di sintesi di 21 pagine (erano 19), compilata senza errori; la sezione
 
 - **PyYAML mancante sul Mac:** `make sintesi` genera prima i parametri e si fermava. Generati con un ambiente Python temporaneo.
 - **Compilazione fallita con caratteri nulli** (`Text line contains an invalid character`): una compilazione dell'editor sugli stessi file era in corso nello stesso momento. Rilanciata da sola, è riuscita.
+- **Dalla revisione di Gianmarco (08/11):**
+  - tolto il peso dell'immagine: 170 MB veniva dal diario della #54, prima di `psycopg`, `aio-pika` e `psycopg-pool`; oggi è 286 MB e cambia a ogni libreria;
+  - didascalia della figura dei container corretta: V3 ha 3 worker e V2 ha 3 copie dell'API dietro un bilanciatore (#35). I numeri vengono da `config/parametri.yaml`;
+  - sintesi portata alla versione 0.2, perché c'è una sezione nuova.
 
 ## Limiti dello strumento emersi
 

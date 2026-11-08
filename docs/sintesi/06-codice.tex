@@ -67,7 +67,7 @@ Due scelte rendono equo il confronto tra le versioni. Il salvataggio passa sempr
 
 \subsection{L'immagine e i container}
 
-L'immagine si costruisce da un unico \texttt{Dockerfile}, sulla base ridotta di Python~3.14, e pesa circa 170~MB. Tre accorgimenti servono all'esperimento:
+L'immagine si costruisce da un unico \texttt{Dockerfile}, sulla base ridotta di Python~3.14. Tre accorgimenti servono all'esperimento:
 
 \begin{itemize}
   \item il programma è il \emph{primo processo} del container, senza una shell davanti: i segnali con cui si provocano i guasti (arresto improvviso, congelamento) arrivano direttamente a lui;
@@ -95,7 +95,7 @@ Durante lo sviluppo (fase F2) ogni componente è un container separato, collegat
 \node[cluster, fit=(api)(q)(wk)(db)(img), label={[etichetta, anchor=north east]south east:rete Docker}] {};
 \end{scope}
 \end{tikzpicture}}
-\caption{V3 durante lo sviluppo: quattro container sulla stessa rete Docker. Le versioni sincrone hanno solo \texttt{api} e \texttt{db}.}
+\caption{V3 durante lo sviluppo: coda, database, API e \parametro{worker_v3} worker (ne è disegnato uno). V1 ha solo \texttt{api} e \texttt{db}; V2 ha \parametro{copie_api} copie di \texttt{api} dietro un bilanciatore.}
 \label{fig:container}
 \end{figure}
 
