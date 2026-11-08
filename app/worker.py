@@ -41,7 +41,7 @@ def leggi_ordine(corpo: bytes) -> tuple[UUID, datetime]:
         dati = json.loads(corpo)
         id_ordine = UUID(dati["id"])
         ts_ricezione = datetime.fromisoformat(dati["ts_ricezione"])
-    except (ValueError, KeyError, TypeError) as errore:
+    except (ValueError, KeyError, TypeError, AttributeError) as errore:
         raise MessaggioIlleggibile(f"{type(errore).__name__}: {errore}") from errore
     # Senza fuso orario PostgreSQL lo interpreterebbe nel fuso della sessione (D0005).
     if ts_ricezione.tzinfo is None:
@@ -84,6 +84,10 @@ async def esegui(url: str, salva: Salva, nome_coda: str = NOME_CODA) -> None:
                         await gestisci(messaggio, salva)
         except asyncio.CancelledError:
             raise
-        except Exception as errore:
-            log.warning("worker: broker non raggiungibile (%s: %s)", type(errore).__name__, errore)
+        except aio_pika.exceptions.ChannelPreconditionFailed as errore:
+            log.error("worker: la coda %s esiste già con impostazioni diverse: va cancellata e ricreata (%s)", nome_coda, errore)
+        except (OSError, aio_pika.exceptions.AMQPException) as errore:
+            log.warning("worker: problema con il broker (%s: %s)", type(errore).__name__, errore)
+        except Exception:
+            log.exception("worker: errore imprevisto, mi ricollego")
         await asyncio.sleep(ATTESA_RICONNESSIONE_S)
