@@ -10,6 +10,10 @@ from datetime import datetime
 from uuid import UUID
 
 from psycopg import AsyncConnection
+from psycopg_pool import AsyncConnectionPool
+
+# D0010: 5 connessioni per pod, uguale per API e worker e per tutte le versioni.
+CONNESSIONI_PER_POD = 5
 
 # Una sola istruzione, quindi atomica:
 #   1. prova a inserire l'ordine; se l'identificativo esiste già, non fa nulla (`nuovo` è vuoto);
@@ -44,3 +48,19 @@ async def salva_ordine(
         )
         era_un_doppio = await cursore.fetchone() is not None
     return not era_un_doppio
+
+
+def crea_pool(url: str) -> AsyncConnectionPool:
+    """Il pool di connessioni di un pod (D0010), da aprire con `async with`, che non aspetta il database.
+
+    Non si collega alla creazione: con il database spento il processo parte lo stesso e le sonde
+    rispondono (D0007). Prima di consegnare una connessione il pool controlla che sia viva e
+    ricrea quelle morte, così dopo il riavvio del database non si usano connessioni vecchie.
+    """
+    return AsyncConnectionPool(
+        url,
+        min_size=CONNESSIONI_PER_POD,
+        max_size=CONNESSIONI_PER_POD,
+        open=False,
+        check=AsyncConnectionPool.check_connection,
+    )

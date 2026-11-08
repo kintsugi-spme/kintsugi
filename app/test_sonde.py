@@ -17,8 +17,8 @@ TIMEOUT_SONDA_S = 1.0
 
 
 @pytest.mark.parametrize("modo", [
-    {"MODE": "sync"},
-    {"MODE": "async"},
+    {"MODE": "sync", "DEADLINE_S": "1.5"},
+    {"MODE": "async", "DEADLINE_S": "1.5"},
     {"MODE": "async", "ROLE": "worker"},
 ])
 @pytest.mark.parametrize("percorso, stato", [("/healthz", "vivo"), ("/readyz", "pronto")])
@@ -39,7 +39,7 @@ def test_le_sonde_non_aprono_connessioni(monkeypatch, percorso):
     tentativi = []
     # Con `with` il client avvia subito il suo ciclo di eventi: su Windows asyncio usa
     # `connect` per crearlo, quindi l'intercettazione parte solo dopo.
-    with TestClient(crea_app(da_ambiente({"MODE": "sync", **SPENTI}))) as client:
+    with TestClient(crea_app(da_ambiente({"MODE": "sync", "DEADLINE_S": "1.5", **SPENTI}))) as client:
         monkeypatch.setattr(socket.socket, "connect", lambda self, *a, **k: tentativi.append(a))
         client.get(percorso)
     assert tentativi == [], "la sonda ha provato a collegarsi"
