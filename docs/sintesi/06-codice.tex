@@ -1,0 +1,102 @@
+\section{Il codice e l'ambiente di prova}
+\label{s:codice}
+
+Tutte le versioni usano un solo programma, scritto in Python con FastAPI, e una sola immagine Docker. Lo stesso programma svolge tre lavori diversi, scelti all'avvio da due impostazioni: \texttt{MODE} (\texttt{sync} o \texttt{async}) e \texttt{ROLE} (\texttt{api} o \texttt{worker}). Così la differenza tra le versioni sta solo nella configurazione e mai nel codice (tabella~\ref{tab:processi}).
+
+\begin{table}[H]
+\centering
+\caption{I tre lavori dello stesso programma.}
+\label{tab:processi}
+\begin{tabularx}{\linewidth}{@{}Lllc@{}}
+\toprule
+\textbf{Lavoro} & \textbf{\texttt{MODE}} & \textbf{\texttt{ROLE}} & \textbf{Versioni} \\
+\midrule
+API sincrona: scrive l'ordine nel database e risponde \texttt{201} & \texttt{sync} & \texttt{api} & V1, V2, V4 \\
+API asincrona: mette l'ordine in coda e risponde \texttt{202} & \texttt{async} & \texttt{api} & V3, V5 \\
+Worker: prende gli ordini dalla coda e li scrive nel database & \texttt{async} & \texttt{worker} & V3, V5 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Come è organizzato il codice}
+
+Il programma è diviso in pochi moduli, ognuno con un solo compito (figura~\ref{fig:moduli}).
+
+\begin{figure}[H]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[mod/.style={pod, minimum width=2.3cm, font=\small\ttfamily}]
+\node[mod] (main) at (5,3) {main.py};
+\node[mod] (api) at (2,1.5) {api.py};
+\node[mod] (wk) at (8,1.5) {worker.py};
+\node[mod] (mod) at (-1,1.5) {modelli.py};
+\node[mod] (srv) at (2,0) {servizio.py};
+\node[mod] (brk) at (5,-1.5) {broker.py};
+\node[mod] (db) at (8,-1.5) {db.py};
+\node[mod, draw=grigiotesto, text=grigiotesto] (cfg) at (11,3) {config.py};
+\node[coda, label={[etichetta]below:RabbitMQ}] (q) at (5,-3.1) {};
+\node[db, minimum width=1.6cm, minimum height=1cm, font=\scriptsize] (pg) at (8,-3.3) {PostgreSQL};
+\draw[freccia] (main) -- node[etichetta, above left] {ROLE=api} (api);
+\draw[freccia] (main) -- node[etichetta, above right] {ROLE=worker} (wk);
+\draw[freccia] (api) -- (mod);
+\draw[freccia] (api) -- (srv);
+\draw[freccia] (srv) -- node[etichetta, below left] {mette in coda} (brk);
+\draw[freccia] (srv) -- node[etichetta, above, pos=0.35] {salva} (db);
+\draw[freccia] (wk) -- node[etichetta, above, sloped, pos=0.4] {per ogni ordine} (srv);
+\draw[freccia] (wk) -- node[etichetta, above, sloped, pos=0.6] {legge la coda} (brk);
+\draw[sonda] (cfg) -- node[etichetta, above] {impostazioni} (main);
+\draw[freccia] (brk) -- (q);
+\draw[freccia] (db) -- (pg);
+\end{tikzpicture}}
+\caption{I moduli del programma: una freccia va da chi usa a chi è usato. \texttt{main.py} attiva solo la parte che serve al lavoro scelto.}
+\label{fig:moduli}
+\end{figure}
+
+\begin{description}
+  \item[\texttt{config.py}] legge le impostazioni dalle variabili d'ambiente e controlla che abbiano senso: per esempio, un worker senza l'indirizzo del database non parte.
+  \item[\texttt{main.py}] è il punto di partenza: in base a \texttt{ROLE} accende l'endpoint degli ordini oppure il worker, e all'arresto chiude le connessioni.
+  \item[\texttt{api.py}] contiene gli indirizzi HTTP: le due sonde (\texttt{/healthz}, \texttt{/readyz}) e \texttt{POST /ordini}, che annota l'istante di arrivo e passa l'ordine a \texttt{servizio.py}.
+  \item[\texttt{modelli.py}] descrive l'ordine: un identificativo scelto dal cliente. Una richiesta senza un identificativo valido è rifiutata subito.
+  \item[\texttt{servizio.py}] contiene la logica: accettare un ordine (in coda o nel database, secondo \texttt{MODE}) entro \parametro{deadline_api_s}~s, e salvarlo dopo il tempo di servizio impostato.
+  \item[\texttt{broker.py}] parla con RabbitMQ: crea la coda degli ordini e quella dei falliti, pubblica un ordine e aspetta la conferma che è stato conservato.
+  \item[\texttt{db.py}] parla con PostgreSQL: salva un ordine in una sola istruzione e, se l'identificativo esiste già, lo registra tra i doppi; tiene 5 connessioni pronte da riusare.
+  \item[\texttt{worker.py}] prende un ordine alla volta dalla coda, lo salva e solo dopo lo conferma a RabbitMQ; se RabbitMQ cade, si ricollega da solo.
+\end{description}
+
+Due scelte rendono equo il confronto tra le versioni. Il salvataggio passa sempre dalla stessa funzione, sia nell'API sincrona sia nel worker, quindi tempi e doppi si misurano nello stesso modo. Le sonde non interrogano né il database né la coda, così un database fermo non fa escludere tutte le copie dell'API.
+
+\subsection{L'immagine e i container}
+
+L'immagine si costruisce da un unico \texttt{Dockerfile}, sulla base ridotta di Python~3.14. Tre accorgimenti servono all'esperimento:
+
+\begin{itemize}
+  \item il programma è il \emph{primo processo} del container, senza una shell davanti: i segnali con cui si provocano i guasti (arresto improvviso, congelamento) arrivano direttamente a lui;
+  \item il codice è già compilato nell'immagine, quindi dopo un crash il programma risponde di nuovo in meno di un secondo;
+  \item l'immagine si costruisce per i processori del Mac (ARM) e per quelli di AWS (x86); un controllo automatico la prova su entrambi a ogni modifica.
+\end{itemize}
+
+Durante lo sviluppo (fase F2) ogni componente è un container separato, collegato agli altri da una \emph{rete Docker} privata (figura~\ref{fig:container}). Nella rete i container si trovano per nome: il worker raggiunge il database all'indirizzo \texttt{db} e la coda all'indirizzo \texttt{coda}. Verso il computer si apre solo la porta dell'API, a cui il cliente invia gli ordini.
+
+\begin{figure}[H]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}
+\node[box, minimum width=1.8cm] (cl) at (0,0) {Cliente};
+\node[pod] (api) at (3.6,0) {\texttt{api}\\{\scriptsize MODE=async}};
+\node[coda, label={[etichetta]above:\texttt{coda} (RabbitMQ)}] (q) at (6.6,0) {};
+\node[pod] (wk) at (9.4,0) {\texttt{worker}\\{\scriptsize ROLE=worker}};
+\node[db] (db) at (12.6,0) {\texttt{db}\\{\scriptsize PostgreSQL}};
+\node[etichetta] (img) at (6.6,-1.6) {\texttt{api} e \texttt{worker}: stessa immagine, impostazioni diverse};
+\draw[freccia] (cl) -- node[etichetta, above] {porta\\8000} (api);
+\draw[freccia] (api) -- (q);
+\draw[freccia] (q) -- (wk);
+\draw[freccia] (wk) -- (db);
+\begin{scope}[on background layer]
+\node[cluster, fit=(api)(q)(wk)(db)(img), label={[etichetta, anchor=north east]south east:rete Docker}] {};
+\end{scope}
+\end{tikzpicture}}
+\caption{V3 durante lo sviluppo: coda, database, API e \parametro{worker_v3} worker (ne è disegnato uno). V1 ha solo \texttt{api} e \texttt{db}; V2 ha \parametro{copie_api} copie di \texttt{api} dietro un bilanciatore.}
+\label{fig:container}
+\end{figure}
+
+Dalla fase F3 la stessa immagine gira su Kubernetes, nel cluster kind, i cui nodi sono a loro volta container Docker. Cambia chi gestisce i container: non più chi lancia le prove, ma Kubernetes, che li avvia, ne mantiene il numero di copie e li riavvia quando cadono. È questo comportamento che si misura negli esperimenti.
