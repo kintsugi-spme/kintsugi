@@ -99,8 +99,8 @@ jobs:
         run: docker build -t kintsugi:${GITHUB_SHA::7} app
       - name: Parte come API sincrona, API asincrona e worker
         run: |
-          # L'API sincrona e il worker richiedono gli indirizzi: qui non risponde nessuno, ma il processo deve partire lo stesso (D0007).
-          for modo in "MODE=sync DATABASE_URL=postgresql://127.0.0.1:1/k" "MODE=async" "MODE=async ROLE=worker DATABASE_URL=postgresql://127.0.0.1:1/k BROKER_URL=amqp://127.0.0.1:1"; do
+          # Ogni API richiede DEADLINE_S; l'API sincrona e il worker anche gli indirizzi: qui non risponde nessuno, ma il processo deve partire lo stesso (D0007).
+          for modo in "MODE=sync DEADLINE_S=1.5 DATABASE_URL=postgresql://127.0.0.1:1/k" "MODE=async DEADLINE_S=1.5" "MODE=async ROLE=worker DATABASE_URL=postgresql://127.0.0.1:1/k BROKER_URL=amqp://127.0.0.1:1"; do
             env_args=()
             for kv in $modo; do env_args+=(-e "$kv"); done
             id=$(docker run -d -p 8000:8000 "${env_args[@]}" kintsugi:${GITHUB_SHA::7})

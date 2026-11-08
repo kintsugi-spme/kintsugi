@@ -83,11 +83,14 @@ async def salva(
 ) -> bool:
     """Il lavoro su un ordine: il tempo di servizio, poi il salvataggio. True se l'ordine è nuovo.
 
-    Il tempo di servizio (SERVICE_TIME_S) passa prima di prendere una connessione, così non tiene
-    occupato il pool. Senza carico, ts_scrittura - ts_ricezione vale il tempo di servizio più
-    qualche millisecondo (criterio 2 di M2).
+    Il tempo di servizio (SERVICE_TIME_S) è il tempo dell'ordine al database, quindi passa con la
+    connessione in mano. Così in ogni versione la capacità dipende da S: 5 / S ordini al secondo
+    per una copia dell'API sincrona (5 connessioni, D0010), 1 / S per un worker (un ordine alla
+    volta), e sotto sovraccarico V1, V2 e V3 si saturano per la stessa causa.
+    Senza carico, ts_scrittura - ts_ricezione vale il tempo di servizio più qualche millisecondo
+    (criterio 2 di M2).
     """
-    if config.service_time_s:
-        await asyncio.sleep(config.service_time_s)
     async with pool.connection() as connessione:
+        if config.service_time_s:
+            await asyncio.sleep(config.service_time_s)
         return await salva_ordine(connessione, id_ordine, ts_ricezione, ricevuto_da)

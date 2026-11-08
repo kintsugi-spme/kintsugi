@@ -56,6 +56,10 @@ Test: 43 passano, gli altri si saltano senza RabbitMQ e PostgreSQL; con PostgreS
 - **Deadline non rispettata con il database congelato:** `503` dopo 11,5 s invece di 1,5 s. Alla deadline `asyncio.wait_for` annulla il salvataggio e ne aspetta la fine. psycopg, annullato a metà di una query, prova per 5 s ad annullarla sul server e poi aspetta altri 5 s che finisca (`connection_async.py`, `_wait_conn`): con il server congelato, 1,5 + 5 + 5 = 11,5 s. Con il database ucciso il problema non c'è, perché la connessione cade subito. Ora il `503` parte alla deadline e la pulizia continua in sottofondo. Un test con un salvataggio finto che impiega 2 s a finire dopo l'annullamento falliva prima della correzione e passa dopo.
 - **Orologio di Docker indietro di 11,6 ms rispetto al Mac:** con l'API sul Mac e il database in Docker, `ts_scrittura - ts_ricezione` era 0,195 s con un tempo di servizio di 0,2 s. Lo sfasamento era previsto da D0005; qui è misurato (5 campioni, tutti tra -11,1 e -11,7 ms). `test_api_sincrona.py` lo misura e lo sottrae. Nelle prove con l'immagine API e database sono nella stessa macchina virtuale, quindi l'orologio è uno solo.
 - **Un ordine respinto con `503` può essere già nel database:** se la deadline scade dopo che la query è arrivata al server. Nelle prove non è successo, ma il client lo conterà come una categoria a parte (#37).
+- **Dalla revisione di Gianmarco (08/11):**
+  - il tempo di servizio ora passa con la connessione in mano: è il tempo dell'ordine al database (simbolo $S$ nelle previsioni). Prima passava fuori dal pool e in V1 e V2 non limitava la capacità. Ora una copia dell'API regge 5 / S ordini al secondo, come 5 worker. Prova con l'immagine, S = 50 ms: a 50 ordini/s 300 `201` su 300; a 150 ordini/s 341 `201` e 559 `503` (Gianmarco: 332 e 568);
+  - `DEADLINE_S` è obbligatoria per ogni API, sincrona o con la coda. Senza, il processo non parte (`ROLE=api richiede DEADLINE_S`). Era il punto 3 della revisione della #56;
+  - con le correzioni della #60 e PostgreSQL e RabbitMQ veri: 61 test superati, nessuno saltato.
 
 ## Limiti dello strumento emersi
 
