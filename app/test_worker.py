@@ -109,15 +109,93 @@ def test_il_messaggio_illeggibile_va_tra_i_falliti_senza_salvare():
     assert messaggio.esito == "reject(requeue=False)"
 
 
-def test_se_il_salvataggio_fallisce_il_messaggio_torna_in_coda(monkeypatch):
-    monkeypatch.setattr(worker, "ATTESA_DOPO_ERRORE_S", 0)
+@pytest.fixture
+def riprova_veloce(monkeypatch):
+    """Le attese e i limiti di D0003 ridotti a millisecondi, per non aspettare secondi veri."""
+    monkeypatch.setattr(worker, "ATTESE_RIPROVA_S", (0.001, 0.002))
+    monkeypatch.setattr(worker, "TEMPO_MASSIMO_RIPROVE_S", 0.1)
+    monkeypatch.setattr(worker, "LIMITE_SCRITTURA_S", 0.05)
+
+
+def test_le_attese_crescono_e_poi_restano_a_10_secondi():
+    """D0003: 0,5 s, poi 1, 2, 4, 8 s, poi ogni 10 s."""
+    assert [worker.attesa_riprova(n) for n in range(8)] == [0.5, 1, 2, 4, 8, 10, 10, 10]
+
+
+def test_se_il_database_torna_l_ordine_si_salva_senza_lasciare_il_worker(riprova_veloce):
     messaggio = MessaggioFinto(corpo())
+    chiamate = []
+
+    async def database_che_torna(id_ordine, ts_ricezione):
+        # Tra un tentativo e l'altro il messaggio resta con il worker: non è né confermato né rimesso in coda.
+        chiamate.append(messaggio.esito)
+        if len(chiamate) <= 2:
+            raise psycopg.OperationalError("database spento")
+        return True
+
+    asyncio.run(gestisci(messaggio, database_che_torna))
+    assert chiamate == [None, None, None]
+    assert messaggio.esito == "ack"
+
+
+def test_una_scrittura_troppo_lenta_si_ritenta(riprova_veloce):
+    messaggio = MessaggioFinto(corpo())
+    chiamate = []
+
+    async def database_lento_la_prima_volta(id_ordine, ts_ricezione):
+        chiamate.append(1)
+        if len(chiamate) == 1:
+            await asyncio.sleep(5)  # più del limite di scrittura: viene interrotta
+        return True
+
+    asyncio.run(gestisci(messaggio, database_lento_la_prima_volta))
+    assert len(chiamate) == 2
+    assert messaggio.esito == "ack"
+
+
+def test_se_il_database_non_torna_in_tempo_l_ordine_va_tra_i_falliti(riprova_veloce):
+    messaggio = MessaggioFinto(corpo())
+    chiamate = []
 
     async def database_spento(id_ordine, ts_ricezione):
+        chiamate.append(1)
         raise ConnectionError("database spento")
 
     asyncio.run(gestisci(messaggio, database_spento))
-    assert messaggio.esito == "nack(requeue=True)"
+    assert len(chiamate) > 2  # ha riprovato, non si è arreso al primo errore
+    assert messaggio.esito == "reject(requeue=False)"
+
+
+def test_un_errore_che_non_passa_con_il_tempo_va_subito_tra_i_falliti(riprova_veloce):
+    messaggio = MessaggioFinto(corpo())
+    chiamate = []
+
+    async def errore_di_programma(id_ordine, ts_ricezione):
+        chiamate.append(1)
+        raise ValueError("non dipende dal database")
+
+    asyncio.run(gestisci(messaggio, errore_di_programma))
+    assert len(chiamate) == 1
+    assert messaggio.esito == "reject(requeue=False)"
+
+
+def test_se_il_processo_si_ferma_durante_la_riprova_il_messaggio_resta_aperto(monkeypatch):
+    """All'arresto RabbitMQ lo riconsegna a un altro worker (D0002): il messaggio non va né confermato né rifiutato."""
+    monkeypatch.setattr(worker, "ATTESE_RIPROVA_S", (10,))
+    messaggio = MessaggioFinto(corpo())
+
+    async def database_spento(id_ordine, ts_ricezione):
+        raise psycopg.OperationalError("database spento")
+
+    async def prova():
+        compito = asyncio.create_task(gestisci(messaggio, database_spento))
+        await asyncio.sleep(0.05)
+        compito.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await compito
+
+    asyncio.run(prova())
+    assert messaggio.esito is None
 
 
 # --- Con RabbitMQ e PostgreSQL veri ------------------------------------------------------------
@@ -144,13 +222,20 @@ async def conta_righe():
         return ordini, doppi
 
 
-async def con_worker(nome_coda, prova):
-    """Avvia il worker su una coda di prova, esegue `prova(canale)` e poi ferma tutto."""
-    config = da_ambiente({"MODE": "async", "ROLE": "worker", "DATABASE_URL": URL_DATABASE, "BROKER_URL": URL_BROKER})
-    pool = crea_pool(URL_DATABASE)
-    await pool.open(wait=True)
+async def con_worker(nome_coda, prova, url_database=None, database_acceso=None):
+    """Avvia il worker su una coda di prova, esegue `prova(canale)` e poi ferma tutto.
+
+    `url_database` sostituisce il database di prova (per provare un indirizzo su cui non risponde
+    nessuno). `database_acceso`, un `asyncio.Event`, simula un database spento finché non è impostato.
+    """
+    url = url_database or URL_DATABASE
+    config = da_ambiente({"MODE": "async", "ROLE": "worker", "DATABASE_URL": url, "BROKER_URL": URL_BROKER})
+    pool = crea_pool(url)
+    await pool.open(wait=url_database is None)
 
     async def salva_vero(id_ordine, ts_ricezione):
+        if database_acceso is not None and not database_acceso.is_set():
+            raise psycopg.OperationalError("database spento (simulato dalla prova)")
         return await salva(pool, config, id_ordine, ts_ricezione, "worker-di-prova")
 
     compito = asyncio.create_task(worker.esegui(URL_BROKER, salva_vero, nome_coda))
@@ -237,6 +322,53 @@ def test_il_messaggio_illeggibile_finisce_nella_coda_dei_falliti():
     async def tutto():
         await svuota_database()
         await con_worker(nome, prova)
+
+    asyncio.run(tutto())
+
+
+@con_broker_e_database
+def test_con_il_database_spento_gli_ordini_aspettano_e_si_salvano_al_ritorno(monkeypatch):
+    """D0003: mentre il worker ritenta, l'ordine non torna in coda e gli altri restano in coda."""
+    monkeypatch.setattr(worker, "ATTESE_RIPROVA_S", (0.05,))
+    nome = f"prova-{uuid.uuid4()}"
+    database_acceso = asyncio.Event()
+
+    async def prova(canale):
+        for _ in range(3):
+            await pubblica(canale, nome, corpo())
+        await asyncio.sleep(1)
+        # Il worker ne tiene uno solo (prefetch = 1), gli altri due aspettano in coda.
+        assert await messaggi_in(canale, nome) == 2
+        assert await conta_righe() == (0, 0)
+        database_acceso.set()
+        await aspetta(lambda: _uguale(conta_righe(), (3, 0)))
+        assert await messaggi_in(canale, nome) == 0
+        assert await messaggi_in(canale, f"{nome}.falliti") == 0
+
+    async def tutto():
+        await svuota_database()
+        await con_worker(nome, prova, database_acceso=database_acceso)
+
+    asyncio.run(tutto())
+
+
+@con_broker_e_database
+def test_se_il_database_non_risponde_oltre_il_tempo_massimo_l_ordine_va_tra_i_falliti(monkeypatch):
+    """Un indirizzo su cui non risponde nessuno: errori veri del pool, non simulati."""
+    monkeypatch.setattr(worker, "ATTESE_RIPROVA_S", (0.1,))
+    monkeypatch.setattr(worker, "TEMPO_MASSIMO_RIPROVE_S", 1)
+    monkeypatch.setattr(worker, "LIMITE_SCRITTURA_S", 0.3)
+    nome = f"prova-{uuid.uuid4()}"
+
+    async def prova(canale):
+        await pubblica(canale, nome, corpo())
+        await aspetta(lambda: _uguale(messaggi_in(canale, f"{nome}.falliti"), 1), secondi=15)
+        assert await messaggi_in(canale, nome) == 0
+        assert await conta_righe() == (0, 0)
+
+    async def tutto():
+        await svuota_database()
+        await con_worker(nome, prova, url_database="postgresql://postgres@127.0.0.1:1/kintsugi")
 
     asyncio.run(tutto())
 
