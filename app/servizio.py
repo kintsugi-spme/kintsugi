@@ -1,14 +1,19 @@
-"""La logica per accettare un ordine, scelta in base a MODE (D0001).
+"""La logica per accettare e salvare un ordine, scelta in base a MODE (D0001).
 
 L'API (`api.py`) chiama solo `accetta_ordine`; cosa succede dietro dipende dalla configurazione.
+`salva` è il lavoro su un ordine, uguale per l'API sincrona (#30) e per il worker (D0012).
 """
 
 import asyncio
 import json
 from datetime import datetime
+from uuid import UUID
+
+from psycopg_pool import AsyncConnectionPool
 
 from broker import Broker
 from config import Config
+from db import salva_ordine
 from modelli import OrdineIn
 
 
@@ -36,3 +41,18 @@ async def _accetta_con_coda(ordine: OrdineIn, ts_ricezione: datetime, config: Co
         raise ServizioNonDisponibile(f"il broker non ha confermato entro {config.deadline_s} s") from None
     except Exception as errore:
         raise ServizioNonDisponibile(f"il broker non ha confermato ({type(errore).__name__})") from errore
+
+
+async def salva(
+    pool: AsyncConnectionPool, config: Config, id_ordine: UUID, ts_ricezione: datetime, ricevuto_da: str
+) -> bool:
+    """Il lavoro su un ordine: il tempo di servizio, poi il salvataggio. True se l'ordine è nuovo.
+
+    Il tempo di servizio (SERVICE_TIME_S) passa prima di prendere una connessione, così non tiene
+    occupato il pool. Senza carico, ts_scrittura - ts_ricezione vale il tempo di servizio più
+    qualche millisecondo (criterio 2 di M2).
+    """
+    if config.service_time_s:
+        await asyncio.sleep(config.service_time_s)
+    async with pool.connection() as connessione:
+        return await salva_ordine(connessione, id_ordine, ts_ricezione, ricevuto_da)

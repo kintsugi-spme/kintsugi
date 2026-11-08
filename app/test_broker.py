@@ -15,7 +15,7 @@ import uuid
 import aio_pika
 import pytest
 
-from broker import Broker
+from broker import Broker, dichiara_code
 
 URL = os.environ.get("TEST_BROKER_URL")
 pytestmark = pytest.mark.skipif(not URL, reason="serve un RabbitMQ: imposta TEST_BROKER_URL")
@@ -30,7 +30,7 @@ def test_il_messaggio_arriva_in_una_coda_durevole_ed_e_persistente():
         try:
             await broker.pubblica(b'{"id": "x"}')
             canale = await connessione.channel()
-            coda = await canale.declare_queue(nome, durable=True)  # stessi argomenti: non rifiuta
+            coda = await dichiara_code(canale, nome)  # stessi argomenti dell'API: RabbitMQ non rifiuta
             messaggio = await coda.get(timeout=2)
             assert messaggio.body == b'{"id": "x"}'
             assert messaggio.delivery_mode == aio_pika.DeliveryMode.PERSISTENT
@@ -38,6 +38,7 @@ def test_il_messaggio_arriva_in_una_coda_durevole_ed_e_persistente():
         finally:
             canale = await connessione.channel()
             await canale.queue_delete(nome)
+            await canale.queue_delete(f"{nome}.falliti")
             await connessione.close()
             await broker.chiudi()
 
