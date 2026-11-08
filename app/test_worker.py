@@ -67,6 +67,8 @@ def test_legge_identificativo_e_istante_scritti_dall_api():
     b'{"id": "6f1c0e2a-0000-4000-8000-000000000000", "ts_ricezione": "ieri"}',
     # Senza fuso orario PostgreSQL userebbe quello della sessione (D0005).
     b'{"id": "6f1c0e2a-0000-4000-8000-000000000000", "ts_ricezione": "2026-11-07T10:00:00"}',
+    b'{"id": 5, "ts_ricezione": "2026-11-07T10:00:00+00:00"}',
+    b'{"id": ["x"], "ts_ricezione": "2026-11-07T10:00:00+00:00"}',
 ])
 def test_messaggio_illeggibile(body):
     with pytest.raises(MessaggioIlleggibile):
