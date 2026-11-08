@@ -1,6 +1,6 @@
 # 2026-11-08 — Worker: riprova e coda dei falliti
 
-**Chi:** Gianmarco · **Fase:** F2 · **Durata:** 1 h · **Issue:** #34
+**Chi:** Gianmarco · **Fase:** F2 · **Durata:** 0,5 h · **Issue:** #34
 
 ## Cosa abbiamo fatto
 
@@ -53,5 +53,5 @@ Nei log del worker ogni tentativo scrive l'ordine, la causa, il numero del tenta
 
 ## Limiti dello strumento emersi
 
-- **psycopg_pool 3.3.3, riconnessione in background:** l'attesa tra un tentativo di riconnessione raddoppia (1, 2, 4… s) fino a `reconnect_timeout` (300 s) e non è configurabile. Dopo un fermo lungo il pool si riprende molto dopo il ritorno del database: **8,5 s** dopo un fermo di 60 s, ma **circa 36 s e 79 s** nelle due prove da 150 s (il primo ordine salvato). D0003 prevede «fino a 10 s», e questo ritardo entra nel tempo di recupero di V3. Le previsioni congelate dal tag `m1` non si toccano; la discrepanza va discussa prima di F4. Lo stesso pool è usato dall'API sincrona (V1, V2): non l'ho provato.
+- **psycopg_pool 3.3.3, riconnessione in background:** l'attesa tra un tentativo di riconnessione raddoppia (1, 2, 4… s) fino a `reconnect_timeout` (300 s) e non è configurabile. Il raddoppio è nel codice della libreria e non dipende dal carico del Mac; i secondi misurati variano da una prova all'altra. Dopo un fermo lungo il pool si riprende molto dopo il ritorno del database: **8,5 s** dopo un fermo di 60 s, ma **circa 36 s e 79 s** nelle due prove da 150 s (il primo ordine salvato). D0003 prevede «fino a 10 s», e questo ritardo entra nel tempo di recupero di V3. Le previsioni congelate dal tag `m1` non si toccano; la discrepanza va discussa prima di F4. Lo stesso pool è usato dall'API sincrona (V1, V2): non l'ho provato.
 - **Log del pool rumorosi:** durante il fermo `psycopg_pool` scrive un avviso per ogni tentativo di connessione (`error connecting in 'pool-1'`), senza dire quale ordine riguarda.
