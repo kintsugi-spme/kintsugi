@@ -59,7 +59,14 @@ def leggi_colonne(percorso: Path, colonne: list[str]) -> list[dict[str, str]]:
         mancanti = [c for c in colonne if c not in (lettore.fieldnames or [])]
         if mancanti:
             raise ErroreDati(f"{percorso.name}: manca la colonna {', '.join(mancanti)}")
-        return [{c: riga[c] for c in colonne} for riga in lettore]
+        righe = []
+        for riga in lettore:
+            # Una riga più corta dell'intestazione (per esempio il client si è fermato a metà
+            # dell'ultima riga) ha `None` nei campi che mancano.
+            if any(riga[c] is None for c in colonne):
+                raise ErroreDati(f"{percorso.name}, riga {lettore.line_num}: incompleta")
+            righe.append({c: riga[c] for c in colonne})
+        return righe
 
 
 def esito_positivo(esito: str) -> bool:

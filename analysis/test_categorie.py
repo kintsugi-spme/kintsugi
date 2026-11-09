@@ -149,6 +149,24 @@ def test_una_colonna_mancante_e_un_errore(tmp_path):
         categorie.classifica(tmp_path)
 
 
+def test_una_riga_incompleta_e_un_errore_che_dice_file_e_riga(tmp_path):
+    """Il client si ferma a metà dell'ultima riga: manca l'esito."""
+    prepara_run(tmp_path, [(nuovo_id(), "201"), (nuovo_id(), "201")])
+    with open(tmp_path / "client.csv", "a", encoding="utf-8") as f:
+        f.write(f"2026-11-09T10:00:01+00:00,{nuovo_id()}")  # senza esito e senza a capo finale
+    with pytest.raises(categorie.ErroreDati, match=r"client\.csv, riga 4: incompleta"):
+        categorie.classifica(tmp_path)
+
+
+def test_main_con_riga_incompleta_esce_con_il_messaggio_e_non_scrive_nulla(tmp_path, monkeypatch):
+    prepara_run(tmp_path, [(nuovo_id(), "201")])
+    with open(tmp_path / "client.csv", "a", encoding="utf-8") as f:
+        f.write("2026-11-09T10:00:01+00:00\n")
+    codice = lancia(monkeypatch, str(tmp_path))
+    assert "client.csv, riga 3: incompleta" in str(codice)
+    assert not (tmp_path / "categorie.csv").exists()
+
+
 def test_run_senza_coda_con_file_vuoti(tmp_path):
     """V1 e V2: nessuna coda dei falliti, il file c'è ma ha solo l'intestazione."""
     ok, ko = nuovo_id(), nuovo_id()
