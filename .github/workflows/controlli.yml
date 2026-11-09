@@ -45,6 +45,8 @@ jobs:
       - run: pytest -q
       - name: Prove del client (harness/client)
         run: pytest -q ../harness/client
+      - name: Prove dello script delle categorie (analysis)
+        run: pytest -q ../analysis
 
   numeri:
     name: Numeri coerenti
