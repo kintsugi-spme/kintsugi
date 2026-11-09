@@ -1,0 +1,63 @@
+# V3: l'API mette l'ordine in coda (RabbitMQ) e risponde 202; tre worker lo salvano nel database.
+# Si avvia con `make v3`, dopo base.yaml.
+# L'immagine la costruisce `make` una volta sola (vedi Makefile): qui si usa e basta.
+x-app: &app
+  image: kintsugi:dev
+  pull_policy: never
+  stop_grace_period: 10s
+
+x-salute: &salute
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2)"]
+    interval: 2s
+    timeout: 3s
+    retries: 30
+
+services:
+  coda:
+    image: rabbitmq:4.4.0-alpine
+    stop_grace_period: 10s
+    # Il nome del nodo di RabbitMQ deriva dal nome del computer: fisso, i dati sul volume si
+    # ritrovano anche dopo che il container è stato ricreato (D0002: una sola istanza, dati su disco).
+    hostname: coda
+    environment:
+      # L'utente `guest` funziona solo da localhost: serve un utente vero.
+      RABBITMQ_DEFAULT_USER: kintsugi
+      RABBITMQ_DEFAULT_PASS: kintsugi
+    volumes:
+      - coda-dati:/var/lib/rabbitmq
+    healthcheck:
+      # Si controlla la porta e non si lancia `rabbitmq-diagnostics`: un comando di RabbitMQ
+      # eseguito prima che il server sia partito crea `.erlang.cookie` come root e il server non parte.
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 5672"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  api:
+    <<: [*app, *salute]
+    environment:
+      MODE: async
+      DEADLINE_S: "${DEADLINE_S:?avvia con make v3, che la legge da config/parametri.yaml}"
+      BROKER_URL: amqp://kintsugi:kintsugi@coda:5672/
+    ports:
+      - "8000:8000"
+    depends_on:
+      coda:
+        condition: service_healthy
+
+  worker:
+    <<: [*app, *salute]
+    deploy:
+      replicas: 3
+    environment:
+      MODE: async
+      ROLE: worker
+      SERVICE_TIME_S: ${SERVICE_TIME_S:-0}
+      DATABASE_URL: postgresql://kintsugi:kintsugi@db:5432/kintsugi
+      BROKER_URL: amqp://kintsugi:kintsugi@coda:5672/
+    depends_on:
+      db:
+        condition: service_healthy
+      coda:
+        condition: service_healthy
