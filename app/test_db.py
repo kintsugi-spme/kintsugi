@@ -1,4 +1,4 @@
-"""Prove contro un PostgreSQL vero con lo schema caricato. Si saltano se non c'è, quindi non girano nella CI.
+"""Prove contro un PostgreSQL vero con lo schema caricato. Nella CI girano con quello del job «Test dell'app»; in locale si saltano se non c'è.
 
     docker run -d --rm --name kintsugi-pg -p 5432:5432 -e POSTGRES_HOST_AUTH_METHOD=trust \
         -e POSTGRES_DB=kintsugi -v "$PWD/deploy/k8s/base/schema.sql:/docker-entrypoint-initdb.d/01.sql:ro" \

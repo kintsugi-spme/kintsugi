@@ -1,4 +1,4 @@
-"""Prove contro un RabbitMQ vero. Si saltano se non c'è, quindi non girano nella CI.
+"""Prove contro un RabbitMQ vero. Nella CI girano con quello del job «Test dell'app»; in locale si saltano se non c'è.
 
     docker run -d --rm --name kintsugi-rabbit -p 5672:5672 \
         -e RABBITMQ_DEFAULT_USER=prova -e RABBITMQ_DEFAULT_PASS=prova rabbitmq:4-alpine
