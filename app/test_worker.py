@@ -1,5 +1,5 @@
 """Prove del worker. Le prime usano un messaggio finto; le ultime un RabbitMQ e un PostgreSQL veri,
-e si saltano se non ci sono (quindi non girano nella CI):
+che nella CI ci sono (job «Test dell'app»); in locale si saltano se non ci sono:
 
     docker run -d --rm --name kintsugi-rabbit -p 5672:5672 \
         -e RABBITMQ_DEFAULT_USER=prova -e RABBITMQ_DEFAULT_PASS=prova rabbitmq:4-alpine

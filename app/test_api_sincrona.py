@@ -1,4 +1,4 @@
-"""L'API sincrona (V1, V2) contro un PostgreSQL vero. Si salta se non c'è, quindi non gira nella CI.
+"""L'API sincrona (V1, V2) contro un PostgreSQL vero. Nella CI gira con quello del job «Test dell'app»; in locale si salta se non c'è.
 
 Il database si avvia come in `test_db.py`:
 
