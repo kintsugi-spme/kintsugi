@@ -1,12 +1,13 @@
 # Documento di architettura
 
-Progetto LaTeX che compila in un unico PDF (`main.pdf`): architettura, diagrammi, decisioni e protocollo di misura di Kintsugi, impostato come documentazione software. Le parti `[DA COMPLETARE]` si riempiono seguendo le milestone in `../report/fasi-e-milestone.md`.
+Progetto LaTeX che compila in due PDF: il documento di architettura (`main.pdf`: architettura, diagrammi, decisioni e protocollo di misura di Kintsugi, impostato come documentazione software) e la relazione di sintesi (`main-sintesi.pdf`, vedi sotto).
 
 ## Struttura
 
 ```
 docs/
-  main.tex                 documento principale: include tutto il resto
+  main.tex                 documento di architettura: include tutto il resto tranne sintesi/
+  main-sintesi.tex         relazione di sintesi: include sintesi/
   Makefile                 make = compila, make clean = pulisce, make controlla = verifica i numeri
   config/
     preambolo.tex          pacchetti
@@ -22,6 +23,7 @@ docs/
   chapters/
     01-introduzione.tex … 09-validita.tex
     decisioni/             un ADR per file (D0005-..., D0007-..., ...)
+  sintesi/                 le sezioni della relazione di sintesi, una per file
   appendices/
     a-pianificazione.tex   milestone, stima dello sforzo, piano di taglio
     b-revisione.tex        revisione critica del piano: problemi e correzioni
@@ -45,7 +47,7 @@ oppure `latexmk -pdf main.tex` e `latexmk -pdf main-sintesi.tex`, dopo aver crea
 
 ## Controlli automatici
 
-`.github/workflows/controlli.yml` parte a ogni pull request e a ogni fusione su `main`. Tre controlli: la PR punta a `main`, i numeri marcati nei Markdown coincidono con `config/parametri.yaml` (`make controlla`), i due PDF compilano. I PDF restano scaricabili dalla pagina del controllo (artefatto `pdf`).
+`.github/workflows/controlli.yml` parte a ogni pull request e a ogni fusione su `main`. Per i documenti: la PR punta a `main`, i numeri marcati nei Markdown coincidono con `config/parametri.yaml` (`make controlla`), i due PDF compilano. Lo stesso file esegue anche i test dell'app e la costruzione dell'immagine per le due architetture. I PDF restano scaricabili dalla pagina del controllo (artefatto `pdf`).
 
 ## Numeri del progetto
 

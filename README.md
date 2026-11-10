@@ -12,7 +12,6 @@
 ![KEDA](https://img.shields.io/badge/KEDA-Autoscaling-0F3F71)
 ![Python](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)
 ![JMeter](https://img.shields.io/badge/JMeter-Open%20model-D22128?logo=apachejmeter&logoColor=white)
-![Status](https://img.shields.io/badge/Status-F1%20Architettura-yellow)
 ![Controlli](https://github.com/kintsugi-spme/kintsugi/actions/workflows/controlli.yml/badge.svg)
 
 **Autori:** Terrecuso Francesco (DE5000005), Vellotti Gianmarco (DE5000041)
@@ -89,7 +88,7 @@ Un solo programma Python (FastAPI) e una sola immagine Docker, che parte come AP
 | `POST /ordini` | Riceve un ordine con ID generato dal client; `201` (sincrono), `202` (asincrono) o `503` immediato se scatta la deadline |
 | `GET /healthz` | Liveness: il processo risponde (nessuna dipendenza) |
 | `GET /readyz` | Readiness: l'avvio è completato |
-| `GET /metrics` | Metriche per Prometheus |
+| `GET /metrics` | Metriche per Prometheus *(arriva con il banco di prova, M4)* |
 
 ---
 
@@ -134,13 +133,13 @@ kintsugi/
 ├── deploy/
 │   ├── compose/          # V1, V2 e V3 sul computer con Docker Compose (fase F2)
 │   ├── k8s/
-│   │   ├── base/         # manifest comuni
-│   │   └── overlays/     # v1/ … v5/
+│   │   ├── base/         # schema del database; manifest comuni (da F3)
+│   │   └── overlays/     # v1/ … v5/ (da F3)
 │   └── aws/              # infrastruttura come codice per EKS
 ├── harness/
 │   ├── client/           # client minimo di F2 (provvisorio, prima di JMeter)
-│   ├── jmeter/           # piani di carico W1–W3
-│   └── faults/           # iniezione dei guasti F1–F7
+│   ├── jmeter/           # piani di carico W1–W3 (da F4)
+│   └── faults/           # iniezione dei guasti F1–F7 (da F4)
 ├── analysis/             # categorizzazione degli ordini e statistiche
 ├── data/                 # risultati dei run (non versionati)
 ├── docs/                 # documento di architettura (LaTeX → PDF)
@@ -185,9 +184,29 @@ make
 
 Genera due PDF: `docs/main.pdf` (architettura, decisioni (ADR), modello dei guasti, protocollo di misura, previsioni e minacce alla validità) e `docs/main-sintesi.pdf` (la versione breve per i docenti). `make sintesi` compila solo la sintesi.
 
-### 6.3 Cluster ed esperimenti
+### 6.3 Provare l'applicazione sul computer
 
-*In arrivo con le milestone M2–M4.*
+V1, V2 e V3 si avviano con Docker Compose (dettagli in [`deploy/compose/README.md`](deploy/compose/README.md)):
+
+```bash
+cd deploy/compose
+make v3 SERVICE_TIME_S=0.2      # oppure v1, v2
+python3 ../../harness/client/cliente.py --url http://localhost:8000/ordini --richieste 100 --ritmo 10 --timeout 2
+make giu                        # ferma tutto e cancella i dati
+```
+
+I test dell'applicazione:
+
+```bash
+cd app
+pytest -q
+```
+
+Le prove che usano PostgreSQL e RabbitMQ veri si saltano se non si indicano i loro indirizzi (i comandi sono nelle prime righe dei file di prova); nella CI girano tutte.
+
+### 6.4 Cluster ed esperimenti
+
+*In arrivo con le milestone M3–M4.*
 
 ---
 
