@@ -1,0 +1,29 @@
+# Pod di prova per `make prova` (issue #72): uno sul nodo `dati` e uno sul nodo `calcolo`.
+# Eseguono kintsugi:dev, stampano una riga e finiscono. Non fanno parte dei manifest dell'app.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: prova-dati
+spec:
+  restartPolicy: Never
+  nodeSelector:
+    kintsugi/ruolo: dati
+  containers:
+    - name: prova
+      image: kintsugi:dev
+      imagePullPolicy: Never   # l'immagine è già nel nodo (kind load): niente scaricamenti
+      command: ["python", "-c", "print('kintsugi:dev parte su un nodo dati')"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: prova-calcolo
+spec:
+  restartPolicy: Never
+  nodeSelector:
+    kintsugi/ruolo: calcolo
+  containers:
+    - name: prova
+      image: kintsugi:dev
+      imagePullPolicy: Never
+      command: ["python", "-c", "print('kintsugi:dev parte su un nodo calcolo')"]
