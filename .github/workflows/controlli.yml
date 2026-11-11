@@ -31,6 +31,29 @@ jobs:
     defaults:
       run:
         working-directory: app
+    # PostgreSQL e RabbitMQ veri, con le stesse versioni di docker-compose (D0011): servono alle prove
+    # di test_db, test_api_sincrona, test_broker e test_worker, che senza indirizzi si saltano.
+    # Niente `health-cmd`: un comando di RabbitMQ lanciato prima dell'avvio del server crea
+    # `.erlang.cookie` come root e il server non parte; la prontezza si controlla nel passo sotto.
+    services:
+      postgres:
+        image: postgres:18.6-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: kintsugi
+        ports:
+          - 5432:5432
+      rabbitmq:
+        image: rabbitmq:4.4.0-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: prova
+          RABBITMQ_DEFAULT_PASS: prova
+        ports:
+          - 5672:5672
+    env:
+      # Valori di prova: i servizi esistono solo per la durata del job. Le prove svuotano le tabelle.
+      TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/kintsugi
+      TEST_BROKER_URL: amqp://prova:prova@127.0.0.1:5672/
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -42,6 +65,39 @@ jobs:
           grep -q "^FROM python:${versione}-slim@" Dockerfile \
             || { echo "::error::il FROM del Dockerfile non è python:${versione}-slim (vedi .python-version)"; exit 1; }
       - run: pip install -r requirements-dev.txt
+      - name: Aspetta PostgreSQL e RabbitMQ e carica lo schema
+        run: |
+          # Ci si collega davvero (non basta una porta aperta: quella pubblicata da Docker risponde
+          # anche prima che il servizio sia pronto) e si riprova per 60 s.
+          python - <<'PY'
+          import asyncio, os, sys, time
+          import aio_pika
+          import psycopg
+
+          def aspetta(nome, prova, secondi=60):
+              fine = time.monotonic() + secondi
+              while True:
+                  try:
+                      return prova()
+                  except Exception as errore:
+                      if time.monotonic() > fine:
+                          print(f"::error::{nome} non risponde dopo {secondi} s: {type(errore).__name__}: {errore}")
+                          sys.exit(1)
+                      time.sleep(1)
+
+          def carica_schema():
+              # Lo schema è uno solo e sta in deploy/k8s/base (D0004, D0005).
+              with psycopg.connect(os.environ["TEST_DATABASE_URL"], autocommit=True) as c:
+                  c.execute(open("../deploy/k8s/base/schema.sql", encoding="utf-8").read())
+
+          async def collega_broker():
+              connessione = await aio_pika.connect(os.environ["TEST_BROKER_URL"])
+              await connessione.close()
+
+          aspetta("PostgreSQL", carica_schema)
+          aspetta("RabbitMQ", lambda: asyncio.run(collega_broker()))
+          print("PostgreSQL con lo schema e RabbitMQ pronti")
+          PY
       - run: pytest -q
       - name: Prove del client (harness/client)
         run: pytest -q ../harness/client
