@@ -2,10 +2,14 @@
 
     python analysis/fermo.py data/<ambiente>/<run-id> --guasto 2026-11-12T10:02:00.123+00:00
 
-Legge `client.csv` (una riga per richiesta: istante di invio ed esito) e l'istante del guasto, e stampa:
+L'istante del guasto è quello preso sul computer, con lo stesso orologio del client (`ts_invio`):
+l'orologio del cluster differisce di qualche millisecondo e falserebbe la misura.
+
+Legge `client.csv` (una riga per richiesta: istante di invio, esito, durata) e stampa:
 
     ripristino   il momento in cui il servizio è tornato a funzionare
     fermo        il tempo passato tra il guasto e il ripristino
+    fallite      le richieste fallite per il guasto, comprese quelle già in corso quando è avvenuto
 
 «Tornato a funzionare» (capitolo «Protocollo di misura»): da quel momento, per 5 secondi di fila, in
 ogni secondo almeno il 99% delle richieste ha avuto esito 2xx. Per avere i millisecondi i secondi non
@@ -40,34 +44,46 @@ def istante(testo: str, cosa: str) -> float:
     return quando.timestamp()
 
 
-def leggi_richieste(cartella: Path) -> list[tuple[float, bool]]:
-    """Le richieste del client come (istante di invio, esito positivo), in ordine di invio.
+Richiesta = tuple[float, bool, float]  # (istante di invio, esito positivo, secondi fino alla risposta)
+
+
+def durata(testo: str) -> float:
+    try:
+        return float(testo)
+    except ValueError:
+        raise ErroreDati(f"client.csv, tempo_risposta_s: «{testo}» non è un numero") from None
+
+
+def leggi_richieste(cartella: Path) -> list[Richiesta]:
+    """Le richieste del client come (istante di invio, esito positivo, durata), in ordine di invio.
 
     Il client scrive una riga quando la richiesta finisce, non quando parte: l'ordine del file
     non è quello di invio, e va rimesso.
     """
-    righe = leggi_colonne(cartella / "client.csv", ["ts_invio", "esito"])
-    richieste = [(istante(r["ts_invio"], "client.csv, ts_invio"), esito_positivo(r["esito"]))
-                 for r in righe]
+    righe = leggi_colonne(cartella / "client.csv", ["ts_invio", "esito", "tempo_risposta_s"])
+    richieste = [(istante(r["ts_invio"], "client.csv, ts_invio"), esito_positivo(r["esito"]),
+                  durata(r["tempo_risposta_s"])) for r in righe]
     richieste.sort(key=lambda r: r[0])
     return richieste
 
 
-def ripristino(richieste: list[tuple[float, bool]], t_guasto: float,
-               secondi: int = 5, soglia_percentuale: float = 99) -> float | None:
+def ripristino(richieste: list[Richiesta], t_guasto: float,
+               secondi: int, soglia_percentuale: float) -> float | None:
     """Istante t_r del ripristino, o None se il log non basta a confermarlo.
 
     `richieste` è ordinata per istante di invio. Un secondo è disponibile se almeno
-    `soglia_percentuale`% delle richieste inviate in quel secondo è riuscita.
+    `soglia_percentuale`% delle richieste inviate in quel secondo è riuscita. `secondi` e
+    `soglia_percentuale` non hanno un predefinito: i valori stanno in config/parametri.yaml
+    (vedi `parametri_predefiniti`) e riscriverli qui li farebbe restare indietro.
     """
     if not richieste:
         raise ErroreDati("client.csv non ha nessuna richiesta")
-    istanti = [t for t, _ in richieste]
+    istanti = [r[0] for r in richieste]
     if t_guasto < istanti[0]:
         raise ErroreDati("il guasto è prima della prima richiesta del client: istante sbagliato?")
     if t_guasto > istanti[-1]:
         raise ErroreDati("il guasto è dopo l'ultima richiesta del client: istante sbagliato?")
-    riuscite = [0, *accumulate(1 if ok else 0 for _, ok in richieste)]
+    riuscite = [0, *accumulate(1 if r[1] else 0 for r in richieste)]
 
     def disponibile(inizio: float) -> bool:
         a, b = bisect_left(istanti, inizio), bisect_left(istanti, inizio + 1)
@@ -84,8 +100,13 @@ def ripristino(richieste: list[tuple[float, bool]], t_guasto: float,
     return None
 
 
-def richieste_fallite(richieste: list[tuple[float, bool]], da: float, fino_a: float) -> int:
-    return sum(1 for t, ok in richieste if da <= t < fino_a and not ok)
+def richieste_fallite(richieste: list[Richiesta], t_guasto: float, fino_a: float) -> int:
+    """Richieste fallite per il guasto: quelle inviate dal guasto al ripristino e quelle che al
+    momento del guasto erano già in corso (inviate prima, finite dopo): con un SIGKILL falliscono
+    anche loro. Non dipende dalla soglia del 99%.
+    """
+    return sum(1 for t, ok, secondi in richieste
+               if not ok and (t_guasto <= t < fino_a or t < t_guasto <= t + secondi))
 
 
 def parametri_predefiniti() -> tuple[int, float]:
@@ -109,7 +130,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("cartella", type=Path, help="cartella del run (data/<ambiente>/<run-id>)")
     parser.add_argument("--guasto", required=True,
-                        help="istante del guasto, ISO 8601 con fuso orario (es. 2026-11-12T10:02:00.123+00:00)")
+                        help="istante del guasto preso sul computer, con lo stesso orologio del client "
+                             "(non quello del cluster), ISO 8601 con fuso orario "
+                             "(es. 2026-11-12T10:02:00.123+00:00)")
     parser.add_argument("--secondi", type=int, default=None,
                         help="secondi consecutivi disponibili (predefinito: config/parametri.yaml)")
     parser.add_argument("--soglia", type=float, default=None,
@@ -131,12 +154,11 @@ def main() -> None:
     print(f"guasto     t_g = {come_testo(t_guasto)}")
     if t_ripristino is None:
         print(f"ripristino non avvenuto: il log finisce prima di {secondi} secondi consecutivi disponibili")
-        print(f"richieste fallite dal guasto alla fine del log: "
-              f"{richieste_fallite(richieste, t_guasto, float('inf'))}")
+        print(f"richieste fallite per il guasto: {richieste_fallite(richieste, t_guasto, float('inf'))}")
         return
     print(f"ripristino t_r = {come_testo(t_ripristino)}")
     print(f"fermo      t_r - t_g = {t_ripristino - t_guasto:.3f} s")
-    print(f"richieste fallite tra guasto e ripristino: {richieste_fallite(richieste, t_guasto, t_ripristino)}")
+    print(f"richieste fallite per il guasto: {richieste_fallite(richieste, t_guasto, t_ripristino)}")
 
 
 if __name__ == "__main__":
