@@ -14,6 +14,11 @@ comando di kill. Si scrivono gli istanti subito prima e subito dopo quel comando
 differenza è l'incertezza) e l'istante letto dall'orologio del nodo, che fa da controllo dello
 sfasamento tra computer e macchina virtuale di Docker (D0005).
 
+`ts_guasto` è l'istante prima del comando, quindi il limite inferiore: il kill avviene tra
+`ts_guasto` e `ts_conferma`. Chi sottrae `ts_guasto` ottiene un fermo più lungo del vero di al
+massimo `incertezza_s`, mai più corto. Si è scelto il limite e non il punto medio perché non si sa
+quanta parte del ritardo di `docker exec` sta prima del kill e quanta dopo.
+
 Dopo il kill lo script aspetta che il container riparta nello stesso pod (riavviato, non
 ricreato) e scrive tutto in `guasto.json` nella cartella del run. Esce con codice 1 se qualcosa
 non torna: nessun pod, pod ricreato invece che riavviato, nessun riavvio entro l'attesa.
@@ -93,8 +98,14 @@ class ShellNelNodo:
         return risposta.strip()
 
     def chiudi(self) -> None:
+        """Chiude la shell. Se non esce entro 10 s la si uccide: il kill è già stato mandato
+        e un errore qui farebbe perdere gli istanti del guasto, che si scrivono dopo."""
         self._processo.stdin.close()
-        self._processo.wait(timeout=10)
+        try:
+            self._processo.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            self._processo.kill()
+            self._processo.wait()
 
 
 def pid_nel_nodo(shell, container_id: str) -> int:
@@ -224,7 +235,9 @@ def main() -> None:
     try:
         risultato = provoca(kubectl, ShellNelNodo, argomenti.selettore, argomenti.pod,
                             argomenti.attesa, scrivi)
-    except (ErroreGuasto, subprocess.CalledProcessError) as errore:
+    except FileNotFoundError as errore:
+        sys.exit(f"errore: programma non trovato: {errore.filename} (servono docker e kubectl)")
+    except (ErroreGuasto, subprocess.CalledProcessError, subprocess.TimeoutExpired) as errore:
         nota = f" (istante del guasto in {file})" if file.exists() else ""
         sys.exit(f"errore: {getattr(errore, 'stderr', None) or errore}{nota}")
 

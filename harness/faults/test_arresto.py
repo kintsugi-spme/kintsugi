@@ -189,3 +189,41 @@ def test_la_shell_si_chiude_anche_se_il_kill_fallisce():
         arresto.provoca(lambda _: json.dumps({"items": [pod("api-a")]}), lambda _: shell, "app=api",
                         None, attesa_s=10, scrivi=scritti.append)
     assert shell.chiusa and scritti == []  # nessun kill, nessun guasto da registrare
+
+
+class ProcessoBloccato:
+    """Un `docker exec` che non esce da solo: `wait` con timeout scade finché non lo si uccide."""
+
+    def __init__(self):
+        self.stdin = self
+        self.ucciso = False
+
+    def close(self):
+        pass
+
+    def wait(self, timeout=None):
+        if timeout is not None and not self.ucciso:
+            raise arresto.subprocess.TimeoutExpired("docker exec", timeout)
+
+    def kill(self):
+        self.ucciso = True
+
+
+def test_una_shell_che_non_si_chiude_si_uccide_senza_errore():
+    # Il kill è già partito: un errore qui farebbe perdere gli istanti del guasto.
+    shell = arresto.ShellNelNodo.__new__(arresto.ShellNelNodo)
+    shell._processo = ProcessoBloccato()
+    shell.chiudi()
+    assert shell._processo.ucciso
+
+
+def test_senza_docker_o_kubectl_si_esce_con_un_messaggio(monkeypatch, tmp_path, capsys):
+    def manca(*args, **kwargs):
+        raise FileNotFoundError(2, "No such file or directory", "kubectl")
+
+    monkeypatch.setattr(arresto.subprocess, "run", manca)
+    monkeypatch.setattr(arresto.sys, "argv", ["arresto.py", "--cartella", str(tmp_path)])
+    with pytest.raises(SystemExit) as uscita:
+        arresto.main()
+    assert uscita.value.code == "errore: programma non trovato: kubectl (servono docker e kubectl)"
+    assert not (tmp_path / "guasto.json").exists()
