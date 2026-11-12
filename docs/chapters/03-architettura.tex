@@ -20,6 +20,25 @@ Le cinque versioni sono configurazioni dello stesso codice e della stessa immagi
 \label{fig:derivazione}
 \end{figure}
 
+\section{Kubernetes in breve}
+\label{s:kubernetes}
+
+Tutte le versioni girano su Kubernetes, il programma che esegue i container dell'applicazione su più macchine, dette \emph{nodi}, e li tiene in vita. Kubernetes lavora per \emph{stato voluto}: nei manifest scriviamo che cosa deve girare (per esempio tre copie dell'API) e Kubernetes confronta di continuo questo stato con quello reale, correggendo le differenze. Le sue parti sono divise in due gruppi (figura~\ref{fig:kubernetes}).
+
+\begin{description}
+  \item[Control plane] decide che cosa deve girare e dove. L'\emph{API server} è il punto d'incontro: riceve i manifest, e tutte le altre parti leggono e scrivono passando da lui. \emph{etcd} conserva lo stato voluto. Lo \emph{scheduler} sceglie il nodo di ogni pod nuovo, rispettando le regole di piazzamento (D0006). Il \emph{controller manager} tiene il conto: se un pod manca, per esempio perché il suo nodo non risponde più, ne fa creare un altro.
+  \item[Nodi worker] eseguono i pod. Su ogni nodo il \emph{kubelet} riceve dall'API server i pod assegnati a quel nodo, li fa partire con \emph{containerd}, li controlla con le sonde (D0007) e riavvia i container che terminano. \emph{kube-proxy} fa arrivare le richieste rivolte a un Service a uno dei pod pronti.
+\end{description}
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\linewidth}{!}{\input{figure/kubernetes}}
+\caption{Come funziona Kubernetes: il control plane decide, il kubelet di ogni nodo esegue. In arancione, la parte che ripara ciascun guasto.}
+\label{fig:kubernetes}
+\end{figure}
+
+Questa divisione spiega perché i guasti si riparano in tempi diversi. Un crash (guasti F1--F4) lo vede subito il kubelet, sullo stesso nodo, e il container riparte nello stesso pod. Un blocco (F7) si scopre solo con le sonde, dopo alcuni controlli falliti di fila. La perdita di un nodo (F6) passa dal control plane: prima deve accorgersi che il nodo non risponde, poi il controller manager ricrea i pod altrove. Nel cluster kind il control plane sta su un nodo a sé, che non viene mai guastato, e i nodi worker sono due (capitolo~\ref{cap:deployment}).
+
 \section{Componenti}
 
 \begin{description}

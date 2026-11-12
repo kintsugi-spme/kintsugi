@@ -1,0 +1,42 @@
+% Come funziona Kubernetes: control plane, nodo worker e la parte che ripara ogni guasto.
+% Usato da chapters/03-architettura.tex e da sintesi/02-architetture.tex: si modifica solo qui.
+% La stessa figura, modificabile a mano, è nella pagina «Kubernetes» di report/presentazione/kintsugi.drawio.
+\begin{tikzpicture}[every node/.append style={font=\small}]
+% --- Control plane -------------------------------------------------------
+\node[kube, minimum width=2.6cm, minimum height=0.9cm] (apis) at (0,0) {API server\\{\normalfont punto d'incontro}};
+\node[db, minimum width=1.6cm, minimum height=1.1cm, font=\scriptsize] (etcd) at (0,2.0) {etcd\\stato voluto};
+\node[kube, minimum width=2.3cm] (sched) at (-1.5,-1.9) {scheduler\\{\normalfont sceglie il nodo}};
+\node[kube, minimum width=2.3cm] (ctrl) at (1.5,-1.9) {controller manager\\{\normalfont tiene il conto}};
+\draw[freccia, <->] (apis) -- (etcd);
+\draw[freccia, <->] (apis) -- (sched);
+\draw[freccia, <->] (apis) -- (ctrl);
+\node[gruppo, fit=(apis)(etcd)(sched)(ctrl), inner sep=10pt,
+      label={[etichetta, align=center]above:\textbf{control plane}\\decide che cosa deve girare e dove}] (cp) {};
+
+% --- Noi e il client ------------------------------------------------------
+\node[box, minimum width=2.4cm] (noi) at (-6,0.6) {Noi\\{\scriptsize \texttt{kubectl apply}}};
+\draw[freccia] (noi) -- node[etichetta, above, pos=0.3] {manifest:\\«3 copie dell'API»} (apis.west |- noi);
+
+% --- Nodo worker ----------------------------------------------------------
+\node[kube, minimum width=2.4cm] (kl) at (7.4,0.9) {kubelet\\{\normalfont avvia, controlla, riavvia}};
+\node[kube, minimum width=2.4cm] (rt) at (7.4,-0.5) {containerd\\{\normalfont fa girare i container}};
+\node[kube, minimum width=2.4cm] (kp) at (7.4,-1.9) {kube-proxy\\{\normalfont smista le richieste}};
+\node[copie] (p1) at (10.8,0.9) {pod\\{\scriptsize API}};
+\node[copie] (p2) at (10.8,-1.0) {pod\\{\scriptsize API}};
+\draw[freccia] (kl) -- (rt);
+\draw[freccia] (rt.east) -- (p1.south west);
+\draw[freccia] (rt.east) -- (p2.west);
+\draw[sonda] (kl.east) -- node[etichetta, above] {sonde} (p1.west);
+\draw[freccia] (kp.east) -| (p2.south);
+\node[gruppo, fit=(kl)(rt)(kp)(p1)(p2), inner sep=10pt,
+      label={[etichetta, align=center]above:\textbf{nodo worker}, uno per macchina\\(nel nostro cluster: due)}] (nw) {};
+\draw[freccia] (apis.east) -- node[etichetta, above, sloped, pos=0.5] {«su questo nodo\\gira questo pod»} (kl.west);
+
+% --- Client ----------------------------------------------------------------
+\node[box, minimum width=2.4cm] (cl) at (-6,-3.9) {Client\\{\scriptsize JMeter}};
+\draw[freccia] (cl) -- node[etichetta, below, pos=0.35] {ordini (\texttt{POST /ordini}) verso il Service} (cl -| kp) -- (kp.south);
+
+% --- Che cosa c'entra con i guasti ---------------------------------------
+\node[etichetta, text=accento, align=right, anchor=north east] at ([yshift=-15mm]nw.south east) {F1: il kubelet riavvia il container ucciso\\F7: le sonde del kubelet scoprono il blocco};
+\node[etichetta, text=accento, align=center, anchor=north] at ([yshift=-1mm]cp.south -| ctrl) {F6: il controller manager ricrea\\altrove i pod di un nodo perso};
+\end{tikzpicture}
