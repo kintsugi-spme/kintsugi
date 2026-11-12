@@ -17,7 +17,8 @@ Perché questi numeri non sono solo del documento: sono i parametri degli esperi
 | Client provvisorio (`harness/client/`) | legge il timeout del client (`tempi.timeout_client_s`), se non si passa `--timeout` | in uso |
 | Manifest Kubernetes (`deploy/k8s/`) | `deploy/k8s/parametri.py` scrive `base/parametri.env` e un ConfigMap generato dà la deadline dell'API (`tempi.deadline_api_s`) ai pod | in uso |
 | Manifest Kubernetes: copie, worker, sonde e KEDA (fase F3) | `copie_api`, `worker_v3`, i valori delle sonde e di KEDA, con lo stesso meccanismo | previsto |
-| Analisi (`analysis/`) | limite di completamento e soglie (99%, sensibilità a 1 s e 5 s) per i calcoli di fine campagna | previsto |
+| Analisi: fermo e ripristino (`analysis/fermo.py`) | legge i secondi consecutivi (`run.ripristino_secondi_consecutivi`) e la soglia del 99% (`tempi.soglia_secondo_disponibile_percentuale`) | in uso |
+| Analisi: calcoli di fine campagna (`analysis/`) | limite di completamento e sensibilità a 1 s e 5 s | previsto |
 
 Le righe «previsto» e «da decidere» sono possibilità, non ancora scelte.
 
