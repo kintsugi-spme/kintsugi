@@ -103,6 +103,8 @@ jobs:
         run: pytest -q ../harness/client
       - name: Prove dello script delle categorie (analysis)
         run: pytest -q ../analysis
+      - name: Prove degli script dei guasti (harness/faults)
+        run: pytest -q ../harness/faults
 
   numeri:
     name: Numeri coerenti
