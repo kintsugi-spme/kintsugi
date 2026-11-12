@@ -140,7 +140,7 @@ kintsugi/
 │   ├── client/           # client minimo di F2 (provvisorio, prima di JMeter)
 │   ├── jmeter/           # piani di carico W1–W3 (da F4)
 │   └── faults/           # iniezione dei guasti F1–F7 (da F4)
-├── analysis/             # categorizzazione degli ordini e statistiche
+├── analysis/             # categorie degli ordini, fermo e ripristino, statistiche
 ├── data/                 # risultati dei run (non versionati)
 ├── docs/                 # documento di architettura (LaTeX → PDF)
 └── report/

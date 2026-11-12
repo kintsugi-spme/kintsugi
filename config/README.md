@@ -16,7 +16,8 @@ Perché questi numeri non sono solo del documento: sono i parametri degli esperi
 | Docker Compose (`deploy/compose/`) | il `Makefile` legge la deadline dell'API (`tempi.deadline_api_s`) e la passa ai container come `DEADLINE_S` | in uso |
 | Client provvisorio (`harness/client/`) | legge il timeout del client (`tempi.timeout_client_s`), se non si passa `--timeout` | in uso |
 | Manifest Kubernetes (`deploy/k8s/`, fase F3) | repliche, worker e valori di KEDA | da decidere |
-| Analisi (`analysis/`) | limite di completamento e soglie (99%, sensibilità a 1 s e 5 s) per i calcoli di fine campagna | previsto |
+| Analisi: fermo e ripristino (`analysis/fermo.py`) | legge i secondi consecutivi (`run.ripristino_secondi_consecutivi`) e la soglia del 99% (`tempi.soglia_secondo_disponibile_percentuale`) | in uso |
+| Analisi: calcoli di fine campagna (`analysis/`) | limite di completamento e sensibilità a 1 s e 5 s | previsto |
 
 Le righe «previsto» e «da decidere» sono possibilità, non ancora scelte.
 
