@@ -1,5 +1,6 @@
 # Cluster locale di Kintsugi (ambiente A): 1 control plane + 2 worker.
 # Creazione:  kind create cluster --name kintsugi --config deploy/k8s/kind-cluster.yaml
+#              oppure, da deploy/k8s:  make cluster   (lo crea, se manca, e controlla i nodi)
 # Rimozione:  kind delete cluster --name kintsugi
 #
 # Perché tre nodi: con un solo worker tutti i pod starebbero sulla stessa macchina,

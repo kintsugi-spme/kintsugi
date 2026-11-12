@@ -133,14 +133,14 @@ kintsugi/
 ├── deploy/
 │   ├── compose/          # V1, V2 e V3 sul computer con Docker Compose (fase F2)
 │   ├── k8s/
-│   │   ├── base/         # schema del database; manifest comuni (da F3)
+│   │   ├── base/         # schema del database; manifest comuni: database e API
 │   │   └── overlays/     # v1/ … v5/ (da F3)
 │   └── aws/              # infrastruttura come codice per EKS
 ├── harness/
 │   ├── client/           # client minimo di F2 (provvisorio, prima di JMeter)
 │   ├── jmeter/           # piani di carico W1–W3 (da F4)
 │   └── faults/           # iniezione dei guasti: F1 (arresto.py) da F3, gli altri da F4
-├── analysis/             # categorizzazione degli ordini e statistiche
+├── analysis/             # categorie degli ordini, fermo e ripristino, statistiche
 ├── data/                 # risultati dei run (non versionati)
 ├── docs/                 # documento di architettura (LaTeX → PDF)
 └── report/
@@ -206,7 +206,15 @@ Le prove che usano PostgreSQL e RabbitMQ veri si saltano se non si indicano i lo
 
 ### 6.4 Cluster ed esperimenti
 
-*In arrivo con le milestone M3–M4.*
+Il cluster kind a 3 nodi e l'immagine dell'app si preparano con un comando (dettagli in [`deploy/k8s/Makefile`](deploy/k8s/Makefile)):
+
+```bash
+cd deploy/k8s
+make immagine   # crea il cluster, controlla i nodi, carica kintsugi:dev
+make giu        # cancella il cluster
+```
+
+Gli esperimenti arrivano con le milestone M3–M4.
 
 ---
 
