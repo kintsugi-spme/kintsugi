@@ -10,26 +10,34 @@ Nessun esperimento è privo di limiti. Le minacce note sono classificate secondo
   \item[Delle conclusioni] le conclusioni statistiche possono essere sbagliate.
 \end{description}
 
-\begin{table}[htbp]
-\centering
+% longtable e non tabularx: con le minacce emerse in F3 la tabella non sta più in una pagina.
+\newcolumntype{Q}{>{\raggedright\arraybackslash}p{\dimexpr(\linewidth-2.3cm-4\tabcolsep)/2\relax}}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{2.3cm}QQ@{}}
 \caption{Minacce alla validità e contromisure.}
-\label{tab:limiti}
-\begin{tabularx}{\linewidth}{@{}lLL@{}}
+\label{tab:limiti} \\
 \toprule
 \textbf{Tipo} & \textbf{Minaccia} & \textbf{Contromisura} \\
 \midrule
+\endfirsthead
+\toprule
+\textbf{Tipo} & \textbf{Minaccia} & \textbf{Contromisura} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
 Interna & Sistema e generatore di carico girano sullo stesso computer e si contendono CPU e memoria & Soglia di CPU fissata nella fase F4; run saturi o senza memoria scartati \\
 Interna & Un run può lasciare tracce (code non vuote, pod degradati) che influenzano il successivo & Reset verificato prima di ogni run; ordine casuale dei run \\
+Interna & Dopo un crash Kubernetes ritarda i riavvii successivi dello stesso container (10, 20, 40~s e così via fino a 5 minuti) e azzera il ritardo solo dopo 10 minuti senza crash: due run con guasto di fila sullo stesso pod avrebbero riavvii diversi & Il reset ricrea i pod prima di ogni run, così ogni guasto colpisce un container senza crash precedenti \\
 Interna & Il guasto di un componente può dipendere da dove Kubernetes ha collocato i pod & Regole di piazzamento esplicite (D0006); topologia verificata al reset \\
 Di costrutto & Un generatore a modello chiuso smetterebbe di inviare durante il guasto, nascondendolo & Carico a modello aperto; ritmo inviato controllato entro $\pm5\%$ \\
 Di costrutto & Un pod ``pronto'' non significa servizio ripristinato & Ripristino definito come 5~s consecutivi disponibili in accettazione e completamento \\
 Di costrutto & La soglia del \parametro{soglia_secondo_disponibile_percentuale}\% al secondo è severa a ritmi bassi & Si riportano anche le richieste fallite per guasto, indipendenti dalla soglia \\
 Di costrutto & Su AWS gli istanti di ricezione e scrittura vengono da nodi con orologi diversi & Sfasamento verificato e dichiarato prima delle sessioni (D0005) \\
+Di costrutto & In locale l'orologio della macchina virtuale di Docker può scostarsi da quello del computer di decine o centinaia di millisecondi, e lo scarto cambia nel tempo & Ogni misura sottrae istanti di un solo orologio: il fermo dell'accettazione usa l'istante del guasto preso sul computer, come il log del client; quello del completamento l'istante letto nel nodo, come il database. Lo scarto tra i due orologi si controlla a ogni guasto \\
+Di costrutto & L'istante del guasto non è esatto: il comando che manda il segnale dal nodo impiega decine di millisecondi, oltre cento su un computer carico & La connessione al nodo si apre prima del guasto; si registrano gli istanti subito prima e subito dopo il segnale, e la loro distanza si dichiara come incertezza del fermo \\
 Esterna & In locale i nodi sono container sullo stesso hardware: la perdita di un nodo è simulata & Parte degli esperimenti ripetuta su AWS con macchine reali (RQ6). La perdita di un nodo è provata su AWS solo se si esegue il guasto F6 (facoltativo): altrimenti il limite resta non mitigato \\
 Esterna & Il servizio è molto più semplice di uno reale & Le conclusioni riguardano i meccanismi (rilevamento, riparazione, smaltimento), non i valori assoluti \\
 Esterna & Il control plane è unico e funge anche da punto d'ingresso: se cadesse, nessun pod verrebbe riavviato e gli ordini non entrerebbero & Non viene mai guastato; gli esperimenti riguardano l'applicazione, non Kubernetes. In produzione il control plane è replicato \\
 Delle conclusioni & Un risultato singolo può essere casuale & 10 ripetizioni per i run con guasto; intervalli di confidenza bootstrap \\
 Delle conclusioni & Si possono adattare le spiegazioni dopo aver visto i dati & Previsioni registrate prima delle misure (tag \texttt{m1}) \\
-\bottomrule
-\end{tabularx}
-\end{table}
+\end{longtable}

@@ -20,8 +20,11 @@ Ogni esperimento ha limiti: cose che potrebbero falsare le misure o impedirci di
 \midrule
 Interna & Sistema e generatore di carico girano sullo stesso computer e si contendono CPU e memoria & Soglia di CPU fissata nel banco di prova; run saturi scartati \\
 Interna & Un run lascia tracce (code non vuote, pod degradati) che influenzano il successivo & Reset verificato prima di ogni run; ordine casuale dei run \\
+Interna & Dopo un crash Kubernetes aspetta sempre di più prima di riavviare di nuovo lo stesso container & Prima di ogni run i pod si ricreano da zero \\
 Di costrutto & Un generatore a modello chiuso smetterebbe di inviare durante il guasto & Carico a modello aperto; ritmo controllato entro $\pm 5\%$ \\
 Di costrutto & Un pod ``pronto'' non significa servizio ripristinato & Ripristino come 5~s consecutivi disponibili in accettazione e completamento \\
+Di costrutto & L'orologio di Docker e quello del computer non coincidono, e lo scarto cambia nel tempo & Ogni misura usa istanti di un solo orologio; lo scarto si controlla a ogni guasto \\
+Di costrutto & L'istante del guasto è noto solo con un margine di decine di millisecondi & Il margine si misura a ogni guasto e si dichiara accanto al fermo \\
 Esterna & In locale i nodi sono container sullo stesso hardware: la perdita di un nodo è simulata & Parte degli esperimenti ripetuta su AWS (RQ6); la perdita di un nodo solo se si esegue il guasto F6, facoltativo \\
 Esterna & Il servizio è molto più semplice di uno reale & Le conclusioni riguardano i meccanismi (rilevamento, riparazione, smaltimento), non i valori assoluti \\
 Esterna & Il control plane di Kubernetes è unico e funge anche da punto d'ingresso & Non viene mai guastato; in produzione sarebbe replicato \\
