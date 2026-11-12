@@ -133,7 +133,7 @@ kintsugi/
 ├── deploy/
 │   ├── compose/          # V1, V2 e V3 sul computer con Docker Compose (fase F2)
 │   ├── k8s/
-│   │   ├── base/         # schema del database; manifest comuni (da F3)
+│   │   ├── base/         # schema del database; manifest comuni: database e API
 │   │   └── overlays/     # v1/ … v5/ (da F3)
 │   └── aws/              # infrastruttura come codice per EKS
 ├── harness/
