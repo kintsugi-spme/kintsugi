@@ -25,30 +25,46 @@ Il programma è diviso in pochi moduli, ognuno con un solo compito (figura~\ref{
 \begin{figure}[H]
 \centering
 \resizebox{\linewidth}{!}{%
-\begin{tikzpicture}[mod/.style={pod, minimum width=2.3cm, font=\small\ttfamily}]
-\node[mod] (main) at (5,3) {main.py};
-\node[mod] (api) at (2,1.5) {api.py};
-\node[mod] (wk) at (8,1.5) {worker.py};
-\node[mod] (mod) at (-1,1.5) {modelli.py};
-\node[mod] (srv) at (2,0) {servizio.py};
-\node[mod] (brk) at (5,-1.5) {broker.py};
-\node[mod] (db) at (8,-1.5) {db.py};
-\node[mod, draw=grigiotesto, text=grigiotesto] (cfg) at (11,3) {config.py};
-\node[coda, label={[etichetta]below:RabbitMQ}] (q) at (5,-3.1) {};
-\node[db, minimum width=1.6cm, minimum height=1cm, font=\scriptsize] (pg) at (8,-3.3) {PostgreSQL};
-\draw[freccia] (main) -- node[etichetta, above left] {ROLE=api} (api);
-\draw[freccia] (main) -- node[etichetta, above right] {ROLE=worker} (wk);
-\draw[freccia] (api) -- (mod);
-\draw[freccia] (api) -- (srv);
-\draw[freccia] (srv) -- node[etichetta, below left] {mette in coda} (brk);
-\draw[freccia] (srv) -- node[etichetta, above, pos=0.35] {salva} (db);
-\draw[freccia] (wk) -- node[etichetta, above, sloped, pos=0.4] {per ogni ordine} (srv);
-\draw[freccia] (wk) -- node[etichetta, above, sloped, pos=0.6] {legge la coda} (brk);
-\draw[sonda] (cfg) -- node[etichetta, above] {impostazioni} (main);
-\draw[freccia] (brk) -- (q);
+\begin{tikzpicture}[
+  mod/.style={pod, rectangle split, rectangle split parts=2, rectangle split part fill={uninachiaro, white},
+              minimum width=3.6cm, align=center, inner sep=3pt},
+  strato/.style={etichetta, font=\scriptsize\bfseries, anchor=east, align=right},
+  x=1cm, y=1cm]
+% Strati
+\foreach \y/\nome in {0/Avvio, -2.8/Lavori, -5.6/Logica, -8.4/{Accesso\\ai servizi}, -10.6/{Servizi\\esterni}}
+  \node[strato] at (-1.9,\y) {\nome};
+\foreach \y in {-1.4, -4.2, -7.0, -9.6}
+  \draw[vita] (-3.2,\y) -- (13.4,\y);
+
+% Moduli: nome, poi che cosa contiene
+\node[mod] (main) at (6,0) {\texttt{main.py}\nodepart{two}\scriptsize sceglie il lavoro (\texttt{ROLE}),\\\scriptsize apre pool e connessione};
+\node[mod, draw=grigiotesto] (cfg) at (11.6,0) {\texttt{config.py}\nodepart{two}\scriptsize \texttt{Config}, \texttt{da\_ambiente()}};
+\node[mod] (api) at (2.5,-2.8) {\texttt{api.py}\nodepart{two}\scriptsize \texttt{/healthz}, \texttt{/readyz},\\\scriptsize \texttt{POST /ordini}};
+\node[mod] (wk) at (9.5,-2.8) {\texttt{worker.py}\nodepart{two}\scriptsize un ordine alla volta,\\\scriptsize riprova (D0003)};
+\node[mod] (mod) at (0.6,-5.6) {\texttt{modelli.py}\nodepart{two}\scriptsize \texttt{OrdineIn}};
+\node[mod] (srv) at (5,-5.6) {\texttt{servizio.py}\nodepart{two}\scriptsize \texttt{accetta\_ordine()}, \texttt{salva()},\\\scriptsize entro la deadline (D0008)};
+\node[mod] (db) at (4,-8.4) {\texttt{db.py}\nodepart{two}\scriptsize pool, scrittura con\\\scriptsize \texttt{clock\_timestamp()} (D0005)};
+\node[mod] (brk) at (9.5,-8.4) {\texttt{broker.py}\nodepart{two}\scriptsize \texttt{Broker}: \texttt{pubblica()}\\\scriptsize con conferma (D0002)};
+\node[db, minimum width=1.8cm, minimum height=1cm, font=\scriptsize] (pg) at (4,-10.6) {PostgreSQL};
+\node[coda] (q) at (9.5,-10.6) {};
+\node[etichetta, right=1mm of q] {RabbitMQ};
+
+% Chi usa chi
+\draw[sonda] (main) -- node[etichetta, above] {impostazioni} (cfg);
+\draw[freccia] (main) -- node[etichetta, above left, pos=0.35] {\texttt{ROLE=api}} (api);
+\draw[freccia] (main) -- node[etichetta, above right, pos=0.35] {\texttt{ROLE=worker}} (wk);
+\draw[freccia] (main.south) -- node[etichetta, right, pos=0.3] {prepara\\\texttt{salva()}} ([xshift=3mm]srv.north);
+\draw[freccia] (api) -- node[etichetta, right, pos=0.28] {accetta} ([xshift=-6mm]srv.north);
+\draw[freccia] (api) -- node[etichetta, left, pos=0.28] {valida} (mod);
+\draw[freccia] (srv) -- (mod);
+\draw[freccia] (srv) -- node[etichetta, left, pos=0.3] {sync} (db);
+\draw[freccia] (srv) -- node[etichetta, above, sloped, pos=0.55] {async} (brk);
+\draw[freccia] (wk) -- node[etichetta, right, pos=0.3] {legge la coda} (brk);
+\draw[risposta] (wk) -- node[etichetta, below, sloped, pos=0.68] {chiama \texttt{salva()}} (srv);
 \draw[freccia] (db) -- (pg);
+\draw[freccia] (brk) -- (q);
 \end{tikzpicture}}
-\caption{I moduli del programma: una freccia va da chi usa a chi è usato. \texttt{main.py} attiva solo la parte che serve al lavoro scelto.}
+\caption{I moduli del programma, a strati: ognuno usa solo quelli sotto di lui. Freccia piena: un modulo importa l'altro. Tratteggiata: \texttt{worker.py} non importa \texttt{servizio.py}, ma riceve da \texttt{main.py} la funzione \texttt{salva()} e la chiama per ogni ordine.}
 \label{fig:moduli}
 \end{figure}
 
