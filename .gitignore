@@ -45,3 +45,6 @@ skills-lock.json
 .DS_Store
 .idea/
 .vscode/
+
+# Generato da deploy/k8s/parametri.py (issue #73)
+deploy/k8s/base/parametri.env
