@@ -148,7 +148,7 @@ kintsugi/
     ├── diario/           # diario delle operazioni
     ├── diagrammi/        # grafici dei risultati
     └── presentazione/
-        └── grafici/      # schemi draw.io per le slide (con le esportazioni in PNG)
+        └── grafici/      # schemi draw.io per le slide (solo .drawio: le immagini si esportano da draw.io)
 ```
 
 ---

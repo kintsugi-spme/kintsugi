@@ -45,3 +45,9 @@ skills-lock.json
 .DS_Store
 .idea/
 .vscode/
+
+# Presentazione: si versionano solo gli schemi draw.io. Le esportazioni (PNG, PDF, SVG), i file di
+# appoggio e le copie di sicurezza di draw.io (.bkp, .dtmp) si rigenerano o si buttano.
+report/presentazione/**
+!report/presentazione/**/
+!report/presentazione/**/*.drawio
