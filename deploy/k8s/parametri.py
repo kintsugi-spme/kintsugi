@@ -9,6 +9,10 @@ generato (configMapGenerator) distribuisce ai pod. Nessun numero si riscrive a m
 
 Il file generato non si versiona (.gitignore). Serve PyYAML:  pip install pyyaml
 Per aggiungere un valore: una riga in VALORI, con il nome della variabile d'ambiente e il percorso in YAML.
+
+Questo è uno dei tre lettori di config/parametri.yaml: gli altri sono docs/scripts/parametri.py (documenti,
+ha `valori()`) e l'`awk` di deploy/compose/Makefile (deadline). Se la struttura del file cambia, vanno
+corretti tutti e tre.
 """
 import argparse
 import sys

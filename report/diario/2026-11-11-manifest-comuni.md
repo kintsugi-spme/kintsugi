@@ -25,9 +25,9 @@ kubectl apply -k deploy/k8s/base
 
 ## Problemi e soluzioni
 
-Nessuno.
+- **Il database è finito sul nodo sbagliato** (`kintsugi-worker2`, e il suo volume è nato lì): senza regole Kubernetes sceglie un nodo qualsiasi. Risolto con `nodeSelector: kintsugi/ruolo: dati` nella base: in tre prove di fila parte su `kintsugi-worker`. Le altre regole di D0006 sono della #77.
+- **Toxiproxy non è nella base:** il documento lo vuole tra applicazione e database, ma lo pianifica in F4 (issue #93). Le misure di M3 sono preliminari e senza Toxiproxy.
 
 ## Limiti dello strumento emersi
 
-- Senza regole di piazzamento il database è finito su `kintsugi-worker2` e l'API su `kintsugi-worker`, il contrario di D0006: lo risolve la #77.
-- Il volume `local-path` si lega al nodo dove il pod parte la prima volta: la #77 dovrà ricrearlo.
+- Il volume `local-path` di kind si lega al nodo dove il pod parte la prima volta e non si sposta (riga nella tabella).
