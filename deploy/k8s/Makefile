@@ -3,6 +3,8 @@
 #   make immagine   crea il cluster se manca, lo controlla, costruisce kintsugi:dev e la carica nei nodi
 #   make cluster    solo il cluster: creazione (se manca) e controllo
 #   make prova      un pod con kintsugi:dev su ognuno dei due worker, senza scaricare nulla
+#   make v1         V1 da zero (cluster e immagine se mancano, database vuoto), aspetta che sia pronta
+#   make togli      toglie la versione accesa, dati compresi; il cluster resta
 #   make giu        cancella il cluster
 #
 # Tutti i comandi di kubectl usano il contesto `kind-kintsugi`: non toccano altri cluster
@@ -11,6 +13,8 @@
 CLUSTER  := kintsugi
 IMMAGINE := kintsugi:dev
 KUBECTL  := kubectl --context kind-$(CLUSTER)
+# Su Windows l'interprete si chiama di solito `python`:  make v1 PYTHON=python
+PYTHON   ?= python3
 
 # La versione di Kubernetes sta in kind-cluster.yaml (immagine dei nodi): non si riscrive qui.
 VERSIONE_KUBERNETES := $(shell awk -F: '/image: kindest\/node/ {print $$NF; exit}' kind-cluster.yaml)
@@ -69,7 +73,24 @@ prova:
 	$(KUBECTL) get pod prova-dati prova-calcolo -o wide
 	$(KUBECTL) delete -f prova-immagine.yaml >/dev/null
 
+# Una versione dell'app da zero: si toglie quella accesa (anche il volume del database, quindi si
+# riparte senza ordini), si rigenera parametri.env da config/parametri.yaml e si aspetta che tutti i
+# Deployment siano pronti. Se non lo sono in tempo, si stampano i pod e gli avvisi di Kubernetes.
+ATTESA_VERSIONE := 180s
+ETICHETTA := app.kubernetes.io/part-of=kintsugi
+v1: immagine togli
+	$(PYTHON) parametri.py
+	$(KUBECTL) apply -k overlays/$@
+	$(KUBECTL) wait --for=condition=Available deployment -l $(ETICHETTA) --timeout=$(ATTESA_VERSIONE) 		|| { echo "errore: $@ non è pronta in $(ATTESA_VERSIONE)"; 			$(KUBECTL) get pods -o wide; 			$(KUBECTL) get events --field-selector type=Warning; exit 1; }
+	$(KUBECTL) get pods -o wide
+	@echo "$@ pronta: gli ordini vanno a http://localhost:8080/ordini"
+
+# Tutto ciò che porta l'etichetta della base (base/kustomization.yaml), qualunque versione sia: `all`
+# comprende Deployment, Service e pod. `--wait` aspetta che il volume del database sia cancellato.
+togli:
+	$(KUBECTL) delete all,pvc,configmap -l $(ETICHETTA) --ignore-not-found --wait
+
 giu:
 	kind delete cluster --name $(CLUSTER)
 
-.PHONY: immagine cluster controlla prova giu
+.PHONY: immagine cluster controlla prova v1 togli giu

@@ -213,10 +213,13 @@ Il cluster kind a 3 nodi e l'immagine dell'app si preparano con un comando (dett
 ```bash
 cd deploy/k8s
 make immagine   # crea il cluster, controlla i nodi, carica kintsugi:dev
+make v1         # V1 da zero sul cluster (fa anche il passo precedente, se serve)
+python3 ../../harness/client/cliente.py --url http://localhost:8080/ordini --richieste 100 --ritmo 10 --timeout 2
+make togli      # toglie la versione accesa, dati compresi; il cluster resta
 make giu        # cancella il cluster
 ```
 
-Gli esperimenti arrivano con le milestone M3–M4.
+V2 e V3 arrivano con le issue successive di M3; gli esperimenti con le milestone M3–M4.
 
 ---
 

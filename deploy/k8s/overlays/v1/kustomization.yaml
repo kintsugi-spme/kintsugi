@@ -1,0 +1,11 @@
+# V1 (fase F3, issue #74): una copia dell'API sincrona (MODE=sync) e PostgreSQL.
+# È la base così com'è: V2 e V3 la riprendono e cambiano copie, modo e componenti.
+#
+# Da deploy/k8s:
+#   make v1      cluster e immagine se mancano, poi V1 da zero (database vuoto)
+#   make togli   toglie la versione accesa, dati compresi; il cluster resta
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base

@@ -11,6 +11,12 @@ resources:
   - db.yaml
   - api.yaml
 
+# Un'etichetta su tutto ciò che appartiene a Kintsugi, ConfigMap generati compresi: `make togli` cancella
+# con questa, qualunque versione sia accesa. Non entra nei selettori dei Deployment e dei Service.
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: kintsugi
+
 configMapGenerator:
   # Lo schema è uno solo (D0004, D0005): lo legge anche Compose. PostgreSQL lo esegue una volta sola,
   # quando il volume è vuoto.
