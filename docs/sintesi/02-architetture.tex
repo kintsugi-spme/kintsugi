@@ -50,6 +50,24 @@ La figura~\ref{fig:panoramica} riunisce i componenti di tutte le versioni. Nelle
 
 Nei diagrammi che seguono i blocchi con bordo sono programmi nostri, quelli pieni sono parti di Kubernetes, il cilindro è il database; la freccia continua è una richiesta, quella tratteggiata una risposta, quella a puntini un controllo. Un \emph{nodo} è una macchina del cluster (in locale, un container Docker); un \emph{pod} è un programma in esecuzione su un nodo (la nostra API e i nostri worker, ma anche RabbitMQ e PostgreSQL). Un \emph{Service} è l'indirizzo stabile che Kubernetes dà a un gruppo di pod identici: distribuisce le richieste tra quelli pronti. Per semplicità manca Toxiproxy, il proxy tra applicazione e database che serve solo per il guasto F5 (sezione~\ref{s:guasti}).
 
+\subsection{Kubernetes in breve}
+\label{s:kubernetes}
+
+Le versioni girano su Kubernetes, che esegue i container su più macchine (i \emph{nodi}) e li tiene in vita. Nei manifest scriviamo che cosa deve girare, per esempio tre copie dell'API, e Kubernetes corregge di continuo le differenze tra questo stato voluto e quello reale (figura~\ref{fig:kubernetes}).
+\begin{itemize}
+  \item Il \textbf{control plane} decide che cosa gira e dove. L'API server riceve i manifest ed è il punto d'incontro di tutte le parti, etcd conserva lo stato voluto, lo scheduler sceglie il nodo di ogni pod e il controller manager ricrea i pod che mancano.
+  \item I \textbf{nodi worker} eseguono i pod. Il kubelet di ogni nodo li avvia con containerd, li controlla con le sonde e riavvia i container che terminano; kube-proxy porta le richieste di un Service a uno dei pod pronti.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\resizebox{\linewidth}{!}{\input{figure/kubernetes}}
+\caption{Come funziona Kubernetes: il control plane decide, il kubelet di ogni nodo esegue. In arancione, la parte che ripara ciascun guasto.}
+\label{fig:kubernetes}
+\end{figure}
+
+Per questo i guasti si riparano in tempi diversi: un crash lo vede subito il kubelet sul nodo stesso, un blocco solo le sonde dopo alcuni controlli falliti, la perdita di un nodo il control plane, che poi ricrea i pod altrove.
+
 \subsection{V1 -- istanza singola, sincrona}
 \label{s:v1}
 

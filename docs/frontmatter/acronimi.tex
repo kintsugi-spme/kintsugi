@@ -12,21 +12,26 @@
 ADR      & \textit{Architecture Decision Record}: scheda che documenta una decisione architetturale \\
 ALB      & \textit{Application Load Balancer} di AWS \\
 API      & Servizio che riceve gli ordini dal client \\
+API server & Parte del control plane che riceve i manifest; tutte le altre parti di Kubernetes passano da lui \\
 Blocco   & Guasto in cui il processo resta vivo ma non risponde (\textit{hang}) \\
 Bootstrap & Tecnica statistica che stima l'incertezza di una misura ricampionando i dati osservati \\
 Broker   & Programma che gestisce le code di messaggi; nel progetto è RabbitMQ \\
 Budget di errore & Indisponibilità ammessa da uno SLO in un periodo (con \parametro{obiettivo_percentuale}\% su \parametro{finestra_giorni} giorni: \parametro{budget_errore_minuti} minuti) \\
 CNPG     & CloudNativePG: operatore Kubernetes che gestisce cluster PostgreSQL con failover \\
+containerd & Programma che, su ogni nodo, fa girare materialmente i container per conto del kubelet \\
 Control plane & Insieme dei componenti che governano il cluster Kubernetes (API server, scheduler, controller) \\
+Controller manager & Parte del control plane che confronta lo stato voluto con quello reale e fa creare i pod che mancano \\
 Crash    & Guasto in cui il processo termina \\
 DLQ      & \textit{Dead-letter queue}: coda dei messaggi che non è stato possibile elaborare \\
 EBS      & \textit{Elastic Block Store}: dischi di rete di AWS \\
 EC2      & \textit{Elastic Compute Cloud}: macchine virtuali di AWS \\
 EKS      & \textit{Elastic Kubernetes Service}: Kubernetes gestito da AWS \\
+etcd     & Archivio del control plane che conserva lo stato voluto del cluster \\
 Failover & Promozione automatica dello standby a primario quando il primario cade \\
 JMeter   & Generatore di carico usato come client; lavora a modello aperto \\
 KEDA     & \textit{Kubernetes Event-Driven Autoscaling}: autoscaling basato su eventi, come la lunghezza di una coda \\
 kind     & \textit{Kubernetes in Docker}: cluster Kubernetes locale fatto di container \\
+kube-proxy & Componente di ogni nodo che inoltra le richieste rivolte a un Service a uno dei pod pronti \\
 kubelet  & Agente di Kubernetes su ogni nodo: avvia i container ed esegue le sonde \\
 Modello aperto & Generazione di carico in cui le richieste partono a ritmo fisso, indipendentemente dalle risposte; evita la \textit{coordinated omission} \\
 MTBF     & \textit{Mean Time Between Failures}: tempo medio tra due guasti \\
@@ -37,6 +42,7 @@ Prometheus & Sistema di raccolta di metriche; Grafana ne visualizza i dati \\
 RPO      & \textit{Recovery Point Objective}: quantità di dati che si accetta di perdere in un guasto \\
 RQ       & \textit{Research Question}: domanda di ricerca \\
 Run      & Singola esecuzione di un esperimento \\
+Scheduler & Parte del control plane che sceglie il nodo su cui far partire ogni pod nuovo \\
 Service  & Oggetto di Kubernetes che dà un indirizzo stabile a un gruppo di pod e distribuisce le richieste tra quelli pronti \\
 SLI      & \textit{Service Level Indicator}: misura del livello di servizio \\
 SLO      & \textit{Service Level Objective}: obiettivo fissato su uno SLI \\

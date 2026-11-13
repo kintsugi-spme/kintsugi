@@ -48,3 +48,9 @@ skills-lock.json
 
 # Generato da deploy/k8s/parametri.py (issue #73)
 deploy/k8s/base/parametri.env
+
+# Presentazione: si versionano solo gli schemi draw.io. Le esportazioni (PNG, PDF, SVG), i file di
+# appoggio e le copie di sicurezza di draw.io (.bkp, .dtmp) si rigenerano o si buttano.
+report/presentazione/**
+!report/presentazione/**/
+!report/presentazione/**/*.drawio
