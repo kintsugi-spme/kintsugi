@@ -208,7 +208,7 @@ Le prove che usano PostgreSQL e RabbitMQ veri si saltano se non si indicano i lo
 
 ### 6.4 Cluster ed esperimenti
 
-Il cluster kind a 3 nodi e l'immagine dell'app si preparano con un comando (dettagli in [`deploy/k8s/Makefile`](deploy/k8s/Makefile)):
+Il cluster kind a 3 nodi e l'immagine dell'app si preparano con un comando (dettagli in [`deploy/k8s/Makefile`](deploy/k8s/Makefile)). `make v1` porta nei manifest i numeri di `config/parametri.yaml` e richiede PyYAML (`pip install pyyaml`).
 
 ```bash
 cd deploy/k8s

@@ -9,6 +9,8 @@
 #
 # Tutti i comandi di kubectl usano il contesto `kind-kintsugi`: non toccano altri cluster
 # che il computer conosca.
+#
+# `make v1` lancia parametri.py, che richiede PyYAML:  pip install pyyaml
 
 CLUSTER  := kintsugi
 IMMAGINE := kintsugi:dev
@@ -73,16 +75,23 @@ prova:
 	$(KUBECTL) get pod prova-dati prova-calcolo -o wide
 	$(KUBECTL) delete -f prova-immagine.yaml >/dev/null
 
-# Una versione dell'app da zero: si toglie quella accesa (anche il volume del database, quindi si
-# riparte senza ordini), si rigenera parametri.env da config/parametri.yaml e si aspetta che tutti i
-# Deployment siano pronti. Se non lo sono in tempo, si stampano i pod e gli avvisi di Kubernetes.
+# Una versione dell'app da zero. Prima di toccare il cluster si rigenera parametri.env da
+# config/parametri.yaml e si compone l'overlay: se uno dei due fallisce (per esempio manca PyYAML),
+# la versione accesa resta com'è. Poi si toglie quella accesa (anche il volume del database, quindi si
+# riparte senza ordini) e si aspetta che tutti i Deployment siano pronti. Se non lo sono in tempo, si
+# stampano i pod e gli avvisi di Kubernetes.
 ATTESA_VERSIONE := 180s
 ETICHETTA := app.kubernetes.io/part-of=kintsugi
-v1: immagine togli
+v1: immagine
 	$(PYTHON) parametri.py
+	$(KUBECTL) kustomize overlays/$@ >/dev/null
+	@$(MAKE) --no-print-directory togli
 	$(KUBECTL) apply -k overlays/$@
-	$(KUBECTL) wait --for=condition=Available deployment -l $(ETICHETTA) --timeout=$(ATTESA_VERSIONE) 		|| { echo "errore: $@ non è pronta in $(ATTESA_VERSIONE)"; 			$(KUBECTL) get pods -o wide; 			$(KUBECTL) get events --field-selector type=Warning; exit 1; }
-	$(KUBECTL) get pods -o wide
+	$(KUBECTL) wait --for=condition=Available deployment -l $(ETICHETTA) --timeout=$(ATTESA_VERSIONE) \
+		|| { echo "errore: $@ non è pronta in $(ATTESA_VERSIONE)"; \
+			$(KUBECTL) get pods -o wide; \
+			$(KUBECTL) get events --field-selector type=Warning; exit 1; }
+	$(KUBECTL) get pods -o wide -L kintsugi/versione
 	@echo "$@ pronta: gli ordini vanno a http://localhost:8080/ordini"
 
 # Tutto ciò che porta l'etichetta della base (base/kustomization.yaml), qualunque versione sia: `all`

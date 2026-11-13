@@ -9,3 +9,10 @@ kind: Kustomization
 
 resources:
   - ../../base
+
+# Quale versione gira (`kubectl get pods -L kintsugi/versione`), anche sui pod: serve al reset di F4,
+# che controlla dove stanno i pod. Non entra nei selettori.
+labels:
+  - pairs:
+      kintsugi/versione: v1
+    includeTemplates: true
