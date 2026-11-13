@@ -1,0 +1,23 @@
+# Parte comune a V1-V3 (fase F3, issue #73): il database e un'API sincrona con il Service d'ingresso.
+# Gli overlay (deploy/k8s/overlays/) la riprendono e cambiano modo, copie e componenti.
+#
+# I numeri di config/parametri.yaml arrivano da `parametri.env`, che non si scrive a mano:
+#   python3 deploy/k8s/parametri.py
+#   kubectl apply -k deploy/k8s/base
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - db.yaml
+  - api.yaml
+
+configMapGenerator:
+  # Lo schema è uno solo (D0004, D0005): lo legge anche Compose. PostgreSQL lo esegue una volta sola,
+  # quando il volume è vuoto.
+  - name: schema
+    files:
+      - schema.sql
+  # Generato da deploy/k8s/parametri.py a partire da config/parametri.yaml (non versionato).
+  - name: parametri
+    envs:
+      - parametri.env

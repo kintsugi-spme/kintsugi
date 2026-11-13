@@ -1,0 +1,73 @@
+# PostgreSQL con lo schema e i dati su un volume. Stessa versione di deploy/compose (D0011).
+# Le password sono valori di prova, validi solo dentro il cluster di prova.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: db-dati
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+spec:
+  replicas: 1
+  # Un solo pod alla volta sul volume: il nuovo parte dopo che il vecchio si è fermato.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      # Il disco local-path nasce sul nodo dove il pod parte la prima volta e non si sposta: il database
+      # parte sempre sul nodo `dati` (D0006, regola rigida). Le altre regole di D0006 sono della #77.
+      nodeSelector:
+        kintsugi/ruolo: dati
+      containers:
+        - name: postgres
+          image: postgres:18.6-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - { name: POSTGRES_USER, value: kintsugi }
+            - { name: POSTGRES_PASSWORD, value: kintsugi }
+            - { name: POSTGRES_DB, value: kintsugi }
+          volumeMounts:
+            - name: dati
+              mountPath: /var/lib/postgresql
+            - name: schema
+              mountPath: /docker-entrypoint-initdb.d/01-schema.sql
+              subPath: schema.sql
+              readOnly: true
+          readinessProbe:
+            # `-h 127.0.0.1`: durante la creazione del volume PostgreSQL risponde solo sul socket locale.
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "kintsugi", "-d", "kintsugi"]
+            periodSeconds: 2
+            timeoutSeconds: 3
+            failureThreshold: 30
+      volumes:
+        - name: dati
+          persistentVolumeClaim:
+            claimName: db-dati
+        - name: schema
+          configMap:
+            name: schema
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+spec:
+  selector:
+    app: db
+  ports:
+    - port: 5432
