@@ -58,13 +58,13 @@ Il programma è diviso in pochi moduli, ognuno con un solo compito (figura~\ref{
 \draw[freccia] (api) -- node[etichetta, left, pos=0.28] {valida} (mod);
 \draw[freccia] (srv) -- (mod);
 \draw[freccia] (srv) -- node[etichetta, left, pos=0.3] {sync} (db);
-\draw[freccia] (srv) -- node[etichetta, above, sloped, pos=0.55] {async} (brk);
+\draw[freccia] (srv) -- node[etichetta, above right, pos=0.45, fill=white, inner sep=1pt] {async} (brk);
 \draw[freccia] (wk) -- node[etichetta, right, pos=0.3] {legge la coda} (brk);
-\draw[risposta] (wk) -- node[etichetta, below, sloped, pos=0.68] {chiama \texttt{salva()}} (srv);
+\draw[risposta] (wk) -- node[etichetta, above right, pos=0.4, fill=white, inner sep=1pt] {chiama \texttt{salva()}} (srv);
 \draw[freccia] (db) -- (pg);
 \draw[freccia] (brk) -- (q);
 \end{tikzpicture}}
-\caption{I moduli del programma, a strati: ognuno usa solo quelli sotto di lui. Freccia piena: un modulo importa l'altro. Tratteggiata: \texttt{worker.py} non importa \texttt{servizio.py}, ma riceve da \texttt{main.py} la funzione \texttt{salva()} e la chiama per ogni ordine.}
+\caption{I moduli del programma, a strati: ognuno usa solo quelli sotto di lui. Frecce piene: i collegamenti principali, cioè chi usa chi mentre il programma lavora; non sono disegnati gli import usati solo all'avvio (\texttt{main.py} verso \texttt{db.py} e \texttt{broker.py} per aprire pool e connessione, \texttt{servizio.py} verso \texttt{config.py} per le impostazioni). Tratteggiata: \texttt{worker.py} non importa \texttt{servizio.py}, ma riceve da \texttt{main.py} la funzione \texttt{salva()} e la chiama per ogni ordine.}
 \label{fig:moduli}
 \end{figure}
 
