@@ -1,0 +1,36 @@
+# V2 (fase F3, issue #75): come V1, con più copie dell'API sincrona dietro lo stesso Service. Il Service
+# distribuisce le richieste tra le copie pronte: non serve un bilanciatore come nginx in Compose.
+#
+# Dove stanno i pod non è deciso qui: le regole di D0006 (API sul nodo `calcolo`, database sul nodo `dati`)
+# sono della #77. Finché non ci sono, una copia dell'API può finire sul nodo `dati`.
+#
+# Da deploy/k8s:
+#   make v2      V2 da zero (cluster e immagine se mancano, database vuoto)
+#   make togli   toglie la versione accesa, dati compresi; il cluster resta
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+# Quale versione gira (`kubectl get pods -L kintsugi/versione`), anche sui pod: serve al reset di F4,
+# che controlla dove stanno i pod. Non entra nei selettori.
+labels:
+  - pairs:
+      kintsugi/versione: v2
+    includeTemplates: true
+
+# Il numero di copie sta in config/parametri.yaml (versioni.copie_api): arriva qui da `parametri.env`, nel
+# ConfigMap `parametri`, e non si riscrive nel manifest. Se il valore manca, Kustomize si ferma con un
+# errore invece di lasciare una copia sola.
+replacements:
+  - source:
+      kind: ConfigMap
+      name: parametri
+      fieldPath: data.COPIE_API
+    targets:
+      - select:
+          kind: Deployment
+          name: api
+        fieldPaths:
+          - spec.replicas

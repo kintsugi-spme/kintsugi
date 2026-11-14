@@ -4,13 +4,14 @@
 #   make cluster    solo il cluster: creazione (se manca) e controllo
 #   make prova      un pod con kintsugi:dev su ognuno dei due worker, senza scaricare nulla
 #   make v1         V1 da zero (cluster e immagine se mancano, database vuoto), aspetta che sia pronta
+#   make v2         V2 da zero, come V1 ma con più copie dell'API (versioni.copie_api in config/parametri.yaml)
 #   make togli      toglie la versione accesa, dati compresi; il cluster resta
 #   make giu        cancella il cluster
 #
 # Tutti i comandi di kubectl usano il contesto `kind-kintsugi`: non toccano altri cluster
 # che il computer conosca.
 #
-# `make v1` lancia parametri.py, che richiede PyYAML:  pip install pyyaml
+# `make v1` e `make v2` lanciano parametri.py, che richiede PyYAML:  pip install pyyaml
 
 CLUSTER  := kintsugi
 IMMAGINE := kintsugi:dev
@@ -82,7 +83,8 @@ prova:
 # stampano i pod e gli avvisi di Kubernetes.
 ATTESA_VERSIONE := 180s
 ETICHETTA := app.kubernetes.io/part-of=kintsugi
-v1: immagine
+VERSIONI := v1 v2
+$(VERSIONI): immagine
 	$(PYTHON) parametri.py
 	$(KUBECTL) kustomize overlays/$@ >/dev/null
 	@$(MAKE) --no-print-directory togli
@@ -102,4 +104,4 @@ togli:
 giu:
 	kind delete cluster --name $(CLUSTER)
 
-.PHONY: immagine cluster controlla prova v1 togli giu
+.PHONY: immagine cluster controlla prova $(VERSIONI) togli giu
