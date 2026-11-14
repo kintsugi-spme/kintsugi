@@ -154,3 +154,45 @@ def test_ritmo_fisso(api_finta):
 
     invii = sorted(datetime.fromisoformat(r["ts_invio"]).timestamp() for r in righe)
     assert 0.40 <= invii[-1] - invii[0] <= 0.60
+
+
+def test_il_numero_di_richieste_viene_dal_numero_dalla_durata_o_dal_predefinito():
+    assert cliente.numero_richieste(None, None, 10) == cliente.RICHIESTE_PREDEFINITE == 100
+    assert cliente.numero_richieste(30, None, 10) == 30
+    assert cliente.numero_richieste(None, 180, 50) == 9000  # 3 minuti a 50 ordini/s
+    assert cliente.numero_richieste(None, 2.5, 10) == 25
+    assert cliente.numero_richieste(None, 0.04, 10) == 0  # troppo breve: main() lo rifiuta
+
+
+def da_riga_di_comando(monkeypatch, *argomenti):
+    monkeypatch.setattr("sys.argv", ["cliente.py", "--timeout", "2", *argomenti])
+    cliente.main()
+
+
+def test_da_riga_di_comando_la_durata_invia_durata_per_ritmo_richieste(api_finta, tmp_path, monkeypatch, capsys):
+    api = api_finta(lambda n: (201, 0))
+    uscita = tmp_path / "client.csv"
+    da_riga_di_comando(monkeypatch, "--url", api.url, "--durata", "2", "--ritmo", "20", "--uscita", str(uscita))
+
+    assert len(api.corpi) == 40
+    assert "inviate 40 richieste" in capsys.readouterr().out
+    assert len(list(csv.DictReader(uscita.open(encoding="utf-8")))) == 40
+
+
+def test_da_riga_di_comando_senza_numero_ne_durata_invia_cento_richieste(api_finta, tmp_path, monkeypatch):
+    api = api_finta(lambda n: (201, 0))
+    da_riga_di_comando(monkeypatch, "--url", api.url, "--ritmo", "500", "--uscita", str(tmp_path / "c.csv"))
+    assert len(api.corpi) == 100
+
+
+@pytest.mark.parametrize("argomenti", [
+    ["--richieste", "10", "--durata", "5"],  # una cosa o l'altra
+    ["--durata", "0.01", "--ritmo", "10"],   # meno di una richiesta
+    ["--richieste", "0"],
+    ["--ritmo", "0"],
+])
+def test_da_riga_di_comando_le_opzioni_sbagliate_sono_rifiutate(api_finta, tmp_path, monkeypatch, argomenti):
+    api = api_finta(lambda n: (201, 0))
+    with pytest.raises(SystemExit):
+        da_riga_di_comando(monkeypatch, "--url", api.url, "--uscita", str(tmp_path / "c.csv"), *argomenti)
+    assert api.corpi == []

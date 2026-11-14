@@ -194,7 +194,7 @@ I run si eseguono in \textbf{ordine casuale}, mescolando configurazioni e ripeti
 Un run è valido se:
 \begin{itemize}
   \item il reset è stato completato e verificato;
-  \item il ritmo effettivamente inviato resta entro $\pm 5\%$ di quello previsto, anche durante il guasto;
+  \item il ritmo effettivamente inviato resta entro $\pm$\parametro{ritmo_tolleranza_percentuale}\% di quello previsto, anche durante il guasto;
   \item la CPU del computer resta sotto una soglia fissata nella fase F4 e non si verificano esaurimenti di memoria.
 \end{itemize}
 Un run non valido viene scartato e ripetuto, annotando il motivo nel diario.

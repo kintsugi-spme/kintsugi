@@ -80,6 +80,7 @@ carichi:
   w2_durata_picco_s: 60
   w2_inizio_picco_minuto: 2
   w2_finestra_costo_min: 10              # costo in worker-secondi: dall'inizio del picco a 10 minuti dopo
+  ritmo_tolleranza_percentuale: 5        # il ritmo inviato dal client resta entro questo scarto da quello chiesto
 
 # --- Versioni e autoscaling -----------------------------------------------------------
 versioni:

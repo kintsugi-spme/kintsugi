@@ -18,6 +18,7 @@ Perché questi numeri non sono solo del documento: sono i parametri degli esperi
 | Manifest Kubernetes (`deploy/k8s/`) | `deploy/k8s/parametri.py` scrive `base/parametri.env` e un ConfigMap generato dà la deadline dell'API (`tempi.deadline_api_s`) ai pod | in uso |
 | Manifest Kubernetes: copie, worker, sonde e KEDA (fase F3) | `copie_api`, `worker_v3`, i valori delle sonde e di KEDA, con lo stesso meccanismo | previsto |
 | Analisi: fermo e ripristino (`analysis/fermo.py`) | legge i secondi consecutivi (`run.ripristino_secondi_consecutivi`) e la soglia del 99% (`tempi.soglia_secondo_disponibile_percentuale`) | in uso |
+| Analisi: ritmo inviato (`analysis/ritmo.py`) | legge la tolleranza sul ritmo del client (`carichi.ritmo_tolleranza_percentuale`), se non si passa `--tolleranza` | in uso |
 | Analisi: calcoli di fine campagna (`analysis/`) | limite di completamento e sensibilità a 1 s e 5 s | previsto |
 
 Le righe «previsto» e «da decidere» sono possibilità, non ancora scelte.

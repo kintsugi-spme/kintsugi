@@ -4,6 +4,11 @@
 aperto) arriva in F4 e scriverà un client.csv con le stesse colonne (data/README.md).
 
     python harness/client/cliente.py --url http://localhost:8000/ordini --richieste 100 --ritmo 10
+    python harness/client/cliente.py --url http://localhost:8080/ordini --durata 180 --ritmo 50 --uscita data/<ambiente>/<run-id>/client.csv
+
+Si indica quante richieste inviare (`--richieste`) oppure per quanto tempo (`--durata`, in secondi:
+richieste = durata x ritmo). Il ritmo effettivo non lo controlla il client: si controlla dal log, dopo,
+con `analysis/ritmo.py`.
 
 Modello aperto (documento di architettura, capitolo «Protocollo di misura»): la richiesta k parte
 all'istante k / ritmo dall'avvio, anche se le risposte precedenti non sono ancora arrivate. Se il
@@ -34,6 +39,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 COLONNE = ["ts_invio", "id", "esito", "tempo_risposta_s"]
+RICHIESTE_PREDEFINITE = 100
 PARAMETRI = Path(__file__).resolve().parents[2] / "config" / "parametri.yaml"
 
 
@@ -68,6 +74,13 @@ def invia(url: str, id_ordine: str, timeout_s: float) -> str:
         return "timeout" if isinstance(errore.reason, TimeoutError) else "errore"
     except OSError:  # collegamento caduto a metà risposta
         return "errore"
+
+
+def numero_richieste(richieste: int | None, durata_s: float | None, ritmo: float) -> int:
+    """Quante richieste inviare: quelle chieste, quelle di `durata_s` secondi al `ritmo`, o il predefinito."""
+    if durata_s is not None:
+        return round(durata_s * ritmo)
+    return RICHIESTE_PREDEFINITE if richieste is None else richieste
 
 
 def esegui(url: str, richieste: int, ritmo: float, timeout_s: float, uscita) -> dict[str, int]:
@@ -108,23 +121,30 @@ def esegui(url: str, richieste: int, ritmo: float, timeout_s: float, uscita) -> 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--url", required=True, help="indirizzo di POST /ordini")
-    parser.add_argument("--richieste", type=int, default=100, help="quanti ordini inviare")
+    quante = parser.add_mutually_exclusive_group()
+    quante.add_argument("--richieste", type=int, default=None,
+                        help=f"quanti ordini inviare (predefinito: {RICHIESTE_PREDEFINITE})")
+    quante.add_argument("--durata", type=float, default=None,
+                        help="per quanti secondi inviare, al posto di --richieste: richieste = durata x ritmo")
     parser.add_argument("--ritmo", type=float, default=10, help="ordini al secondo")
     parser.add_argument("--timeout", type=float, default=None,
                         help="secondi prima di rinunciare (predefinito: config/parametri.yaml)")
     parser.add_argument("--uscita", default="client.csv", help="file del log")
     argomenti = parser.parse_args()
-    if argomenti.richieste < 1 or argomenti.ritmo <= 0:
-        parser.error("--richieste deve essere almeno 1 e --ritmo maggiore di 0")
+    if argomenti.ritmo <= 0:
+        parser.error("--ritmo deve essere maggiore di 0")
+    richieste = numero_richieste(argomenti.richieste, argomenti.durata, argomenti.ritmo)
+    if richieste < 1:
+        parser.error("serve almeno una richiesta: controlla --richieste, oppure --durata e --ritmo")
     timeout_s = argomenti.timeout if argomenti.timeout is not None else timeout_predefinito()
 
     inizio = time.monotonic()
     with open(argomenti.uscita, "w", newline="", encoding="utf-8") as uscita:
-        esiti = esegui(argomenti.url, argomenti.richieste, argomenti.ritmo, timeout_s, uscita)
+        esiti = esegui(argomenti.url, richieste, argomenti.ritmo, timeout_s, uscita)
     durata = time.monotonic() - inizio
 
     riassunto = ", ".join(f"{esito}: {n}" for esito, n in sorted(esiti.items()))
-    print(f"inviate {argomenti.richieste} richieste in {durata:.1f} s ({riassunto}); "
+    print(f"inviate {richieste} richieste in {durata:.1f} s ({riassunto}); "
           f"log in {argomenti.uscita}")
 
 
