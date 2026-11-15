@@ -1,15 +1,21 @@
 # Parte comune a V1-V3 (fase F3, issue #73): il database e un'API sincrona con il Service d'ingresso.
 # Gli overlay (deploy/k8s/overlays/) la riprendono e cambiano modo, copie e componenti.
 #
-# I numeri di config/parametri.yaml arrivano da `parametri.env`, che non si scrive a mano:
-#   python3 deploy/k8s/parametri.py
-#   kubectl apply -k deploy/k8s/base
+# I numeri di config/parametri.yaml arrivano da `parametri.env`, che non si scrive a mano: lo genera
+# deploy/k8s/parametri.py, lanciato da `make v1` (in deploy/k8s) prima di ogni avvio. La base non si
+# applica da sola: `make v1` applica l'overlay overlays/v1, che la riprende.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
   - db.yaml
   - api.yaml
+
+# Un'etichetta su tutto ciò che appartiene a Kintsugi, ConfigMap generati compresi: `make togli` cancella
+# con questa, qualunque versione sia accesa. Non entra nei selettori dei Deployment e dei Service.
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: kintsugi
 
 configMapGenerator:
   # Lo schema è uno solo (D0004, D0005): lo legge anche Compose. PostgreSQL lo esegue una volta sola,
