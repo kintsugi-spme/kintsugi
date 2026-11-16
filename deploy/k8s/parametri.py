@@ -2,7 +2,9 @@
 """Porta nei manifest i numeri di config/parametri.yaml (issue #73).
 
 Kustomize non legge quel file: questo script ne ricava `base/parametri.env`, che un ConfigMap
-generato (configMapGenerator) distribuisce ai pod. Nessun numero si riscrive a mano nei manifest.
+generato (configMapGenerator) distribuisce ai pod. Gli overlay leggono da quel ConfigMap anche i numeri
+che non sono variabili d'ambiente, come le copie dell'API (overlays/v2). Nessun numero si riscrive a mano
+nei manifest.
 
   python3 deploy/k8s/parametri.py             scrive deploy/k8s/base/parametri.env
   python3 deploy/k8s/parametri.py --controlla esce con codice 1 se il file non coincide con parametri.yaml
@@ -28,8 +30,10 @@ FILE_YAML = QUI.parent.parent / "config" / "parametri.yaml"
 FILE_ENV = QUI / "base" / "parametri.env"
 
 # variabile d'ambiente -> percorso in config/parametri.yaml
+# DEADLINE_S la leggono i pod. COPIE_API no: la legge l'overlay V2, che la copia nelle `replicas` dell'API.
 VALORI = {
     "DEADLINE_S": ("tempi", "deadline_api_s"),
+    "COPIE_API": ("versioni", "copie_api"),
 }
 
 
