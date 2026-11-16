@@ -29,7 +29,7 @@ Interna & Sistema e generatore di carico girano sullo stesso computer e si conte
 Interna & Un run può lasciare tracce (code non vuote, pod degradati) che influenzano il successivo & Reset verificato prima di ogni run; ordine casuale dei run \\
 Interna & Dopo un crash Kubernetes ritarda i riavvii successivi dello stesso container (10, 20, 40~s e così via fino a 5 minuti) e azzera il ritardo solo dopo 10 minuti senza crash: due run con guasto di fila sullo stesso pod avrebbero riavvii diversi & Il reset ricrea i pod prima di ogni run, così ogni guasto colpisce un container senza crash precedenti \\
 Interna & Il guasto di un componente può dipendere da dove Kubernetes ha collocato i pod & Regole di piazzamento esplicite (D0006); topologia verificata al reset \\
-Di costrutto & Un generatore a modello chiuso smetterebbe di inviare durante il guasto, nascondendolo & Carico a modello aperto; ritmo inviato controllato entro $\pm5\%$ \\
+Di costrutto & Un generatore a modello chiuso smetterebbe di inviare durante il guasto, nascondendolo & Carico a modello aperto; ritmo inviato controllato entro $\pm$\parametro{ritmo_tolleranza_percentuale}\% \\
 Di costrutto & Un pod ``pronto'' non significa servizio ripristinato & Ripristino definito come 5~s consecutivi disponibili in accettazione e completamento \\
 Di costrutto & La soglia del \parametro{soglia_secondo_disponibile_percentuale}\% al secondo è severa a ritmi bassi & Si riportano anche le richieste fallite per guasto, indipendenti dalla soglia \\
 Di costrutto & Su AWS gli istanti di ricezione e scrittura vengono da nodi con orologi diversi & Sfasamento verificato e dichiarato prima delle sessioni (D0005) \\

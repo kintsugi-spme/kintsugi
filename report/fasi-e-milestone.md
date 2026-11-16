@@ -75,7 +75,7 @@ Progettare e scrivere le previsioni (M1) → costruire l'app (M2) → portarla s
 **Attività:** Prometheus e Grafana leggeri · piani JMeter con Open Model Thread Group per W1-W3, da riga di comando · script dei guasti F1-F7 (segnali dal nodo, istante registrato su host e cluster; D0016) · Toxiproxy sempre nel percorso verso il DB · harness completo (reset che ricrea i pod e verifica topologia di V4 e worker di V5, struttura del run, raccolta di client, database, eventi e Prometheus, criteri di validità, CSV, ordine casuale) · misura della capacità di base e della soglia di CPU dell'host.
 **Fatto quando:**
 1. due ripetizioni dello stesso test sono entro una tolleranza dichiarata (es. 10% sulla mediana), anche con un run con guasto in mezzo;
-2. durante un guasto il ritmo inviato resta entro ±5%, anche con F4 su V1;
+2. durante un guasto il ritmo inviato resta entro ±<!-- num:ritmo_tolleranza_percentuale -->5<!-- /num -->%, anche con F4 su V1;
 3. F1 su V2 produce un downtime coerente con la previsione, oppure la differenza è spiegata;
 4. il failover di V4 avviene e il reset ripristina la topologia; KEDA scala i worker di V5 sotto W2 e il reset li riporta al minimo;
 5. misurata la capacità con 1, 3 e 10 worker; se con 10 è sotto 10×μ1, si annota quale componente satura.

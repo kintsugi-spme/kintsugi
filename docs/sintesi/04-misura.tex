@@ -164,4 +164,4 @@ I run si eseguono in \textbf{ordine casuale}, mescolando configurazioni e ripeti
 
 Per ogni configurazione si riportano \textbf{mediana} e \textbf{intervallo interquartile}; con 10 ripetizioni anche l'\textbf{intervallo di confidenza al 95\%} della mediana, calcolato con il bootstrap. Con 5 ripetizioni non si traggono conclusioni su differenze piccole, e per ogni confronto si dichiara la differenza minima distinguibile.
 
-Un run è valido se il reset è verificato, se il ritmo inviato resta entro $\pm 5\%$ di quello previsto e se la CPU e la memoria del computer restano entro le soglie fissate nel banco di prova. Un run non valido viene scartato e ripetuto, annotando il motivo nel diario.
+Un run è valido se il reset è verificato, se il ritmo inviato resta entro $\pm$\parametro{ritmo_tolleranza_percentuale}\% di quello previsto e se la CPU e la memoria del computer restano entro le soglie fissate nel banco di prova. Un run non valido viene scartato e ripetuto, annotando il motivo nel diario.
