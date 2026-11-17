@@ -14,6 +14,16 @@ spec:
       labels:
         app: api
     spec:
+      # D0006: l'API preferisce il nodo `calcolo`; se non c'è (guasto F6) può partire sul nodo `dati`. È una
+      # preferenza e non un obbligo, a differenza del database (db.yaml). Il control plane ha il taint
+      # NoSchedule (`make cluster` lo controlla): nessun pod dell'app ci parte.
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - { key: kintsugi/ruolo, operator: In, values: [calcolo] }
       containers:
         - name: api
           image: kintsugi:dev

@@ -28,7 +28,8 @@ spec:
         app: db
     spec:
       # Il disco local-path nasce sul nodo dove il pod parte la prima volta e non si sposta: il database
-      # parte sempre sul nodo `dati` (D0006, regola rigida). Le altre regole di D0006 sono della #77.
+      # parte sempre sul nodo `dati` (D0006, regola rigida): se il nodo non c'è, il pod resta in attesa
+      # invece di partire altrove.
       nodeSelector:
         kintsugi/ruolo: dati
       containers:
