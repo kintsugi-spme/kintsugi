@@ -1,12 +1,13 @@
 # 2026-11-17 — Regola per le PR impilate
 
-**Chi:** Gianmarco · **Fase:** F3 · **Durata:** 0,5 h · **Issue:** nessuna (regola di lavoro decisa da Gianmarco)
+**Chi:** Gianmarco · **Fase:** F3 · **Durata:** 0,5 h · **Issue:** nessuna (regola di lavoro proposta da Gianmarco, approvata con la revisione)
 
 ## Cosa abbiamo fatto
 
 - `CONTRIBUTING.md`: il punto 4 non vieta più ogni base diversa da `main`; nuova sezione «PR impilate (stack)» con la regola generale: PR 1, …, n, con la i-esima che ha bisogno della (i−1)-esima; stesso proprietario per tutte; la 1 punta a `main` e ogni altra al branch della precedente; si fondono in ordine crescente nella PR 1 e solo la 1 va in `main`.
 - `.github/workflows/controlli.yml`: la verifica «La PR punta a main» accetta una base diversa solo se è il branch di un'altra PR aperta dello stesso autore.
 - `.github/pull_request_template.md`: la voce della checklist cita le PR impilate.
+- Dopo la revisione di Francesco: la PR 1 elenca le PR sopra con un `Closes #n` per ogni issue (`Closes` vale solo verso `main`); una PR della pila si fonde nella base solo con approvazione e discussioni risolte (fuori da `main` GitHub non lo impone); prima di fondere la 1 in `main` serve un'ultima approvazione, perché ogni fusione annulla la precedente.
 
 ## Perché
 
