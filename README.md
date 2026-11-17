@@ -139,7 +139,7 @@ kintsugi/
 ├── harness/
 │   ├── client/           # client minimo di F2 (provvisorio, prima di JMeter)
 │   ├── jmeter/           # piani di carico W1–W3 (da F4)
-│   └── faults/           # iniezione dei guasti: F1 (arresto.py) da F3, gli altri da F4
+│   └── faults/           # iniezione dei guasti: F1 (arresto.py) e tempi di avvio a vuoto (avvio.py) da F3, gli altri da F4
 ├── analysis/             # categorie degli ordini, fermo e ripristino, ritmo inviato, statistiche
 ├── data/                 # risultati dei run (non versionati)
 ├── docs/                 # documento di architettura (LaTeX → PDF)
