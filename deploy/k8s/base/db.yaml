@@ -41,6 +41,12 @@ spec:
             - { name: POSTGRES_USER, value: kintsugi }
             - { name: POSTGRES_PASSWORD, value: kintsugi }
             - { name: POSTGRES_DB, value: kintsugi }
+          # Richieste e limiti (#79). Misurati come per l'API (report/diario/2026-11-17-risorse.md): picco 200 MiB, di
+          # cui circa 70 di cache dei file, che il kernel libera da solo. Limite di memoria circa 2,5 volte il picco.
+          # Il limite di CPU non si raggiunge a carico normale (uso medio 0,05 CPU).
+          resources:
+            requests: { cpu: 250m, memory: 192Mi }
+            limits: { cpu: "2", memory: 512Mi }
           volumeMounts:
             - name: dati
               mountPath: /var/lib/postgresql

@@ -45,6 +45,17 @@ spec:
             # L'utente `guest` funziona solo da localhost: serve un utente vero.
             - { name: RABBITMQ_DEFAULT_USER, value: kintsugi }
             - { name: RABBITMQ_DEFAULT_PASS, value: kintsugi }
+            # RabbitMQ non legge il limite del container: calcolerebbe la sua soglia (60% della memoria) su tutta la
+            # memoria di Docker (4761 MiB) e il container verrebbe ucciso prima. Così la calcola su 1 GiB, come il
+            # limite sotto (614 MiB): oltre, RabbitMQ rallenta chi pubblica invece di morire. Da tenere uguale a `limits`.
+            - { name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS, value: "-rabbit total_memory_available_override_value 1073741824" }
+          # Richieste e limiti (#79). Misurati come per l'API (report/diario/2026-11-17-risorse.md): picco 184 MiB,
+          # che non cresce con l'arretrato (12000 messaggi in coda: nessuna crescita misurabile, la coda li tiene
+          # su disco). Limite di memoria 1 GiB, circa 5 volte il picco. Il limite di CPU non si raggiunge a carico
+          # normale (uso medio 0,07 CPU).
+          resources:
+            requests: { cpu: 100m, memory: 192Mi }
+            limits: { cpu: "1", memory: 1Gi }
           volumeMounts:
             - name: dati
               mountPath: /var/lib/rabbitmq
