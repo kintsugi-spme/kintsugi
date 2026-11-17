@@ -1,8 +1,8 @@
 # V2 (fase F3, issue #75): come V1, con più copie dell'API sincrona dietro lo stesso Service. Il Service
 # distribuisce le richieste tra le copie pronte: non serve un bilanciatore come nginx in Compose.
 #
-# Dove stanno i pod non è deciso qui: le regole di D0006 (API sul nodo `calcolo`, database sul nodo `dati`)
-# sono della #77. Finché non ci sono, una copia dell'API può finire sul nodo `dati`.
+# Dove stanno i pod non è deciso qui ma nella base (D0006): il database sul nodo `dati` (db.yaml), le copie
+# dell'API di preferenza sul nodo `calcolo` (api.yaml).
 #
 # Da deploy/k8s:
 #   make v2      V2 da zero (cluster e immagine se mancano, database vuoto)

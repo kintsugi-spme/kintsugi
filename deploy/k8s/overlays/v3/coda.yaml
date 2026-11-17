@@ -32,7 +32,8 @@ spec:
       # suffisso casuale che cambia a ogni ricreazione, e i messaggi sul volume non si ritroverebbero (D0002).
       hostname: coda
       # Come db.yaml: il disco local-path nasce sul nodo dove il pod parte la prima volta e non si sposta,
-      # quindi la coda parte sempre sul nodo `dati` (D0006, regola rigida). Le altre regole di D0006 sono della #77.
+      # quindi la coda parte sempre sul nodo `dati` (D0006, regola rigida): se il nodo non c'è, il pod resta
+      # in attesa invece di partire altrove.
       nodeSelector:
         kintsugi/ruolo: dati
       containers:

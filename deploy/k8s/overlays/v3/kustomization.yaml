@@ -1,7 +1,8 @@
 # V3 (fase F3, issue #76): come V2, ma l'API mette l'ordine in coda (RabbitMQ) e risponde 202; i worker lo
 # salvano nel database. API e worker hanno le copie di config/parametri.yaml.
 #
-# Dove stanno i pod non è deciso qui, salvo il volume della coda: le altre regole di D0006 sono della #77.
+# Dove stanno i pod (D0006): il database sul nodo `dati` (base/db.yaml), la coda sul nodo `dati` (coda.yaml),
+# le copie dell'API (base/api.yaml) e i worker (worker.yaml) di preferenza sul nodo `calcolo`.
 #
 # Da deploy/k8s:
 #   make v3      V3 da zero (cluster e immagine se mancano, database e coda vuoti)
