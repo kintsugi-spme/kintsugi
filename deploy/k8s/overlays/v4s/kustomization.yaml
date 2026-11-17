@@ -1,0 +1,19 @@
+# V4s (fase F3, issue #80): V4a con la replica sincrona (D0014). Cambia solo questo fattore.
+#
+# Da deploy/k8s:
+#   make v4s     V4s da zero (cluster, immagine e operatore se mancano, database vuoto)
+#   make togli   toglie la versione accesa, dati compresi; il cluster e l'operatore restano
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../v4a
+
+patches:
+  - path: sincrona.yaml
+
+# Sostituisce l'etichetta di versione messa da V4a.
+labels:
+  - pairs:
+      kintsugi/versione: v4s
+    includeTemplates: true

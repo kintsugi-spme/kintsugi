@@ -1,0 +1,13 @@
+# L'API di V4 scrive sul Service `-rw` di CloudNativePG, che punta sempre al primario: dopo un failover
+# l'operatore lo sposta sullo standby promosso e l'indirizzo non cambia.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  template:
+    spec:
+      containers:
+        - name: api
+          env:
+            - { name: DATABASE_URL, value: "postgresql://kintsugi:kintsugi@db-rw:5432/kintsugi" }

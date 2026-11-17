@@ -1,0 +1,17 @@
+# Il primario conferma una scrittura solo dopo che lo standby l'ha ricevuta: nessun ordine confermato si
+# perde nel failover (RPO = 0), al prezzo di scritture più lente (D0014).
+#
+# `dataDurability: required`: se lo standby non c'è, le scritture aspettano invece di proseguire senza
+# copia. L'altra scelta di CloudNativePG, `preferred`, tornerebbe alla replica asincrona e potrebbe perdere
+# ordini, cioè sarebbe V4a. È il comportamento che il documento di architettura dà per V4s nella tabella dei
+# punti unici di guasto (capitolo «Architettura»), da verificare sulla versione adottata.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: db
+spec:
+  postgresql:
+    synchronous:
+      method: any
+      number: 1
+      dataDurability: required

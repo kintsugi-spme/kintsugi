@@ -1,0 +1,15 @@
+# Kustomize aggiunge ai ConfigMap e ai Secret generati un suffisso che cambia con il contenuto, e aggiorna i
+# riferimenti solo nei campi che conosce. Questi sono i campi del Cluster di CloudNativePG che li nominano.
+nameReference:
+  - kind: ConfigMap
+    version: v1
+    fieldSpecs:
+      - kind: Cluster
+        group: postgresql.cnpg.io
+        path: spec/bootstrap/initdb/postInitApplicationSQLRefs/configMapRefs/name
+  - kind: Secret
+    version: v1
+    fieldSpecs:
+      - kind: Cluster
+        group: postgresql.cnpg.io
+        path: spec/bootstrap/initdb/secret/name
