@@ -1,0 +1,53 @@
+# V3 (fase F3, issue #76): come V2, ma l'API mette l'ordine in coda (RabbitMQ) e risponde 202; i worker lo
+# salvano nel database. API e worker hanno le copie di config/parametri.yaml.
+#
+# Dove stanno i pod non è deciso qui, salvo il volume della coda: le altre regole di D0006 sono della #77.
+#
+# Da deploy/k8s:
+#   make v3      V3 da zero (cluster e immagine se mancano, database e coda vuoti)
+#   make togli   toglie la versione accesa, dati compresi; il cluster resta
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  - coda.yaml
+  - worker.yaml
+
+patches:
+  - path: api.yaml
+
+# `make togli` e l'attesa di `make v3` cercano ciò che porta l'etichetta della base, che però Kustomize
+# mette solo sugli oggetti della base: qui serve anche su coda e worker. Poi la versione che gira
+# (`kubectl get pods -L kintsugi/versione`), anche sui pod: serve al reset di F4. Non entra nei selettori.
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: kintsugi
+  - pairs:
+      kintsugi/versione: v3
+    includeTemplates: true
+
+# I numeri di copie stanno in config/parametri.yaml (versioni.copie_api e versioni.worker_v3): arrivano qui da
+# `parametri.env`, nel ConfigMap `parametri`, e non si riscrivono nei manifest. Se un valore manca, Kustomize
+# si ferma con un errore invece di lasciare una copia sola.
+replacements:
+  - source:
+      kind: ConfigMap
+      name: parametri
+      fieldPath: data.COPIE_API
+    targets:
+      - select:
+          kind: Deployment
+          name: api
+        fieldPaths:
+          - spec.replicas
+  - source:
+      kind: ConfigMap
+      name: parametri
+      fieldPath: data.WORKER_V3
+    targets:
+      - select:
+          kind: Deployment
+          name: worker
+        fieldPaths:
+          - spec.replicas

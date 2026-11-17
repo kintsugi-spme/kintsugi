@@ -134,7 +134,7 @@ kintsugi/
 │   ├── compose/          # V1, V2 e V3 sul computer con Docker Compose (fase F2)
 │   ├── k8s/
 │   │   ├── base/         # schema del database; manifest comuni: database e API
-│   │   └── overlays/     # v1/ … v5/ (v1 e v2 ci sono, gli altri da F3)
+│   │   └── overlays/     # v1/ … v5/ (v1, v2 e v3 ci sono; v4 e v5 da F3)
 │   └── aws/              # infrastruttura come codice per EKS
 ├── harness/
 │   ├── client/           # client minimo di F2 (provvisorio, prima di JMeter)
@@ -208,19 +208,20 @@ Le prove che usano PostgreSQL e RabbitMQ veri si saltano se non si indicano i lo
 
 ### 6.4 Cluster ed esperimenti
 
-Il cluster kind a 3 nodi e l'immagine dell'app si preparano con un comando (dettagli in [`deploy/k8s/Makefile`](deploy/k8s/Makefile)). `make v1` e `make v2` portano nei manifest i numeri di `config/parametri.yaml` e richiedono PyYAML (`pip install pyyaml`).
+Il cluster kind a 3 nodi e l'immagine dell'app si preparano con un comando (dettagli in [`deploy/k8s/Makefile`](deploy/k8s/Makefile)). `make v1`, `make v2` e `make v3` portano nei manifest i numeri di `config/parametri.yaml` e richiedono PyYAML (`pip install pyyaml`).
 
 ```bash
 cd deploy/k8s
 make immagine   # crea il cluster, controlla i nodi, carica kintsugi:dev
 make v1         # V1 da zero sul cluster (fa anche il passo precedente, se serve)
 make v2         # oppure V2, con più copie dell'API: toglie la versione accesa e riparte da zero
+make v3         # oppure V3: l'API mette gli ordini in coda (RabbitMQ), risponde 202 e i worker li salvano
 python3 ../../harness/client/cliente.py --url http://localhost:8080/ordini --richieste 100 --ritmo 10 --timeout 2
 make togli      # toglie la versione accesa, dati compresi; il cluster resta
 make giu        # cancella il cluster
 ```
 
-V3 arriva con le issue successive di M3; gli esperimenti con le milestone M3–M4.
+V4 e V5 e gli esperimenti arrivano con le milestone M3–M4.
 
 ---
 

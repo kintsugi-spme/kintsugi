@@ -1,0 +1,26 @@
+# I worker di V3: leggono gli ordini dalla coda e li salvano nel database (D0002, D0003).
+# Le copie sono quelle di `versioni.worker_v3` (vedi kustomization.yaml). Niente sonde: un worker che
+# cade si riconosce dall'uscita del container (D0007). Niente Service: nessuno chiama un worker.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+        - name: worker
+          image: kintsugi:dev
+          imagePullPolicy: Never
+          env:
+            - { name: MODE, value: async }
+            - { name: ROLE, value: worker }
+            - { name: DATABASE_URL, value: "postgresql://kintsugi:kintsugi@db:5432/kintsugi" }
+            - { name: BROKER_URL, value: "amqp://kintsugi:kintsugi@coda:5672/" }

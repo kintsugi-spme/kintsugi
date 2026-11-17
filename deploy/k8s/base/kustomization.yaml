@@ -13,6 +13,8 @@ resources:
 
 # Un'etichetta su tutto ciò che appartiene a Kintsugi, ConfigMap generati compresi: `make togli` cancella
 # con questa, qualunque versione sia accesa. Non entra nei selettori dei Deployment e dei Service.
+# Kustomize la mette solo sugli oggetti di questa base: un overlay che ne aggiunge (V3: coda e worker) deve
+# metterla anche su quelli, altrimenti `make togli` li lascia nel cluster.
 labels:
   - pairs:
       app.kubernetes.io/part-of: kintsugi
