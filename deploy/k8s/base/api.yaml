@@ -38,6 +38,19 @@ spec:
                   name: parametri
                   key: DEADLINE_S
             - { name: DATABASE_URL, value: "postgresql://kintsugi:kintsugi@db:5432/kintsugi" }
+          # Sonde di D0007: controllano solo che l'API risponda, mai il database (app/api.py). I tre numeri di
+          # ognuna (1) sono segnaposti: Kustomize li sostituisce con quelli di config/parametri.yaml (vedi
+          # base/kustomization.yaml). Senza segnaposto il valore uscirebbe come testo e Kubernetes lo rifiuterebbe.
+          readinessProbe:
+            httpGet: { path: /readyz, port: 8000 }
+            periodSeconds: 1
+            timeoutSeconds: 1
+            failureThreshold: 1
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8000 }
+            periodSeconds: 1
+            timeoutSeconds: 1
+            failureThreshold: 1
 ---
 # Punto d'ingresso: NodePort 30080 sul control plane, raggiungibile da http://localhost:8080
 # (kind-cluster.yaml inoltra la porta 8080 del Mac alla 30080 del nodo).
