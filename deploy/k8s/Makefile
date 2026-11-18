@@ -5,13 +5,14 @@
 #   make prova      un pod con kintsugi:dev su ognuno dei due worker, senza scaricare nulla
 #   make v1         V1 da zero (cluster e immagine se mancano, database vuoto), aspetta che sia pronta
 #   make v2         V2 da zero, come V1 ma con più copie dell'API (versioni.copie_api in config/parametri.yaml)
+#   make v3         V3 da zero: l'API mette gli ordini in coda (RabbitMQ) e i worker li salvano
 #   make togli      toglie la versione accesa, dati compresi; il cluster resta
 #   make giu        cancella il cluster
 #
 # Tutti i comandi di kubectl usano il contesto `kind-kintsugi`: non toccano altri cluster
 # che il computer conosca.
 #
-# `make v1` e `make v2` lanciano parametri.py, che richiede PyYAML:  pip install pyyaml
+# `make v1`, `make v2` e `make v3` lanciano parametri.py, che richiede PyYAML:  pip install pyyaml
 
 CLUSTER  := kintsugi
 IMMAGINE := kintsugi:dev
@@ -83,7 +84,7 @@ prova:
 # stampano i pod e gli avvisi di Kubernetes.
 ATTESA_VERSIONE := 180s
 ETICHETTA := app.kubernetes.io/part-of=kintsugi
-VERSIONI := v1 v2
+VERSIONI := v1 v2 v3
 $(VERSIONI): immagine
 	$(PYTHON) parametri.py
 	$(KUBECTL) kustomize overlays/$@ >/dev/null
@@ -97,7 +98,7 @@ $(VERSIONI): immagine
 	@echo "$@ pronta: gli ordini vanno a http://localhost:8080/ordini"
 
 # Tutto ciò che porta l'etichetta della base (base/kustomization.yaml), qualunque versione sia: `all`
-# comprende Deployment, Service e pod. `--wait` aspetta che il volume del database sia cancellato.
+# comprende Deployment, Service e pod. `--wait` aspetta che i volumi (database, coda) siano cancellati.
 togli:
 	$(KUBECTL) delete all,pvc,configmap -l $(ETICHETTA) --ignore-not-found --wait
 

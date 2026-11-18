@@ -30,10 +30,12 @@ FILE_YAML = QUI.parent.parent / "config" / "parametri.yaml"
 FILE_ENV = QUI / "base" / "parametri.env"
 
 # variabile d'ambiente -> percorso in config/parametri.yaml
-# DEADLINE_S la leggono i pod. COPIE_API no: la legge l'overlay V2, che la copia nelle `replicas` dell'API.
+# DEADLINE_S la leggono i pod. COPIE_API e WORKER_V3 no: le leggono gli overlay, che le copiano nelle
+# `replicas` dell'API (V2, V3) e dei worker (V3).
 VALORI = {
     "DEADLINE_S": ("tempi", "deadline_api_s"),
     "COPIE_API": ("versioni", "copie_api"),
+    "WORKER_V3": ("versioni", "worker_v3"),
 }
 
 

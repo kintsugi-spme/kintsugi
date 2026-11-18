@@ -15,8 +15,8 @@ Perché questi numeri non sono solo del documento: sono i parametri degli esperi
 | Banco di misura (`harness/`, fase F4) | legge la matrice per sapere quali run lanciare e la struttura di un run (riscaldamento, guasto al minuto 2, tetti) | previsto |
 | Docker Compose (`deploy/compose/`) | il `Makefile` legge la deadline dell'API (`tempi.deadline_api_s`) e la passa ai container come `DEADLINE_S` | in uso |
 | Client provvisorio (`harness/client/`) | legge il timeout del client (`tempi.timeout_client_s`), se non si passa `--timeout` | in uso |
-| Manifest Kubernetes (`deploy/k8s/`) | `deploy/k8s/parametri.py` scrive `base/parametri.env` e un ConfigMap generato dà la deadline dell'API (`tempi.deadline_api_s`) ai pod; l'overlay V2 legge da lì il numero di copie (`versioni.copie_api`) | in uso |
-| Manifest Kubernetes: worker, sonde e KEDA (fase F3) | `worker_v3`, i valori delle sonde e di KEDA, con lo stesso meccanismo | previsto |
+| Manifest Kubernetes (`deploy/k8s/`) | `deploy/k8s/parametri.py` scrive `base/parametri.env` e un ConfigMap generato dà la deadline dell'API (`tempi.deadline_api_s`) ai pod; gli overlay V2 e V3 leggono da lì le copie dell'API (`versioni.copie_api`) e dei worker (`versioni.worker_v3`) | in uso |
+| Manifest Kubernetes: sonde e KEDA (fase F3) | i valori delle sonde e di KEDA, con lo stesso meccanismo | previsto |
 | Analisi: fermo e ripristino (`analysis/fermo.py`) | legge i secondi consecutivi (`run.ripristino_secondi_consecutivi`) e la soglia del 99% (`tempi.soglia_secondo_disponibile_percentuale`) | in uso |
 | Analisi: ritmo inviato (`analysis/ritmo.py`) | legge la tolleranza sul ritmo del client (`carichi.ritmo_tolleranza_percentuale`), se non si passa `--tolleranza` | in uso |
 | Analisi: calcoli di fine campagna (`analysis/`) | limite di completamento e sensibilità a 1 s e 5 s | previsto |

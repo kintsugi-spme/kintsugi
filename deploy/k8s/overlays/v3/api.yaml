@@ -1,0 +1,16 @@
+# L'API di V3 non salva nel database: mette l'ordine in coda e risponde 202. Si cambia il modo, si toglie
+# l'indirizzo del database (l'API non lo usa e non deve dipenderne) e si aggiunge quello della coda.
+# Il resto (immagine, DEADLINE_S, porta) resta quello della base.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  template:
+    spec:
+      containers:
+        - name: api
+          env:
+            - { name: MODE, value: async }
+            - { name: DATABASE_URL, $patch: delete }
+            - { name: BROKER_URL, value: "amqp://kintsugi:kintsugi@coda:5672/" }
