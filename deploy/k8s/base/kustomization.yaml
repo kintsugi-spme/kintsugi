@@ -29,3 +29,68 @@ configMapGenerator:
   - name: parametri
     envs:
       - parametri.env
+
+# Le sonde dell'API (D0007) prendono i numeri da parametri.env, nel ConfigMap `parametri`: base/api.yaml non li
+# scrive. Si usa la configurazione «veloce»; per il guasto F7 la «standard» (SONDA_STANDARD_*) è già nel
+# ConfigMap. Se un valore manca, Kustomize si ferma con un errore invece di lasciare quello predefinito.
+replacements:
+  - source:
+      kind: ConfigMap
+      name: parametri
+      fieldPath: data.SONDA_VELOCE_PRONTA_S
+    targets:
+      - select:
+          kind: Deployment
+          name: api
+        fieldPaths:
+          - spec.template.spec.containers.[name=api].readinessProbe.periodSeconds
+  - source:
+      kind: ConfigMap
+      name: parametri
+      fieldPath: data.SONDA_TIMEOUT_S
+    targets:
+      - select:
+          kind: Deployment
+          name: api
+        fieldPaths:
+          - spec.template.spec.containers.[name=api].readinessProbe.timeoutSeconds
+  - source:
+      kind: ConfigMap
+      name: parametri
+      fieldPath: data.SONDA_FALLIMENTI
+    targets:
+      - select:
+          kind: Deployment
+          name: api
+        fieldPaths:
+          - spec.template.spec.containers.[name=api].readinessProbe.failureThreshold
+  - source:
+      kind: ConfigMap
+      name: parametri
+      fieldPath: data.SONDA_VELOCE_VIVA_S
+    targets:
+      - select:
+          kind: Deployment
+          name: api
+        fieldPaths:
+          - spec.template.spec.containers.[name=api].livenessProbe.periodSeconds
+  - source:
+      kind: ConfigMap
+      name: parametri
+      fieldPath: data.SONDA_TIMEOUT_S
+    targets:
+      - select:
+          kind: Deployment
+          name: api
+        fieldPaths:
+          - spec.template.spec.containers.[name=api].livenessProbe.timeoutSeconds
+  - source:
+      kind: ConfigMap
+      name: parametri
+      fieldPath: data.SONDA_FALLIMENTI
+    targets:
+      - select:
+          kind: Deployment
+          name: api
+        fieldPaths:
+          - spec.template.spec.containers.[name=api].livenessProbe.failureThreshold

@@ -208,7 +208,7 @@ Le prove che usano PostgreSQL e RabbitMQ veri si saltano se non si indicano i lo
 
 ### 6.4 Cluster ed esperimenti
 
-Il cluster kind a 3 nodi e l'immagine dell'app si preparano con un comando (dettagli in [`deploy/k8s/Makefile`](deploy/k8s/Makefile)). `make v1` … `make v4s` portano nei manifest i numeri di `config/parametri.yaml` e richiedono PyYAML (`pip install pyyaml`).
+Il cluster kind a 3 nodi e l'immagine dell'app si preparano con un comando (dettagli in [`deploy/k8s/Makefile`](deploy/k8s/Makefile)). `make v1` … `make v4s` portano nei manifest i numeri di `config/parametri.yaml` e richiedono PyYAML (`pip install pyyaml`). Le copie dell'API hanno le sonde `/readyz` e `/healthz` (D0007), con i valori della configurazione «veloce» di `parametri.yaml`: `make v1` … `make v4s` aspettano che siano pronte.
 
 ```bash
 cd deploy/k8s

@@ -50,9 +50,9 @@ L'API rinuncia dopo & \parametro{deadline_api_s} s \\
 Limite di completamento (un ordine conta come completato se è salvato entro questo tempo dalla ricezione) & \parametro{limite_completamento_s} s (come il timeout del generatore di carico, D0008) \\
 Connessioni al database: per ogni pod che si collega / limite di PostgreSQL & 5 / 100 (predefinito, D0010) \\
 Il worker ritenta: attesa tra i tentativi / per almeno & da 0,5 a 10 s / 120 s (indicativo, da verificare sul campo, D0003) \\
-Sonde, configurazione \emph{veloce}: API pronta / viva & ogni 1 s / ogni 2 s; guasto dichiarato dopo 3 controlli falliti di fila \\
-Sonde, configurazione \emph{standard} (valori predefiniti di Kubernetes): API pronta / viva & ogni 10 s / ogni 10 s; guasto dichiarato dopo 3 controlli falliti di fila \\
-Sonde, timeout di ogni controllo (tutte le configurazioni) & 1 s (valore predefinito di Kubernetes, D0007) \\
+Sonde, configurazione \emph{veloce}: API pronta / viva & ogni \parametro{sonda_veloce_pronta_periodo_s} s / ogni \parametro{sonda_veloce_viva_periodo_s} s; guasto dichiarato dopo \parametro{sonda_fallimenti_di_fila} controlli falliti di fila \\
+Sonde, configurazione \emph{standard} (valori predefiniti di Kubernetes): API pronta / viva & ogni \parametro{sonda_standard_pronta_periodo_s} s / ogni \parametro{sonda_standard_viva_periodo_s} s; guasto dichiarato dopo \parametro{sonda_fallimenti_di_fila} controlli falliti di fila \\
+Sonde, timeout di ogni controllo (tutte le configurazioni) & \parametro{sonda_timeout_s} s (valore predefinito di Kubernetes, D0007) \\
 Sonde usate nei run & \emph{veloce} in tutti i run; il guasto F7 si ripete con entrambe le configurazioni \\
 Ritmo di W1 & uguale per tutte le versioni: \parametro{w1_percentuale_capacita_minima}\% della capacità più bassa misurata nella fase F4 tra V1, V2, V3, V4a e V4s \\
 Latenza del guasto F5 & 200 ms aggiunti a ogni scambio con il database, per 60 s \\

@@ -66,6 +66,17 @@ tempi:
   limite_completamento_sensibilita_s: [1, 5]   # calcolo ripetuto in F7, senza toccare le previsioni
   soglia_secondo_disponibile_percentuale: 99   # secondo "disponibile" se almeno il 99% delle richieste riesce
 
+# --- Sonde dell'API su Kubernetes (D0007) ---------------------------------------------
+# Due configurazioni che differiscono solo per il periodo dei controlli. La "veloce" si usa in tutti i
+# run; la "standard" (valori predefiniti di Kubernetes) solo per il guasto F7.
+sonde:
+  sonda_timeout_s: 1                     # tempo massimo di ogni controllo, in tutte le configurazioni
+  sonda_fallimenti_di_fila: 3            # controlli falliti di fila prima di dichiarare il guasto
+  sonda_veloce_pronta_periodo_s: 1       # readiness ogni
+  sonda_veloce_viva_periodo_s: 2         # liveness ogni
+  sonda_standard_pronta_periodo_s: 10    # readiness ogni
+  sonda_standard_viva_periodo_s: 10      # liveness ogni
+
 # --- Obiettivo di disponibilità -------------------------------------------------------
 slo:
   obiettivo_percentuale: 99.9

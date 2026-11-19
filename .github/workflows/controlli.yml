@@ -17,13 +17,33 @@ jobs:
     name: La PR punta a main
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     steps:
+      # Base diversa da main: ammessa solo per le PR impilate, cioè se è il branch di un'altra PR aperta
+      # dello stesso autore (vedi CONTRIBUTING.md). I valori passano da variabili d'ambiente perché il
+      # nome di un branch è scelto da chi apre la PR.
       - name: Controlla la base
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.base_ref }}
+          AUTORE: ${{ github.event.pull_request.user.login }}
+          REPO: ${{ github.repository }}
+          PROPRIETARIO: ${{ github.repository_owner }}
         run: |
-          if [ "${{ github.base_ref }}" != "main" ]; then
-            echo "::error::La base è '${{ github.base_ref }}', deve essere 'main' (vedi CONTRIBUTING.md)"
+          if [ "$BASE" = "main" ]; then
+            exit 0
+          fi
+          autore_base=$(gh api "repos/$REPO/pulls?state=open&head=$PROPRIETARIO:$BASE" --jq '.[0].user.login // empty')
+          if [ -z "$autore_base" ]; then
+            echo "::error::La base è '$BASE', deve essere 'main', a meno che non sia il branch di un'altra tua PR aperta (vedi CONTRIBUTING.md)"
             exit 1
           fi
+          if [ "$autore_base" != "$AUTORE" ]; then
+            echo "::error::La base '$BASE' è il branch di una PR di $autore_base: uno stack ha un solo proprietario (vedi CONTRIBUTING.md)"
+            exit 1
+          fi
+          echo "PR impilata: la base '$BASE' è il branch di una PR aperta di $AUTORE"
 
   test-app:
     name: Test dell'app
