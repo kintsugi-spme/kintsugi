@@ -103,7 +103,7 @@ $(VERSIONI): immagine
 # KEDA alla versione fissata (D0015), dal file della release ufficiale. `apply` non cambia nulla se è già
 # installato; poi si aspettano i suoi tre componenti, perché prima non accettano uno ScaledObject. Resta nel
 # cluster anche dopo `make togli`. Con Kubernetes 1.37 (kind-cluster.yaml) KEDA 2.21 è fuori dalla finestra
-# provata dai suoi autori (1.34-1.36): D0015 chiede di verificarlo all'installazione, vedi il diario del 18/11.
+# provata dai suoi autori (1.34-1.36): D0015 chiede di verificarlo all'installazione, vedi report/diario/2026-11-19-keda-v5.md.
 VERSIONE_KEDA := 2.21.1
 # La prima volta i nodi scaricano le immagini di KEDA (tre) e il cluster può metterci più dei 180 s delle versioni.
 ATTESA_KEDA := 600s
