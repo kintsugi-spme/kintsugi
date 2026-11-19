@@ -6,7 +6,9 @@
 #   make v1         V1 da zero (cluster e immagine se mancano, database vuoto), aspetta che sia pronta
 #   make v2         V2 da zero, come V1 ma con più copie dell'API (versioni.copie_api in config/parametri.yaml)
 #   make v3         V3 da zero: l'API mette gli ordini in coda (RabbitMQ) e i worker li salvano
-#   make togli      toglie la versione accesa, dati compresi; il cluster resta
+#   make v5         V5 da zero: come V3, con i worker da 1 a 10 secondo la coda (KEDA)
+#   make keda       solo KEDA (lo installa anche make v5)
+#   make togli      toglie la versione accesa, dati compresi; il cluster e KEDA restano
 #   make giu        cancella il cluster
 #
 # Tutti i comandi di kubectl usano il contesto `kind-kintsugi`: non toccano altri cluster
@@ -84,7 +86,8 @@ prova:
 # stampano i pod e gli avvisi di Kubernetes.
 ATTESA_VERSIONE := 180s
 ETICHETTA := app.kubernetes.io/part-of=kintsugi
-VERSIONI := v1 v2 v3
+VERSIONI := v1 v2 v3 v5
+v5: keda
 $(VERSIONI): immagine
 	$(PYTHON) parametri.py
 	$(KUBECTL) kustomize overlays/$@ >/dev/null
@@ -97,12 +100,28 @@ $(VERSIONI): immagine
 	$(KUBECTL) get pods -o wide -L kintsugi/versione
 	@echo "$@ pronta: gli ordini vanno a http://localhost:8080/ordini"
 
+# KEDA alla versione fissata (D0015), dal file della release ufficiale. `apply` non cambia nulla se è già
+# installato; poi si aspettano i suoi tre componenti, perché prima non accettano uno ScaledObject. Resta nel
+# cluster anche dopo `make togli`. Con Kubernetes 1.37 (kind-cluster.yaml) KEDA 2.21 è fuori dalla finestra
+# provata dai suoi autori (1.34-1.36): D0015 chiede di verificarlo all'installazione, vedi il diario del 18/11.
+VERSIONE_KEDA := 2.21.1
+# La prima volta i nodi scaricano le immagini di KEDA (tre) e il cluster può metterci più dei 180 s delle versioni.
+ATTESA_KEDA := 600s
+keda:
+	$(KUBECTL) apply --server-side -f https://github.com/kedacore/keda/releases/download/v$(VERSIONE_KEDA)/keda-$(VERSIONE_KEDA).yaml >/dev/null
+	$(KUBECTL) -n keda wait --for=condition=Available deployment --all --timeout=$(ATTESA_KEDA)
+
 # Tutto ciò che porta l'etichetta della base (base/kustomization.yaml), qualunque versione sia: `all`
 # comprende Deployment, Service e pod. `--wait` aspetta che i volumi (database, coda) siano cancellati.
+# Lo ScaledObject di V5 non è in `all` e il suo tipo esiste solo con KEDA installato: si toglie per primo, perché
+# KEDA riporti i worker al Deployment e cancelli da solo l'autoscaler che ha creato.
 togli:
+	@if $(KUBECTL) get crd scaledobjects.keda.sh >/dev/null 2>&1; then \
+		$(KUBECTL) delete scaledobjects.keda.sh -l $(ETICHETTA) --ignore-not-found --wait; \
+	fi
 	$(KUBECTL) delete all,pvc,configmap -l $(ETICHETTA) --ignore-not-found --wait
 
 giu:
 	kind delete cluster --name $(CLUSTER)
 
-.PHONY: immagine cluster controlla prova $(VERSIONI) togli giu
+.PHONY: immagine cluster controlla prova $(VERSIONI) keda togli giu

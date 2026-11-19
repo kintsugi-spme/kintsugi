@@ -1,0 +1,56 @@
+# V5 (fase F3, issue #81): come V3, ma i worker non sono più un numero fisso. KEDA li porta da 1 a 10 secondo
+# la lunghezza della coda `ordini` (D0015). Il resto, compresi richieste e limiti dei pod, è quello di V3.
+#
+# Richiede KEDA nel cluster: `make v5` lo installa, se manca, alla versione fissata nel Makefile.
+#
+# Da deploy/k8s:
+#   make v5      V5 da zero (cluster, immagine e KEDA se mancano, database e coda vuoti), parte con 1 worker
+#   make togli   toglie la versione accesa, dati compresi; il cluster e KEDA restano
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../v3
+  - scaledobject.yaml
+
+# Il numero dei worker lo decide KEDA: il Deployment non lo scrive più, così un nuovo `apply` non lo rimette a
+# quello di V3 mentre il carico è in corso. Parte con 1 worker, il minimo dello ScaledObject.
+patches:
+  - target: { kind: Deployment, name: worker }
+    patch: |-
+      - op: remove
+        path: /spec/replicas
+
+# L'etichetta della versione che gira passa da v3 a v5 (anche sui pod: serve al reset di F4). `make togli` trova
+# lo ScaledObject con l'etichetta della base, che Kustomize mette anche qui.
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: kintsugi
+  - pairs:
+      kintsugi/versione: v5
+    includeTemplates: true
+
+# I numeri dello ScaledObject stanno in config/parametri.yaml (versioni.worker_v5_*, keda.*): arrivano qui da
+# `parametri.env`, nel ConfigMap `parametri`, e non si riscrivono nei manifest. Se un valore manca, Kustomize
+# si ferma con un errore.
+replacements:
+  - source: { kind: ConfigMap, name: parametri, fieldPath: data.WORKER_V5_MIN }
+    targets:
+      - select: { kind: ScaledObject, name: worker }
+        fieldPaths: [spec.minReplicaCount]
+  - source: { kind: ConfigMap, name: parametri, fieldPath: data.WORKER_V5_MAX }
+    targets:
+      - select: { kind: ScaledObject, name: worker }
+        fieldPaths: [spec.maxReplicaCount]
+  - source: { kind: ConfigMap, name: parametri, fieldPath: data.KEDA_CONTROLLO_0_1_S }
+    targets:
+      - select: { kind: ScaledObject, name: worker }
+        fieldPaths: [spec.pollingInterval]
+  - source: { kind: ConfigMap, name: parametri, fieldPath: data.KEDA_ATTESA_S }
+    targets:
+      - select: { kind: ScaledObject, name: worker }
+        fieldPaths: [spec.advanced.horizontalPodAutoscalerConfig.behavior.scaleDown.stabilizationWindowSeconds]
+  - source: { kind: ConfigMap, name: parametri, fieldPath: data.KEDA_SOGLIA }
+    targets:
+      - select: { kind: ScaledObject, name: worker }
+        fieldPaths: [spec.triggers.0.metadata.value]

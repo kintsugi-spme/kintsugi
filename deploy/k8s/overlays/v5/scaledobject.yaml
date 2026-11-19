@@ -1,0 +1,35 @@
+# Lo ScaledObject di KEDA (D0015): tiene i worker tra 1 e 10 secondo quanti ordini sono in coda. KEDA crea da
+# solo l'HorizontalPodAutoscaler, che decide ogni 15 s (ritmo del control plane, non si cambia).
+# I numeri qui sono segnaposti: kustomization.yaml li sostituisce con quelli di config/parametri.yaml. Quelli
+# interi restano interi, perché Kustomize copia il testo e Kubernetes rifiuterebbe "1" dove vuole 1.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: worker
+spec:
+  scaleTargetRef:
+    name: worker
+  minReplicaCount: 1
+  maxReplicaCount: 1
+  # Ogni quanti secondi KEDA controlla la coda: conta solo per passare da 0 a 1 worker, che qui non succede
+  # (il minimo è 1). Da 1 a 10 decide l'HorizontalPodAutoscaler. Il valore è quello predefinito di KEDA, scritto
+  # perché sia in parametri.yaml (D0015).
+  pollingInterval: 1
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          # Attesa prima di togliere worker: il predefinito (300 s) terrebbe 10 worker accesi per 5 minuti dopo
+          # il picco e renderebbe il costo di V5 vicino a quello di V3 con 10 worker fissi (D0015).
+          stabilizationWindowSeconds: 1
+  triggers:
+    - type: rabbitmq
+      metadata:
+        protocol: amqp
+        queueName: ordini
+        # QueueLength: ordini in coda per worker. Il numero di worker è la lunghezza della coda divisa per questo.
+        mode: QueueLength
+        value: "1"
+        # KEDA gira nel namespace `keda`: dal suo pod `coda` da solo non si risolve, serve il nome completo.
+        # Credenziali di prova, le stesse della base.
+        host: amqp://kintsugi:kintsugi@coda.default.svc.cluster.local:5672/
