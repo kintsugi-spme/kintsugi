@@ -46,8 +46,9 @@ spec:
             - { name: RABBITMQ_DEFAULT_USER, value: kintsugi }
             - { name: RABBITMQ_DEFAULT_PASS, value: kintsugi }
             # RabbitMQ non legge il limite del container: calcolerebbe la sua soglia (60% della memoria) su tutta la
-            # memoria di Docker (4761 MiB) e il container verrebbe ucciso prima. Così la calcola su 1 GiB, come il
-            # limite sotto (614 MiB): oltre, RabbitMQ rallenta chi pubblica invece di morire. Da tenere uguale a `limits`.
+            # memoria di Docker (7,75 GiB), cioè 4761 MiB, e il container verrebbe ucciso prima. Così la calcola su
+            # 1 GiB, come il limite sotto (soglia 614 MiB): oltre, RabbitMQ rallenta chi pubblica invece di morire.
+            # Da tenere uguale a `limits`.
             - { name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS, value: "-rabbit total_memory_available_override_value 1073741824" }
           # Richieste e limiti (#79). Misurati come per l'API (report/diario/2026-11-17-risorse.md): picco 184 MiB,
           # che non cresce con l'arretrato (12000 messaggi in coda: nessuna crescita misurabile, la coda li tiene
