@@ -103,4 +103,5 @@ keda:
   controllo_coda_s: 15                   # ritmo predefinito dell'autoscaler, da 1 a 10 worker
   controllo_keda_da_0_a_1_s: 30          # vale solo da 0 a 1 worker
   soglia_secondi_di_lavoro_per_worker: 2 # ordini in coda per worker = mu1 x 2 s, calcolato in F4
+  soglia_ordini_per_worker: 40           # provvisoria (F3): mu1 = 20 ordini/s (S = 0,05 s) x 2 s; F4 la ricalcola da mu1 misurata
   attesa_prima_di_togliere_s: 60         # il predefinito è 300 s
