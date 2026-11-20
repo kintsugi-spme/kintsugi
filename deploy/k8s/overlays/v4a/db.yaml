@@ -27,6 +27,15 @@ spec:
   storage:
     size: 1Gi
 
+  # CloudNativePG porta `wal_level` a `logical`; la base usa il valore predefinito di PostgreSQL, `replica`,
+  # che basta alla replica fisica di V4. Riportato al valore della base, così fra V2 e V4 il registro delle
+  # scritture non cambia. `shared_buffers` è già uguale (128 MB, il predefinito di PostgreSQL). Le differenze
+  # che restano le impone l'operatore (immagine su Debian, archivio, timeout della replica):
+  # sono nel diario del 17/11 e nella tabella dei limiti.
+  postgresql:
+    parameters:
+      wal_level: replica
+
   # D0006: il primario sul nodo `dati`, lo standby sul nodo `calcolo`, mai sullo stesso nodo.
   # - La regola rigida sui nodi tiene le istanze sui due worker con l'etichetta `kintsugi/ruolo`.
   # - L'anti-affinità rigida le mette su nodi diversi.

@@ -54,7 +54,7 @@ configurations:
   - nomi.yaml
 
 # Come in V3: l'etichetta della base serve anche sugli oggetti aggiunti qui, perché `make togli` li trovi.
-# Poi la versione che gira, anche sui pod dell'API (i pod di PostgreSQL li crea l'operatore).
+# Poi la versione che gira, anche sui pod: quelli dell'API e quelli di PostgreSQL (nomi.yaml).
 labels:
   - pairs:
       app.kubernetes.io/part-of: kintsugi

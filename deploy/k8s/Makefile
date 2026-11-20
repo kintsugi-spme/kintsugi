@@ -112,10 +112,13 @@ $(VERSIONI): immagine
 # L'operatore CloudNativePG alla versione fissata (D0014), dal file della release ufficiale. `apply` non
 # cambia nulla se è già installato; la seconda riga aspetta che risponda, perché crea e controlla i cluster
 # di PostgreSQL e prima non li accetta. Resta nel cluster anche dopo `make togli`.
-VERSIONE_CNPG := 1.30.1
+# La prima volta il nodo scarica l'immagine dell'operatore: l'attesa è quella del database, non i 180 s
+# delle versioni.
+VERSIONE_CNPG := 1.30.2
+ATTESA_OPERATORE := $(ATTESA_DATABASE)
 cnpg:
 	$(KUBECTL) apply --server-side -f https://github.com/cloudnative-pg/cloudnative-pg/releases/download/v$(VERSIONE_CNPG)/cnpg-$(VERSIONE_CNPG).yaml >/dev/null
-	$(KUBECTL) -n cnpg-system rollout status deployment cnpg-controller-manager --timeout=$(ATTESA_VERSIONE)
+	$(KUBECTL) -n cnpg-system rollout status deployment cnpg-controller-manager --timeout=$(ATTESA_OPERATORE)
 
 # Tutto ciò che porta l'etichetta della base (base/kustomization.yaml), qualunque versione sia: `all`
 # comprende Deployment, Service e pod. `--wait` aspetta che i volumi (database, coda) siano cancellati.

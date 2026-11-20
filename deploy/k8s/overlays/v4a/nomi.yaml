@@ -1,5 +1,7 @@
+# Campi del Cluster di CloudNativePG che Kustomize non conosce da solo.
+#
 # Kustomize aggiunge ai ConfigMap e ai Secret generati un suffisso che cambia con il contenuto, e aggiorna i
-# riferimenti solo nei campi che conosce. Questi sono i campi del Cluster di CloudNativePG che li nominano.
+# riferimenti solo nei campi che conosce. Questi sono i campi del Cluster che li nominano.
 nameReference:
   - kind: ConfigMap
     version: v1
@@ -13,3 +15,12 @@ nameReference:
       - kind: Cluster
         group: postgresql.cnpg.io
         path: spec/bootstrap/initdb/secret/name
+
+# I pod di PostgreSQL li crea l'operatore e prendono le etichette da `spec.inheritedMetadata.labels`: qui
+# Kustomize mette l'etichetta di versione (`labels` con `includeTemplates: true`), come sui pod dell'API.
+# Così `kubectl get pods -L kintsugi/versione` mostra anche loro, e in V4s diventa `v4s` senza ripeterla.
+templateLabels:
+  - kind: Cluster
+    group: postgresql.cnpg.io
+    path: spec/inheritedMetadata/labels
+    create: true
