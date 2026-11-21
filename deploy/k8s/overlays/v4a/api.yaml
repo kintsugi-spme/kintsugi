@@ -1,0 +1,15 @@
+# L'API di V4 scrive sul Service `-rw` di CloudNativePG, che punta sempre al primario: dopo un failover
+# l'operatore lo sposta sullo standby promosso e l'indirizzo non cambia.
+# `sslmode=disable`: CloudNativePG accetta anche connessioni cifrate e il client le sceglierebbe da solo; la
+# base non le ha, e la cifratura aggiungerebbe lavoro solo in V4.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  template:
+    spec:
+      containers:
+        - name: api
+          env:
+            - { name: DATABASE_URL, value: "postgresql://kintsugi:kintsugi@db-rw:5432/kintsugi?sslmode=disable" }

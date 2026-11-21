@@ -1,0 +1,65 @@
+# PostgreSQL di V4 gestito da CloudNativePG (D0014): un primario e uno standby che riceve le scritture in
+# continuo. Stessa versione di PostgreSQL della base e di Compose (D0011). In V4a la replica è asincrona: il
+# primario conferma senza aspettare lo standby. V4s aggiunge la replica sincrona (overlays/v4s).
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: db
+spec:
+  instances: 2
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie
+
+  # Utente e database dell'app come nella base: l'API si collega con le stesse credenziali di prova.
+  # Lo schema è lo stesso file della base (base/schema.sql), eseguito una volta sola alla creazione.
+  bootstrap:
+    initdb:
+      database: kintsugi
+      owner: kintsugi
+      secret:
+        name: db-utente
+      postInitApplicationSQLRefs:
+        configMapRefs:
+          - name: schema
+            key: schema.sql
+          - name: schema-v4
+            key: proprietario.sql
+
+  storage:
+    size: 1Gi
+
+  # Richieste e limiti di ogni istanza: gli stessi di PostgreSQL in base/db.yaml (#79), così una differenza fra
+  # V2 e V4 nei run non viene dalle risorse. Nella prova di Gianmarco (100 ordini/s per 60 s) il primario è
+  # arrivato a 123-127 MiB e lo standby a 67-72, senza limitazioni di CPU.
+  resources:
+    requests: { cpu: 250m, memory: 192Mi }
+    limits: { cpu: "2", memory: 512Mi }
+
+  # CloudNativePG porta `wal_level` a `logical`; la base usa il valore predefinito di PostgreSQL, `replica`,
+  # che basta alla replica fisica di V4. Riportato al valore della base, così fra V2 e V4 il registro delle
+  # scritture non cambia. `shared_buffers` è già uguale (128 MB, il predefinito di PostgreSQL). Le differenze
+  # che restano le impone l'operatore (immagine su Debian, archivio, timeout della replica):
+  # sono nel diario del 17/11 e nella tabella dei limiti.
+  postgresql:
+    parameters:
+      wal_level: replica
+
+  # D0006: il primario sul nodo `dati`, lo standby sul nodo `calcolo`, mai sullo stesso nodo.
+  # - La regola rigida sui nodi tiene le istanze sui due worker con l'etichetta `kintsugi/ruolo`.
+  # - L'anti-affinità rigida le mette su nodi diversi.
+  # - La preferenza per `dati` decide dove parte la prima istanza, che CloudNativePG crea per prima e fa
+  #   primario; lo standby, che viene dopo, non può che andare su `calcolo`.
+  # Dopo un failover (guasto F4) il primario resta su `calcolo`: il reset del run ricrea il cluster.
+  affinity:
+    enablePodAntiAffinity: true
+    podAntiAffinityType: required
+    topologyKey: kubernetes.io/hostname
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - { key: kintsugi/ruolo, operator: In, values: [dati, calcolo] }
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+              - { key: kintsugi/ruolo, operator: In, values: [dati] }

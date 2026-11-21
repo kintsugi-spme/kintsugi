@@ -134,7 +134,7 @@ kintsugi/
 │   ├── compose/          # V1, V2 e V3 sul computer con Docker Compose (fase F2)
 │   ├── k8s/
 │   │   ├── base/         # schema del database; manifest comuni: database e API
-│   │   └── overlays/     # v1/ … v5/ (v1, v2 e v3 ci sono; v4 e v5 da F3)
+│   │   └── overlays/     # v1/, v2/, v3/, v4a/, v4s/, v5/
 │   └── aws/              # infrastruttura come codice per EKS
 ├── harness/
 │   ├── client/           # client minimo di F2 (provvisorio, prima di JMeter)
@@ -208,7 +208,7 @@ Le prove che usano PostgreSQL e RabbitMQ veri si saltano se non si indicano i lo
 
 ### 6.4 Cluster ed esperimenti
 
-Il cluster kind a 3 nodi e l'immagine dell'app si preparano con un comando (dettagli in [`deploy/k8s/Makefile`](deploy/k8s/Makefile)). `make v1`, `make v2` e `make v3` portano nei manifest i numeri di `config/parametri.yaml` e richiedono PyYAML (`pip install pyyaml`). Le copie dell'API hanno le sonde `/readyz` e `/healthz` (D0007), con i valori della configurazione «veloce» di `parametri.yaml`: `make v1`, `make v2` e `make v3` aspettano che siano pronte.
+Il cluster kind a 3 nodi e l'immagine dell'app si preparano con un comando (dettagli in [`deploy/k8s/Makefile`](deploy/k8s/Makefile)). `make v1` … `make v5` portano nei manifest i numeri di `config/parametri.yaml` e richiedono PyYAML (`pip install pyyaml`). Le copie dell'API hanno le sonde `/readyz` e `/healthz` (D0007), con i valori della configurazione «veloce» di `parametri.yaml`: `make v1` … `make v5` aspettano che siano pronte.
 
 ```bash
 cd deploy/k8s
@@ -216,13 +216,15 @@ make immagine   # crea il cluster, controlla i nodi, carica kintsugi:dev
 make v1         # V1 da zero sul cluster (fa anche il passo precedente, se serve)
 make v2         # oppure V2, con più copie dell'API: toglie la versione accesa e riparte da zero
 make v3         # oppure V3: l'API mette gli ordini in coda (RabbitMQ), risponde 202 e i worker li salvano
+make v4a        # oppure V4a: come V2, con PostgreSQL primario e standby (CloudNativePG), replica asincrona
+make v4s        # oppure V4s: come V4a, con replica sincrona
 make v5         # oppure V5: come V3, con i worker da 1 a 10 secondo la coda (KEDA, installato alla prima volta)
 python3 ../../harness/client/cliente.py --url http://localhost:8080/ordini --richieste 100 --ritmo 10 --timeout 2
-make togli      # toglie la versione accesa, dati compresi; il cluster e KEDA restano
+make togli      # toglie la versione accesa, dati compresi; il cluster, l'operatore di V4 e KEDA restano
 make giu        # cancella il cluster
 ```
 
-V4 e gli esperimenti arrivano con le milestone M3–M4.
+`make v4a` e `make v4s` installano anche l'operatore CloudNativePG e `make v5` installa KEDA, se mancano, alla versione fissata nel `Makefile`. Gli esperimenti arrivano con le milestone M3–M4.
 
 ---
 
