@@ -139,7 +139,7 @@ kintsugi/
 ├── harness/
 │   ├── client/           # client minimo di F2 (provvisorio, prima di JMeter)
 │   ├── jmeter/           # piani di carico W1–W3 (da F4)
-│   └── faults/           # iniezione dei guasti: F1 (arresto.py) da F3, gli altri da F4
+│   └── faults/           # iniezione dei guasti: F1 (arresto.py) e tempi di avvio a vuoto (avvio.py) da F3, gli altri da F4
 ├── analysis/             # categorie degli ordini, fermo e ripristino, ritmo inviato, statistiche
 ├── data/                 # risultati dei run (non versionati)
 ├── docs/                 # documento di architettura (LaTeX → PDF)
@@ -216,12 +216,13 @@ make immagine   # crea il cluster, controlla i nodi, carica kintsugi:dev
 make v1         # V1 da zero sul cluster (fa anche il passo precedente, se serve)
 make v2         # oppure V2, con più copie dell'API: toglie la versione accesa e riparte da zero
 make v3         # oppure V3: l'API mette gli ordini in coda (RabbitMQ), risponde 202 e i worker li salvano
+make v5         # oppure V5: come V3, con i worker da 1 a 10 secondo la coda (KEDA, installato alla prima volta)
 python3 ../../harness/client/cliente.py --url http://localhost:8080/ordini --richieste 100 --ritmo 10 --timeout 2
-make togli      # toglie la versione accesa, dati compresi; il cluster resta
+make togli      # toglie la versione accesa, dati compresi; il cluster e KEDA restano
 make giu        # cancella il cluster
 ```
 
-V4 e V5 e gli esperimenti arrivano con le milestone M3–M4.
+V4 e gli esperimenti arrivano con le milestone M3–M4.
 
 ---
 

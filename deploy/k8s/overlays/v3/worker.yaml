@@ -27,6 +27,12 @@ spec:
         - name: worker
           image: kintsugi:dev
           imagePullPolicy: Never
+          # Richieste e limiti (#79). Numeri misurati con V3 e 10 worker, S = 0,05 s, 100 ordini/s per 2 minuti
+          # (report/diario/2026-11-17-risorse.md). Richiesta: poco sopra l'uso tipico. Limite di memoria: circa 4 volte il picco (60 MiB).
+          # Il limite di CPU non si raggiunge a carico normale (uso medio 0,02 CPU per worker); serve a non far salire un solo pod senza freno.
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 500m, memory: 256Mi }
           env:
             - { name: MODE, value: async }
             - { name: ROLE, value: worker }
