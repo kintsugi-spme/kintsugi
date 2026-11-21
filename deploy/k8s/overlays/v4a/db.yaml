@@ -27,6 +27,13 @@ spec:
   storage:
     size: 1Gi
 
+  # Richieste e limiti di ogni istanza: gli stessi di PostgreSQL in base/db.yaml (#79), così una differenza fra
+  # V2 e V4 nei run non viene dalle risorse. Nella prova di Gianmarco (100 ordini/s per 60 s) il primario è
+  # arrivato a 123-127 MiB e lo standby a 67-72, senza limitazioni di CPU.
+  resources:
+    requests: { cpu: 250m, memory: 192Mi }
+    limits: { cpu: "2", memory: 512Mi }
+
   # CloudNativePG porta `wal_level` a `logical`; la base usa il valore predefinito di PostgreSQL, `replica`,
   # che basta alla replica fisica di V4. Riportato al valore della base, così fra V2 e V4 il registro delle
   # scritture non cambia. `shared_buffers` è già uguale (128 MB, il predefinito di PostgreSQL). Le differenze
