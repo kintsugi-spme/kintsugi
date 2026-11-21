@@ -60,3 +60,4 @@ Le righe fino alla #102 sono state ricostruite il 21/11 dalle PR e dalle voci de
 | 20/11 | Gianmarco | F3 | #103 (nella #102) | 1,5 | Misura a vuoto dei tempi di avvio: avvio.py e tabella nel diario |
 | 20/11 | Gianmarco | F3 | #104 (nella #102) | 2 | Kubernetes: KEDA e overlay V5, make keda e make v5 |
 | 21/11 | Gianmarco | F3 | #102 | 2 | Kubernetes: richieste e limiti di CPU e memoria per ogni pod |
+| 21/11 | Francesco | F3 | #106 | 1 | Diario più leggero: registro delle PR, voce solo quando serve, niente diari delle revisioni |
