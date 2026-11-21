@@ -9,13 +9,15 @@
 #   make v4a        V4a da zero: come V2, con PostgreSQL primario e standby (CloudNativePG), replica asincrona
 #   make v4s        V4s da zero: come V4a, con replica sincrona
 #   make cnpg       solo l'operatore CloudNativePG (lo installano anche make v4a e make v4s)
-#   make togli      toglie la versione accesa, dati compresi; il cluster e l'operatore restano
+#   make v5         V5 da zero: come V3, con i worker da 1 a 10 secondo la coda (KEDA)
+#   make keda       solo KEDA (lo installa anche make v5)
+#   make togli      toglie la versione accesa, dati compresi; il cluster, l'operatore e KEDA restano
 #   make giu        cancella il cluster
 #
 # Tutti i comandi di kubectl usano il contesto `kind-kintsugi`: non toccano altri cluster
 # che il computer conosca.
 #
-# `make v1` … `make v4s` lanciano parametri.py, che richiede PyYAML:  pip install pyyaml
+# `make v1` … `make v5` lanciano parametri.py, che richiede PyYAML:  pip install pyyaml
 
 CLUSTER  := kintsugi
 IMMAGINE := kintsugi:dev
@@ -87,7 +89,7 @@ prova:
 # stampano i pod e gli avvisi di Kubernetes.
 ATTESA_VERSIONE := 180s
 ETICHETTA := app.kubernetes.io/part-of=kintsugi
-VERSIONI := v1 v2 v3 v4a v4s
+VERSIONI := v1 v2 v3 v4a v4s v5
 # In V4 il database è un cluster di CloudNativePG e non un Deployment: si aspetta anche lui, più a lungo,
 # perché la prima volta i nodi scaricano l'immagine di PostgreSQL. Poi si riavvia l'API: partita prima del
 # database, ritenterebbe la connessione a intervalli sempre più lunghi e resterebbe senza ordini fino a circa
@@ -96,6 +98,7 @@ ATTESA_DATABASE := 600s
 v4a v4s: cnpg
 v4a v4s: ASPETTA_DATABASE = $(KUBECTL) wait --for=condition=Ready cluster/db --timeout=$(ATTESA_DATABASE) \
 	&& $(KUBECTL) rollout restart deployment/api && $(KUBECTL) rollout status deployment/api --timeout=$(ATTESA_VERSIONE)
+v5: keda
 $(VERSIONI): immagine
 	$(PYTHON) parametri.py
 	$(KUBECTL) kustomize overlays/$@ >/dev/null
@@ -120,12 +123,28 @@ cnpg:
 	$(KUBECTL) apply --server-side -f https://github.com/cloudnative-pg/cloudnative-pg/releases/download/v$(VERSIONE_CNPG)/cnpg-$(VERSIONE_CNPG).yaml >/dev/null
 	$(KUBECTL) -n cnpg-system rollout status deployment cnpg-controller-manager --timeout=$(ATTESA_OPERATORE)
 
+# KEDA alla versione fissata (D0015), dal file della release ufficiale. `apply` non cambia nulla se è già
+# installato; poi si aspettano i suoi tre componenti, perché prima non accettano uno ScaledObject. Resta nel
+# cluster anche dopo `make togli`. Con Kubernetes 1.37 (kind-cluster.yaml) KEDA 2.21 è fuori dalla finestra
+# provata dai suoi autori (1.34-1.36): D0015 chiede di verificarlo all'installazione, vedi report/diario/2026-11-19-keda-v5.md.
+VERSIONE_KEDA := 2.21.1
+# La prima volta i nodi scaricano le immagini di KEDA (tre) e il cluster può metterci più dei 180 s delle versioni.
+ATTESA_KEDA := 600s
+keda:
+	$(KUBECTL) apply --server-side -f https://github.com/kedacore/keda/releases/download/v$(VERSIONE_KEDA)/keda-$(VERSIONE_KEDA).yaml >/dev/null
+	$(KUBECTL) -n keda wait --for=condition=Available deployment --all --timeout=$(ATTESA_KEDA)
+
 # Tutto ciò che porta l'etichetta della base (base/kustomization.yaml), qualunque versione sia: `all`
 # comprende Deployment, Service e pod. `--wait` aspetta che i volumi (database, coda) siano cancellati.
+# Lo ScaledObject di V5 non è in `all` e il suo tipo esiste solo con KEDA installato: si toglie per primo, perché
+# KEDA riporti i worker al Deployment e cancelli da solo l'autoscaler che ha creato.
 # Il cluster di PostgreSQL di V4 non è in `all`, e il suo tipo esiste solo con l'operatore installato: si
 # toglie dopo l'API, aspettando che spariscano anche i suoi pod e volumi (`--cascade=foreground`), così una
 # versione nuova non ritrova i dischi di quella vecchia.
 togli:
+	@if $(KUBECTL) get crd scaledobjects.keda.sh >/dev/null 2>&1; then \
+		$(KUBECTL) delete scaledobjects.keda.sh -l $(ETICHETTA) --ignore-not-found --wait; \
+	fi
 	$(KUBECTL) delete all,pvc,configmap,secret -l $(ETICHETTA) --ignore-not-found --wait
 	@if $(KUBECTL) get crd clusters.postgresql.cnpg.io >/dev/null 2>&1; then \
 		$(KUBECTL) delete clusters.postgresql.cnpg.io -l $(ETICHETTA) --ignore-not-found --cascade=foreground --wait; \
@@ -134,4 +153,4 @@ togli:
 giu:
 	kind delete cluster --name $(CLUSTER)
 
-.PHONY: immagine cluster controlla prova $(VERSIONI) cnpg togli giu
+.PHONY: immagine cluster controlla prova $(VERSIONI) cnpg keda togli giu

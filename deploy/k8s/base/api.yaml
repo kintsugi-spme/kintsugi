@@ -38,6 +38,12 @@ spec:
                   name: parametri
                   key: DEADLINE_S
             - { name: DATABASE_URL, value: "postgresql://kintsugi:kintsugi@db:5432/kintsugi" }
+          # Richieste e limiti (#79). Numeri misurati con V1 (50 ordini/s), V2 e V3 (100), S = 0,05 s, 2 minuti
+          # (report/diario/2026-11-17-risorse.md). Richiesta: poco sopra l'uso tipico. Limite di memoria: circa 4 volte il picco (60 MiB).
+          # Il limite di CPU non si raggiunge a carico normale (uso medio 0,05 CPU per copia, 0,15 in V1 con una copia sola); serve a non far salire un solo pod senza freno.
+          resources:
+            requests: { cpu: 100m, memory: 64Mi }
+            limits: { cpu: "1", memory: 256Mi }
           # Sonde di D0007: controllano solo che l'API risponda, mai il database (app/api.py). I tre numeri di
           # ognuna (1) sono segnaposti: Kustomize li sostituisce con quelli di config/parametri.yaml (vedi
           # base/kustomization.yaml). Senza segnaposto il valore uscirebbe come testo e Kubernetes lo rifiuterebbe.

@@ -33,6 +33,7 @@ FILE_ENV = QUI / "base" / "parametri.env"
 # DEADLINE_S la leggono i pod. Gli altri no: li leggono i manifest, che li copiano nei campi dove servono
 # (Kustomize `replacements`): COPIE_API e WORKER_V3 nelle `replicas` dell'API (V2, V3) e dei worker (V3);
 # le SONDA_* nelle sonde dell'API (base/kustomization.yaml). Le SONDA_STANDARD_* sono per il guasto F7.
+# WORKER_V5_* e KEDA_* vanno nello ScaledObject di V5 (overlays/v5/kustomization.yaml).
 VALORI = {
     "DEADLINE_S": ("tempi", "deadline_api_s"),
     "COPIE_API": ("versioni", "copie_api"),
@@ -43,6 +44,11 @@ VALORI = {
     "SONDA_VELOCE_VIVA_S": ("sonde", "sonda_veloce_viva_periodo_s"),
     "SONDA_STANDARD_PRONTA_S": ("sonde", "sonda_standard_pronta_periodo_s"),
     "SONDA_STANDARD_VIVA_S": ("sonde", "sonda_standard_viva_periodo_s"),
+    "WORKER_V5_MIN": ("versioni", "worker_v5_min"),
+    "WORKER_V5_MAX": ("versioni", "worker_v5_max"),
+    "KEDA_CONTROLLO_0_1_S": ("keda", "controllo_keda_da_0_a_1_s"),
+    "KEDA_SOGLIA": ("keda", "soglia_ordini_per_worker"),
+    "KEDA_ATTESA_S": ("keda", "attesa_prima_di_togliere_s"),
 }
 
 
