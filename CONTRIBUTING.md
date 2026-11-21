@@ -16,7 +16,7 @@ Partecipando accetti il [codice di condotta](CODE_OF_CONDUCT.md).
 2. **Crea un branch dal `main` aggiornato.** Gli esterni lavorano su un fork, gli autori su un branch del repository. Il nome ha un prefisso e un argomento breve, in minuscolo e con i trattini: `feat/`, `fix/`, `docs/`, `ci/`, `exp/` (per esempio `docs/guasto-f6`).
 3. **Fai commit piccoli**, con un messaggio breve in italiano che dice cosa cambia.
 4. **Apri la PR verso `main`.** Fa eccezione solo lo stack di PR, descritto sotto. Compila il modulo e scrivi `Closes #n` con il numero dell'issue.
-5. **Scrivi il diario.** Una voce in `report/diario/` (parti da `_template.md`) con cosa è stato fatto, i comandi, i problemi e i limiti degli strumenti.
+5. **Aggiorna il diario.** Sempre una riga in `report/diario/registro.md`, con le ore. Una voce in `report/diario/` (parti da `_template.md`) solo se c'è una misura, un limite di uno strumento, un problema che ha fatto perdere tempo o una scelta non ovvia: i casi sono in `report/diario/README.md`.
 6. **Aspetta la revisione.** Serve l'approvazione di un autore diverso da chi ha scritto la PR e tutte le discussioni risolte. Dopo un nuovo push l'approvazione va richiesta di nuovo.
 
 ## PR impilate (stack)
