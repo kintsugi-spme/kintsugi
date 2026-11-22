@@ -1,0 +1,76 @@
+# V4a (fase F3, issue #80): come V2, ma PostgreSQL è un cluster di CloudNativePG con primario e standby, e la
+# replica è asincrona (D0014). L'API, sincrona, scrive sul Service `db-rw`. V4s la riprende e cambia solo la
+# replica (overlays/v4s).
+#
+# Richiede l'operatore CloudNativePG nel cluster: `make v4a` lo installa, se manca, alla versione fissata nel
+# Makefile.
+#
+# Da deploy/k8s:
+#   make v4a     V4a da zero (cluster, immagine e operatore se mancano, database vuoto)
+#   make togli   toglie la versione accesa, dati compresi; il cluster e l'operatore restano
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  - db.yaml
+
+# Il PostgreSQL della base (Deployment, Service e volume) lascia il posto al cluster di CloudNativePG.
+patches:
+  - path: api.yaml
+  - patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: db
+  - patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: db
+  - patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: db-dati
+
+configMapGenerator:
+  - name: schema-v4
+    files:
+      - proprietario.sql
+
+# Credenziali di prova dell'utente dell'app, valide solo dentro il cluster (le stesse della base).
+secretGenerator:
+  - name: db-utente
+    type: kubernetes.io/basic-auth
+    literals:
+      - username=kintsugi
+      - password=kintsugi
+
+configurations:
+  - nomi.yaml
+
+# Come in V3: l'etichetta della base serve anche sugli oggetti aggiunti qui, perché `make togli` li trovi.
+# Poi la versione che gira, anche sui pod: quelli dell'API e quelli di PostgreSQL (nomi.yaml).
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: kintsugi
+  - pairs:
+      kintsugi/versione: v4a
+    includeTemplates: true
+
+# Le copie dell'API come in V2, da config/parametri.yaml (versioni.copie_api).
+replacements:
+  - source:
+      kind: ConfigMap
+      name: parametri
+      fieldPath: data.COPIE_API
+    targets:
+      - select:
+          kind: Deployment
+          name: api
+        fieldPaths:
+          - spec.replicas
