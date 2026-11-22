@@ -6,16 +6,19 @@
 #   make v1         V1 da zero (cluster e immagine se mancano, database vuoto), aspetta che sia pronta
 #   make v2         V2 da zero, come V1 ma con più copie dell'API (versioni.copie_api in config/parametri.yaml)
 #   make v3         V3 da zero: l'API mette gli ordini in coda (RabbitMQ) e i worker li salvano
+#   make v4a        V4a da zero: come V2, con PostgreSQL primario e standby (CloudNativePG), replica asincrona
+#   make v4s        V4s da zero: come V4a, con replica sincrona
+#   make cnpg       solo l'operatore CloudNativePG (lo installano anche make v4a e make v4s)
 #   make v5         V5 da zero: come V3, con i worker da 1 a 10 secondo la coda (KEDA)
 #   make keda       solo KEDA (lo installa anche make v5)
-#   make togli      toglie la versione accesa, dati compresi; il cluster e KEDA restano
+#   make togli      toglie la versione accesa, dati compresi; il cluster, l'operatore e KEDA restano
 #   make giu        cancella il cluster
 #   make verifica   i criteri di F3 (issue #86): V1-V3 funzionano e un crash F1 dà fermo e ripristino con i millisecondi
 #
 # Tutti i comandi di kubectl usano il contesto `kind-kintsugi`: non toccano altri cluster
 # che il computer conosca.
 #
-# `make v1`, `make v2` e `make v3` lanciano parametri.py, che richiede PyYAML:  pip install pyyaml
+# `make v1` … `make v5` lanciano parametri.py, che richiede PyYAML:  pip install pyyaml
 
 CLUSTER  := kintsugi
 IMMAGINE := kintsugi:dev
@@ -87,19 +90,39 @@ prova:
 # stampano i pod e gli avvisi di Kubernetes.
 ATTESA_VERSIONE := 180s
 ETICHETTA := app.kubernetes.io/part-of=kintsugi
-VERSIONI := v1 v2 v3 v5
+VERSIONI := v1 v2 v3 v4a v4s v5
+# In V4 il database è un cluster di CloudNativePG e non un Deployment: si aspetta anche lui, più a lungo,
+# perché la prima volta i nodi scaricano l'immagine di PostgreSQL. Poi si riavvia l'API: partita prima del
+# database, ritenterebbe la connessione a intervalli sempre più lunghi e resterebbe senza ordini fino a circa
+# 2 minuti (limite del 15/11 in report/diario/README.md). Le altre versioni non hanno niente in più.
+ATTESA_DATABASE := 600s
+v4a v4s: cnpg
+v4a v4s: ASPETTA_DATABASE = $(KUBECTL) wait --for=condition=Ready cluster/db --timeout=$(ATTESA_DATABASE) \
+	&& $(KUBECTL) rollout restart deployment/api && $(KUBECTL) rollout status deployment/api --timeout=$(ATTESA_VERSIONE)
 v5: keda
 $(VERSIONI): immagine
 	$(PYTHON) parametri.py
 	$(KUBECTL) kustomize overlays/$@ >/dev/null
 	@$(MAKE) --no-print-directory togli
 	$(KUBECTL) apply -k overlays/$@
+	$(ASPETTA_DATABASE)
 	$(KUBECTL) wait --for=condition=Available deployment -l $(ETICHETTA) --timeout=$(ATTESA_VERSIONE) \
 		|| { echo "errore: $@ non è pronta in $(ATTESA_VERSIONE)"; \
 			$(KUBECTL) get pods -o wide; \
 			$(KUBECTL) get events --field-selector type=Warning; exit 1; }
 	$(KUBECTL) get pods -o wide -L kintsugi/versione
 	@echo "$@ pronta: gli ordini vanno a http://localhost:8080/ordini"
+
+# L'operatore CloudNativePG alla versione fissata (D0014), dal file della release ufficiale. `apply` non
+# cambia nulla se è già installato; la seconda riga aspetta che risponda, perché crea e controlla i cluster
+# di PostgreSQL e prima non li accetta. Resta nel cluster anche dopo `make togli`.
+# La prima volta il nodo scarica l'immagine dell'operatore: l'attesa è quella del database, non i 180 s
+# delle versioni.
+VERSIONE_CNPG := 1.30.2
+ATTESA_OPERATORE := $(ATTESA_DATABASE)
+cnpg:
+	$(KUBECTL) apply --server-side -f https://github.com/cloudnative-pg/cloudnative-pg/releases/download/v$(VERSIONE_CNPG)/cnpg-$(VERSIONE_CNPG).yaml >/dev/null
+	$(KUBECTL) -n cnpg-system rollout status deployment cnpg-controller-manager --timeout=$(ATTESA_OPERATORE)
 
 # KEDA alla versione fissata (D0015), dal file della release ufficiale. `apply` non cambia nulla se è già
 # installato; poi si aspettano i suoi tre componenti, perché prima non accettano uno ScaledObject. Resta nel
@@ -116,11 +139,17 @@ keda:
 # comprende Deployment, Service e pod. `--wait` aspetta che i volumi (database, coda) siano cancellati.
 # Lo ScaledObject di V5 non è in `all` e il suo tipo esiste solo con KEDA installato: si toglie per primo, perché
 # KEDA riporti i worker al Deployment e cancelli da solo l'autoscaler che ha creato.
+# Il cluster di PostgreSQL di V4 non è in `all`, e il suo tipo esiste solo con l'operatore installato: si
+# toglie dopo l'API, aspettando che spariscano anche i suoi pod e volumi (`--cascade=foreground`), così una
+# versione nuova non ritrova i dischi di quella vecchia.
 togli:
 	@if $(KUBECTL) get crd scaledobjects.keda.sh >/dev/null 2>&1; then \
 		$(KUBECTL) delete scaledobjects.keda.sh -l $(ETICHETTA) --ignore-not-found --wait; \
 	fi
-	$(KUBECTL) delete all,pvc,configmap -l $(ETICHETTA) --ignore-not-found --wait
+	$(KUBECTL) delete all,pvc,configmap,secret -l $(ETICHETTA) --ignore-not-found --wait
+	@if $(KUBECTL) get crd clusters.postgresql.cnpg.io >/dev/null 2>&1; then \
+		$(KUBECTL) delete clusters.postgresql.cnpg.io -l $(ETICHETTA) --ignore-not-found --cascade=foreground --wait; \
+	fi
 
 giu:
 	kind delete cluster --name $(CLUSTER)
@@ -130,4 +159,4 @@ giu:
 verifica:
 	PYTHON=$(PYTHON) ./verifica-m3.sh
 
-.PHONY: immagine cluster controlla prova $(VERSIONI) keda togli giu verifica
+.PHONY: immagine cluster controlla prova $(VERSIONI) cnpg keda togli giu verifica
