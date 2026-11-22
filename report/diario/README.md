@@ -1,6 +1,12 @@
 # Diario di bordo
 
-Una voce per sessione di lavoro e per ogni commit rilevante, in un file `AAAA-MM-GG-argomento.md` scritto copiando `_template.md`. Per un commit, basta un riassunto schematico breve: cosa è cambiato e perché, poche righe. È la base della "descrizione dettagliata delle operazioni, con limiti e difficoltà degli strumenti" richiesta dal professore: si scrive a ridosso del lavoro, non a memoria dopo.
+È la base della «descrizione dettagliata delle operazioni, con limiti e difficoltà degli strumenti» richiesta dal professore. Si scrive a ridosso del lavoro, non a memoria dopo, e tiene solo quello che non sta già da un'altra parte (#70):
+
+- **[`registro.md`](registro.md)**: una riga per ogni PR fusa, con chi, fase, ore e cosa cambia. La aggiunge l'autore nella PR stessa, con un commit dopo averla aperta (il numero si conosce solo allora) e prima di chiedere la revisione. Il racconto sta nella PR. Due PR aperte insieme aggiungono entrambe una riga in fondo e vanno in conflitto: chi arriva secondo lo risolve tenendo tutte e due le righe, in ordine di data.
+- **Una voce** `AAAA-MM-GG-argomento.md`, copiando `_template.md`, solo quando c'è qualcosa da ricordare per il report: una misura o una verifica con dei numeri, un limite di uno strumento, un problema che ha fatto perdere tempo con la sua soluzione, una scelta non ovvia che non merita una scheda di decisione, un run scartato o un'anomalia nei dati (con il motivo, come chiede il protocollo di misura), lo scarto di una misura da una previsione (le previsioni non si riscrivono: si spiega lo scarto).
+- **Niente voci per le revisioni.** La revisione sta sulla PR. Se ne esce una misura o un limite, lo scrive l'autore della PR nella sua voce, citando chi l'ha trovato.
+
+Le voci scritte prima di questa regola seguono quella di allora (una voce per sessione e per ogni PR, anche per le revisioni) e non si toccano: raccontano cosa era vero in quel momento.
 
 I **limiti degli strumenti** emersi si raccolgono anche nella tabella qui sotto, che confluisce nel documento di architettura (`docs/`).
 

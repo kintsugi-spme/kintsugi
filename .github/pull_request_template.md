@@ -9,6 +9,7 @@ Closes #
 ## Checklist
 
 - [ ] La PR punta a `main` (se è una PR impilata, punta al branch della PR da cui dipende: dillo qui sopra, vedi CONTRIBUTING.md)
-- [ ] Breve riassunto nel diario di bordo (`report/diario/`)
+- [ ] Riga in `report/diario/registro.md` (con le ore)
+- [ ] Voce nel diario (`report/diario/`), solo se c'è una misura, un limite di uno strumento, un problema, una scelta non ovvia, un run scartato o lo scarto da una previsione (vedi `report/diario/README.md`)
 - [ ] Decisione registrata in `docs/chapters/decisioni/`, se la modifica cambia una scelta architetturale o un parametro
 - [ ] Nessuna previsione modificata nel documento di architettura dopo aver visto delle misure
