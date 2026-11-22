@@ -42,6 +42,13 @@ accendi() {  # accendi VERSIONE CARTELLA
   # shellcheck disable=SC2086
   { $K rollout restart $deploy && for x in $deploy; do $K rollout status "$x" --timeout=120s; done; } >>"$d/make.txt" 2>&1 \
     || { esito "$v parte" 1 "il riavvio dopo il database non è finito ($d/make.txt)"; return 1; }
+  # `rollout status` torna quando i pod nuovi sono pronti, ma i vecchi sono ancora in chiusura e per qualche secondo
+  # ricevono richieste dal Service (con una sola copia, in V1, i primi ordini cadono). Si aspetta che spariscano.
+  for _ in $(seq 1 60); do
+    $K get pods -l 'app in (api,worker)' --no-headers 2>/dev/null | grep -q Terminating || break
+    sleep 1
+  done
+  sleep 5
 }
 
 criterio1() {  # criterio1 VERSIONE CODICE_ATTESO
