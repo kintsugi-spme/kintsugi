@@ -78,6 +78,12 @@ sonde:
   sonda_standard_pronta_periodo_s: 10    # readiness ogni
   sonda_standard_viva_periodo_s: 10      # liveness ogni
 
+# --- Osservabilità (D0019) ------------------------------------------------------------
+# Prometheus non misura il fermo (lo si calcola dal log del client e dal database): serve a vedere coda,
+# worker accesi e risorse durante un run.
+osservabilita:
+  intervallo_raccolta_s: 5               # ogni quanto Prometheus raccoglie le metriche
+
 # --- Obiettivo di disponibilità -------------------------------------------------------
 slo:
   obiettivo_percentuale: 99.9

@@ -1,0 +1,21 @@
+\begin{decisione}{D0019}{Che cosa osservare durante un run, e come}{Accettata}{24/11/2026}
+
+\contesto
+Il fermo e il ripristino si calcolano dal log del client e dagli istanti scritti nel database, al millisecondo. Durante un run però serve vedere anche quello che il client non vede: quanti ordini aspettano in coda, quanti worker sono accesi in V5 (da cui il costo in worker-secondi) e quanta CPU e memoria usa ogni componente, per capire quale si satura nelle misure di capacità. Il computer delle misure ha 16~GB e Docker ne usa circa 8 (D0013): con V4 o con 10 worker di V5 la memoria è già il limite, quindi un pacchetto di monitoraggio completo non ci sta.
+
+\scelta
+Un'osservabilità leggera, sul nodo \texttt{dati} (D0006), sempre accesa in tutte le versioni:
+\begin{itemize}
+  \item \textbf{Prometheus}, una copia senza disco persistente: le serie di ogni run si esportano subito, alla fine del run;
+  \item \textbf{kube-state-metrics}, limitato a pod e Deployment dell'applicazione: copie pronte nel tempo, riavvii, motivo dell'ultimo arresto;
+  \item il modulo per Prometheus già presente in \textbf{RabbitMQ}: ordini in coda e in lavorazione, per ogni coda;
+  \item CPU e memoria dei container lette dal \textbf{kubelet} di ogni nodo.
+\end{itemize}
+Prometheus raccoglie le metriche ogni 5~s: il picco del carico W2, di 60~s, ha 12 punti, e il costo di V5 in worker-secondi sbaglia di meno dell'1\%. Raccogliere ogni secondo caricherebbe il computer a ogni secondo per un dettaglio che non serve; ogni 15~s, il valore predefinito, il picco avrebbe solo 4 punti. Il valore sta in \texttt{config/parametri.yaml} (\texttt{osservabilita.intervallo\_raccolta\_s}).
+
+L'applicazione non espone metriche proprie. Le riprove dei worker si contano dal loro log, che scrive ogni tentativo con il codice dell'ordine; il tempo passato in coda da ogni ordine è la differenza tra ricezione e salvataggio, già nel database.
+
+\conseguenze
+Prometheus e kube-state-metrics restano accesi anche tra un cambio di versione e l'altro e durante le misure di capacità, così ogni versione si misura con lo stesso carico di fondo sul computer. Grafana, che mostrerebbe gli stessi dati in grafici, non serve alle misure e si può rinviare. Su AWS si usa la stessa configurazione.
+
+\end{decisione}

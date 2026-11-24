@@ -1,0 +1,25 @@
+# Osservabilità leggera (D0019, issue #114): Prometheus e kube-state-metrics, nel namespace `osservabilita`,
+# sul nodo `dati` (D0006). Resta accesa tra un cambio di versione e l'altro, come gli operatori: `make togli`
+# non la tocca, perché non porta l'etichetta app.kubernetes.io/part-of=kintsugi.
+#
+# Da deploy/k8s:
+#   make osservabilita   la installa o la aggiorna (lo fanno anche make v1 … make v5)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: osservabilita
+
+resources:
+  - namespace.yaml
+  - prometheus.yaml
+  - kube-state-metrics.yaml
+
+# prometheus.yml non si scrive a mano: lo genera deploy/k8s/parametri.py da prometheus.modello.yml.
+configMapGenerator:
+  - name: prometheus
+    files:
+      - prometheus.yml
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: kintsugi-osservabilita

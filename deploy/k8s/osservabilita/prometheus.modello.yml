@@ -1,0 +1,52 @@
+# Configurazione di Prometheus (D0019, issue #114). Questo è il modello: deploy/k8s/parametri.py lo copia in
+# prometheus.yml mettendo al posto di @INTERVALLO_RACCOLTA_S@ il valore di config/parametri.yaml
+# (osservabilita.intervallo_raccolta_s). Si modifica questo file, mai prometheus.yml.
+#
+# Prometheus non misura il fermo: serve a vedere coda, worker accesi e risorse durante un run. Si tengono solo
+# le serie che servono (metric_relabel_configs), così la memoria resta piccola anche con V5.
+global:
+  scrape_interval: @INTERVALLO_RACCOLTA_S@s
+  scrape_timeout: @INTERVALLO_RACCOLTA_S@s
+  evaluation_interval: @INTERVALLO_RACCOLTA_S@s
+
+scrape_configs:
+  # RabbitMQ (V3, V5): ordini in coda, pronti e in lavorazione, per ogni coda (`ordini`, `ordini.falliti`).
+  # Il modulo rabbitmq_prometheus è già acceso nell'immagine; le metriche per coda stanno in /metrics/detailed.
+  - job_name: rabbitmq
+    metrics_path: /metrics/detailed
+    params:
+      family: [queue_coarse_metrics]
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces: { names: [default] }
+    relabel_configs:
+      - { source_labels: [__meta_kubernetes_pod_label_app], regex: coda, action: keep }
+      - { source_labels: [__meta_kubernetes_pod_ip], target_label: __address__, replacement: "$1:15692" }
+      - { source_labels: [__meta_kubernetes_pod_name], target_label: pod }
+
+  # CPU e memoria dei container, dal kubelet di ogni nodo (cAdvisor), passando dall'API server.
+  - job_name: cadvisor
+    scheme: https
+    authorization:
+      credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    kubernetes_sd_configs:
+      - role: node
+    relabel_configs:
+      - { target_label: __address__, replacement: "kubernetes.default.svc:443" }
+      - { source_labels: [__meta_kubernetes_node_name], regex: "(.+)", target_label: __metrics_path__, replacement: "/api/v1/nodes/$1/proxy/metrics/cadvisor" }
+      - { source_labels: [__meta_kubernetes_node_name], target_label: node }
+    metric_relabel_configs:
+      - { source_labels: [__name__], regex: "container_cpu_usage_seconds_total|container_memory_working_set_bytes|container_cpu_cfs_periods_total|container_cpu_cfs_throttled_periods_total", action: keep }
+      - { source_labels: [namespace], regex: "default|osservabilita", action: keep }
+      # Solo i container veri: la riga con container vuoto è la somma del pod e la conterebbe due volte.
+      - { source_labels: [container], regex: ".+", action: keep }
+
+  # Stato dei Deployment e dei pod (kube-state-metrics): copie pronte nel tempo (i worker di V5 e il loro costo in
+  # worker-secondi), riavvii e motivo dell'ultimo arresto (OOMKilled), nodo di ogni pod.
+  - job_name: kube-state-metrics
+    static_configs:
+      - targets: ["kube-state-metrics.osservabilita.svc:8080"]
+    metric_relabel_configs:
+      - { source_labels: [__name__], regex: "kube_deployment_spec_replicas|kube_deployment_status_replicas_ready|kube_pod_container_status_restarts_total|kube_pod_container_status_last_terminated_reason|kube_pod_info", action: keep }
