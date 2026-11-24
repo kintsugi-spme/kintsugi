@@ -38,6 +38,11 @@ patches:
         name: db-dati
 
 configMapGenerator:
+  # Il proxy di Toxiproxy (#93) punta al Service `db-rw` di CloudNativePG invece che a `db`, che qui non c'è.
+  - name: toxiproxy
+    behavior: replace
+    files:
+      - toxiproxy.json
   - name: schema-v4
     files:
       - proprietario.sql

@@ -1,5 +1,6 @@
-# L'API di V4 scrive sul Service `-rw` di CloudNativePG, che punta sempre al primario: dopo un failover
-# l'operatore lo sposta sullo standby promosso e l'indirizzo non cambia.
+# L'API di V4 scrive passando da Toxiproxy (#93), che inoltra al Service `-rw` di CloudNativePG
+# (overlays/v4a/toxiproxy.json): punta sempre al primario, e dopo un failover l'operatore lo sposta sullo
+# standby promosso senza che l'indirizzo cambi.
 # `sslmode=disable`: CloudNativePG accetta anche connessioni cifrate e il client le sceglierebbe da solo; la
 # base non le ha, e la cifratura aggiungerebbe lavoro solo in V4.
 apiVersion: apps/v1
@@ -12,4 +13,4 @@ spec:
       containers:
         - name: api
           env:
-            - { name: DATABASE_URL, value: "postgresql://kintsugi:kintsugi@db-rw:5432/kintsugi?sslmode=disable" }
+            - { name: DATABASE_URL, value: "postgresql://kintsugi:kintsugi@toxiproxy:5432/kintsugi?sslmode=disable" }

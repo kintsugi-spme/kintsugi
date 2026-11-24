@@ -9,6 +9,7 @@ Il cluster ha due worker, con le etichette \texttt{kintsugi/ruolo: dati} (\textt
   \item \textbf{V4}: il primario su \texttt{worker1}, lo standby su \texttt{worker2}, con regola rigida di non stare mai sullo stesso nodo.
   \item \textbf{API e worker dell'applicazione}: \emph{preferiscono} \texttt{worker2} (\texttt{calcolo}); se questo nodo cade, possono partire su \texttt{worker1}. Così, con il cluster integro, la topologia è la stessa in ogni run.
   \item \textbf{Osservabilità} (Prometheus, Grafana): su \texttt{worker1}, così il guasto F6 non la spegne insieme al resto.
+  \item \textbf{Toxiproxy} (aggiunto il 24/11/2026, issue \#93): una sola copia, su \texttt{worker1} con regola rigida, come il database a cui fa da tramite. Il guasto F6 spegne \texttt{worker2} e così non tocca la strada verso il database: ogni guasto colpisce un solo componente.
   \item Il control plane non ospita pod dell'applicazione (da verificare all'installazione).
   \item L'etichetta \texttt{calcolo} vuol dire ``preferito dai componenti senza stato''; ospita anche lo standby di V4. Le etichette non cambiano.
   \item Prima di ogni run, il reset confronta la collocazione effettiva dei pod con quella attesa (capitolo~\ref{cap:misura}); se non coincide, il run non parte.
