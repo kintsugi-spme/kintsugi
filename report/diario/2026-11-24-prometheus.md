@@ -1,6 +1,6 @@
 # 2026-11-24 — Prometheus leggero sul nodo dati
 
-**Chi:** Francesco · **Fase:** F4 · **Durata:** 2,5 h · **Issue:** #114 · **PR:** vedi `registro.md`
+**Chi:** Francesco · **Fase:** F4 · **Durata:** 2,5 h · **Issue:** #114 · **PR:** #136
 
 ## Cosa e perché
 
