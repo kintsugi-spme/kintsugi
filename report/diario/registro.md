@@ -65,3 +65,4 @@ Il numero della PR è un link: la descrizione, la revisione e le prove sono lì.
 | 22/11 | Francesco | F3 | [#105](https://github.com/kintsugi-spme/kintsugi/pull/105) | 3,5 | Kubernetes: V4a e V4s con CloudNativePG, make v4a, make v4s e make cnpg |
 | 22/11 | Francesco | F3 | [#106](https://github.com/kintsugi-spme/kintsugi/pull/106) | 1,5 | Diario più leggero: registro delle PR, voce solo quando serve, niente diari delle revisioni |
 | 24/11 | Gianmarco | F3 | [#107](https://github.com/kintsugi-spme/kintsugi/pull/107) | 3 | Kubernetes: verifica dei criteri di F3 con make verifica |
+| 24/11 | Francesco | F4 | [#134](https://github.com/kintsugi-spme/kintsugi/pull/134) | 1,5 | Banco di prova: tempo di servizio di 0,05 s in tutte le versioni, decisione D0018 |
