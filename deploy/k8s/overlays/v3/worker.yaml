@@ -36,5 +36,11 @@ spec:
           env:
             - { name: MODE, value: async }
             - { name: ROLE, value: worker }
+            # Tempo di servizio di ogni ordine (D0018), lo stesso dell'API sincrona: da config/parametri.yaml.
+            - name: SERVICE_TIME_S
+              valueFrom:
+                configMapKeyRef:
+                  name: parametri
+                  key: SERVICE_TIME_S
             - { name: DATABASE_URL, value: "postgresql://kintsugi:kintsugi@db:5432/kintsugi" }
             - { name: BROKER_URL, value: "amqp://kintsugi:kintsugi@coda:5672/" }

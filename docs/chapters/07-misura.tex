@@ -139,6 +139,8 @@ W3 & sovraccarico prolungato, sopra la capacità & comportamento oltre il limite
 \end{tabularx}
 \end{table}
 
+La capacità dipende dal \textbf{tempo di servizio} $S$: ogni ordine tiene occupata la sua connessione al database per \parametro{tempo_servizio_s}~s, in tutte le versioni (D0018). Una copia dell'API sincrona, con 5 connessioni (D0010), regge quindi al massimo $5/S$ ordini al secondo, e un worker, che salva un ordine alla volta, al massimo $1/S$. La capacità misurata nella fase F4 può essere più bassa, se prima si satura il database o il computer: in quel caso si annota quale componente ha ceduto.
+
 \section{Matrice degli esperimenti}
 
 \begin{table}[htbp]

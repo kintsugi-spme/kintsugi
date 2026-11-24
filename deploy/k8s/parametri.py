@@ -30,12 +30,13 @@ FILE_YAML = QUI.parent.parent / "config" / "parametri.yaml"
 FILE_ENV = QUI / "base" / "parametri.env"
 
 # variabile d'ambiente -> percorso in config/parametri.yaml
-# DEADLINE_S la leggono i pod. Gli altri no: li leggono i manifest, che li copiano nei campi dove servono
+# DEADLINE_S e SERVICE_TIME_S (D0018) li leggono i pod, l'API e i worker. Gli altri no: li leggono i manifest, che li copiano nei campi dove servono
 # (Kustomize `replacements`): COPIE_API e WORKER_V3 nelle `replicas` dell'API (V2, V3) e dei worker (V3);
 # le SONDA_* nelle sonde dell'API (base/kustomization.yaml). Le SONDA_STANDARD_* sono per il guasto F7.
 # WORKER_V5_* e KEDA_* vanno nello ScaledObject di V5 (overlays/v5/kustomization.yaml).
 VALORI = {
     "DEADLINE_S": ("tempi", "deadline_api_s"),
+    "SERVICE_TIME_S": ("tempi", "tempo_servizio_s"),
     "COPIE_API": ("versioni", "copie_api"),
     "WORKER_V3": ("versioni", "worker_v3"),
     "SONDA_TIMEOUT_S": ("sonde", "sonda_timeout_s"),
