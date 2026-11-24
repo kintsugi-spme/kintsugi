@@ -13,6 +13,7 @@
 #   make keda       solo KEDA (lo installa anche make v5)
 #   make togli      toglie la versione accesa, dati compresi; il cluster, l'operatore e KEDA restano
 #   make giu        cancella il cluster
+#   make verifica   i criteri di F3 (issue #86): V1-V3 funzionano e un crash F1 dà fermo e ripristino con i millisecondi
 #
 # Tutti i comandi di kubectl usano il contesto `kind-kintsugi`: non toccano altri cluster
 # che il computer conosca.
@@ -153,4 +154,9 @@ togli:
 giu:
 	kind delete cluster --name $(CLUSTER)
 
-.PHONY: immagine cluster controlla prova $(VERSIONI) cnpg keda togli giu
+# Verifica dei criteri di F3 (deploy/k8s/verifica-m3.sh): ogni versione riparte da zero, circa 10 minuti. I file dei
+# run vanno in data/locale/verifica-m3-<ora>/. Serve Python 3.10 o più:  make verifica PYTHON=python3.14
+verifica:
+	PYTHON=$(PYTHON) ./verifica-m3.sh
+
+.PHONY: immagine cluster controlla prova $(VERSIONI) cnpg keda togli giu verifica

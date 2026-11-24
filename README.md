@@ -221,6 +221,7 @@ make v4s        # oppure V4s: come V4a, con replica sincrona
 make v5         # oppure V5: come V3, con i worker da 1 a 10 secondo la coda (KEDA, installato alla prima volta)
 python3 ../../harness/client/cliente.py --url http://localhost:8080/ordini --richieste 100 --ritmo 10 --timeout 2
 make togli      # toglie la versione accesa, dati compresi; il cluster, l'operatore di V4 e KEDA restano
+make verifica   # i criteri di F3: V1-V3 funzionano e un crash F1 dà fermo e ripristino con i millisecondi (circa 10 minuti)
 make giu        # cancella il cluster
 ```
 
