@@ -1,6 +1,6 @@
 # 2026-11-24 — Toxiproxy tra l'applicazione e il database
 
-**Chi:** Francesco · **Fase:** F4 · **Durata:** 3 h · **Issue:** #93 · **PR:** vedi `registro.md`
+**Chi:** Francesco · **Fase:** F4 · **Durata:** 3 h · **Issue:** #93 · **PR:** #135
 
 ## Cosa e perché
 
