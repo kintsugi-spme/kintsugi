@@ -11,7 +11,8 @@
 #   make cnpg       solo l'operatore CloudNativePG (lo installano anche make v4a e make v4s)
 #   make v5         V5 da zero: come V3, con i worker da 1 a 10 secondo la coda (KEDA)
 #   make keda       solo KEDA (lo installa anche make v5)
-#   make togli      toglie la versione accesa, dati compresi; il cluster, l'operatore e KEDA restano
+#   make osservabilita  Prometheus e kube-state-metrics (D0019; lo installano anche make v1 … make v5)
+#   make togli      toglie la versione accesa, dati compresi; il cluster, l'operatore, KEDA e l'osservabilità restano
 #   make giu        cancella il cluster
 #   make verifica   i criteri di F3 (issue #86): V1-V3 funzionano e un crash F1 dà fermo e ripristino con i millisecondi
 #
@@ -100,7 +101,7 @@ v4a v4s: cnpg
 v4a v4s: ASPETTA_DATABASE = $(KUBECTL) wait --for=condition=Ready cluster/db --timeout=$(ATTESA_DATABASE) \
 	&& $(KUBECTL) rollout restart deployment/api && $(KUBECTL) rollout status deployment/api --timeout=$(ATTESA_VERSIONE)
 v5: keda
-$(VERSIONI): immagine
+$(VERSIONI): immagine osservabilita
 	$(PYTHON) parametri.py
 	$(KUBECTL) kustomize overlays/$@ >/dev/null
 	@$(MAKE) --no-print-directory togli
@@ -131,6 +132,14 @@ cnpg:
 VERSIONE_KEDA := 2.21.1
 # La prima volta i nodi scaricano le immagini di KEDA (tre) e il cluster può metterci più dei 180 s delle versioni.
 ATTESA_KEDA := 600s
+# Prometheus e kube-state-metrics (D0019), nel namespace `osservabilita` sul nodo `dati`. Restano accesi tra un
+# cambio di versione e l'altro, così ogni versione si misura nelle stesse condizioni. La configurazione di
+# Prometheus la genera parametri.py (intervallo di raccolta da config/parametri.yaml).
+osservabilita: cluster
+	$(PYTHON) parametri.py >/dev/null
+	$(KUBECTL) apply -k osservabilita >/dev/null
+	$(KUBECTL) -n osservabilita wait --for=condition=Available deployment --all --timeout=$(ATTESA_KEDA)
+
 keda:
 	$(KUBECTL) apply --server-side -f https://github.com/kedacore/keda/releases/download/v$(VERSIONE_KEDA)/keda-$(VERSIONE_KEDA).yaml >/dev/null
 	$(KUBECTL) -n keda wait --for=condition=Available deployment --all --timeout=$(ATTESA_KEDA)
@@ -159,4 +168,4 @@ giu:
 verifica:
 	PYTHON=$(PYTHON) ./verifica-m3.sh
 
-.PHONY: immagine cluster controlla prova $(VERSIONI) cnpg keda togli giu verifica
+.PHONY: immagine cluster controlla prova $(VERSIONI) cnpg keda osservabilita togli giu verifica

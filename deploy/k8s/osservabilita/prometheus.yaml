@@ -1,0 +1,90 @@
+# Prometheus (D0019): una copia, sul nodo `dati` (D0006), senza disco persistente. Ogni run esporta subito le sue
+# serie (#123), quindi bastano poche ore di dati in un emptyDir.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+---
+# Permessi per trovare i pod di RabbitMQ e i nodi, e per leggere CPU e memoria dal kubelet tramite l'API server.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kintsugi-prometheus
+rules:
+  - apiGroups: [""]
+    resources: [nodes, nodes/proxy, nodes/metrics, pods]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kintsugi-prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kintsugi-prometheus
+subjects:
+  - kind: ServiceAccount
+    name: prometheus
+    namespace: osservabilita
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+spec:
+  replicas: 1
+  # Un solo pod alla volta sulla cartella dei dati.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      serviceAccountName: prometheus
+      nodeSelector:
+        kintsugi/ruolo: dati
+      containers:
+        - name: prometheus
+          # Versione fissata; l'immagine c'è per arm64 (il Mac) e per amd64 (AWS).
+          image: quay.io/prometheus/prometheus:v3.16.0
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --storage.tsdb.retention.time=6h
+          ports:
+            - { name: web, containerPort: 9090 }
+          readinessProbe:
+            httpGet: { path: /-/ready, port: web }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /-/healthy, port: web }
+            periodSeconds: 10
+          # Richieste e limiti come gli altri pod (#79); numeri da rivedere con la memoria misurata (diario).
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: "1", memory: 512Mi }
+          volumeMounts:
+            - { name: config, mountPath: /etc/prometheus, readOnly: true }
+            - { name: dati, mountPath: /prometheus }
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus
+        - name: dati
+          emptyDir:
+            sizeLimit: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+spec:
+  selector:
+    app: prometheus
+  ports:
+    - { name: web, port: 9090 }

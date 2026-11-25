@@ -38,6 +38,7 @@
 0.11 & 12/11/2026 & Sezione «Kubernetes in breve» prima delle versioni: control plane (API server, etcd, scheduler, controller manager) e nodi worker (kubelet, containerd, kube-proxy), con la parte che ripara ciascun guasto; nuovi termini tra gli acronimi. Minacce alla validità emerse provando il guasto F1 (issue \#84): ritardo dei riavvii ripetuti di Kubernetes (il reset ricrea i pod), orologio della macchina virtuale di Docker che si scosta da quello del computer (un orologio per misura), margine sull'istante del guasto (dichiarato come incertezza). Grafico dei moduli della sintesi rifatto a strati. \\
 0.12 & 24/11/2026 & Decisione D0018: tempo di servizio di 0,05~s per ogni ordine, uguale in tutte le versioni, nella tabella dei parametri e nel protocollo di misura, dove determina la capacità di API e worker (issue \#113). \\
 0.13 & 24/11/2026 & Toxiproxy nel percorso verso il database in tutte le versioni (issue \#93): posizione sul nodo \texttt{dati} in D0006, punto unico di guasto mai guastato nella tabella dei punti unici di guasto e tra le minacce alla validità. \\
+0.14 & 24/11/2026 & Decisione D0019: osservabilità leggera (Prometheus, kube-state-metrics, modulo di RabbitMQ) sul nodo \texttt{dati}, raccolta ogni 5~s, nessuna metrica propria dell'applicazione (issue \#114). \\
 \bottomrule
 \end{tabularx}
 \end{table}
