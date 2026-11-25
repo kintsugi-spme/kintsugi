@@ -12,7 +12,7 @@ services:
     environment:
       MODE: sync
       DEADLINE_S: "${DEADLINE_S:?avvia con make v1, che la legge da config/parametri.yaml}"
-      SERVICE_TIME_S: ${SERVICE_TIME_S:-0}
+      SERVICE_TIME_S: "${SERVICE_TIME_S:?avvia con make v1, che lo legge da config/parametri.yaml}"
       DATABASE_URL: postgresql://kintsugi:kintsugi@db:5432/kintsugi
     ports:
       - "8000:8000"

@@ -62,6 +62,7 @@ run:
 tempi:
   timeout_client_s: 2                    # il generatore di carico rinuncia dopo
   deadline_api_s: 1.5                    # l'API rinuncia dopo
+  tempo_servizio_s: 0.05                 # attesa aggiunta a ogni ordine, con la connessione al database occupata (D0018)
   limite_completamento_s: 2              # un ordine è completato se salvato entro questo tempo
   limite_completamento_sensibilita_s: [1, 5]   # calcolo ripetuto in F7, senza toccare le previsioni
   soglia_secondo_disponibile_percentuale: 99   # secondo "disponibile" se almeno il 99% delle richieste riesce
@@ -76,6 +77,12 @@ sonde:
   sonda_veloce_viva_periodo_s: 2         # liveness ogni
   sonda_standard_pronta_periodo_s: 10    # readiness ogni
   sonda_standard_viva_periodo_s: 10      # liveness ogni
+
+# --- Osservabilità (D0019) ------------------------------------------------------------
+# Prometheus non misura il fermo (lo si calcola dal log del client e dal database): serve a vedere coda,
+# worker accesi e risorse durante un run.
+osservabilita:
+  intervallo_raccolta_s: 5               # ogni quanto Prometheus raccoglie le metriche
 
 # --- Obiettivo di disponibilità -------------------------------------------------------
 slo:
@@ -103,5 +110,5 @@ keda:
   controllo_coda_s: 15                   # ritmo predefinito dell'autoscaler, da 1 a 10 worker
   controllo_keda_da_0_a_1_s: 30          # vale solo da 0 a 1 worker
   soglia_secondi_di_lavoro_per_worker: 2 # ordini in coda per worker = mu1 x 2 s, calcolato in F4
-  soglia_ordini_per_worker: 40           # provvisoria (F3): mu1 = 20 ordini/s (S = 0,05 s) x 2 s; F4 la ricalcola da mu1 misurata
+  soglia_ordini_per_worker: 40           # provvisoria (F3): mu1 = 1 / tempi.tempo_servizio_s = 20 ordini/s, x 2 s; F4 la ricalcola da mu1 misurata
   attesa_prima_di_togliere_s: 60         # il predefinito è 300 s

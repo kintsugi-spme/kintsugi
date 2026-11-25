@@ -1,0 +1,68 @@
+# Toxiproxy tra l'applicazione e il database, in tutte le versioni (issue #93). Senza guasti inoltra e basta;
+# il guasto F5 gli aggiunge latenza dalla sua API (porta 8474). L'app non si collega più a `db` ma a
+# `toxiproxy`, sulla stessa porta 5432: il proxy `postgres` (toxiproxy.json) inoltra a `db:5432`, in V4 a
+# `db-rw:5432` (overlays/v4a), il Service che segue il primario dopo un failover.
+#
+# Una sola copia, separata dall'API: con un proxy accanto a ogni copia, il crash di una copia dell'API (guasto
+# F1) spegnerebbe anche il suo proxy. È un punto unico di guasto in più, come il control plane non si guasta mai.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: toxiproxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: toxiproxy
+  template:
+    metadata:
+      labels:
+        app: toxiproxy
+    spec:
+      # Sul nodo `dati`, accanto al database, con regola rigida come lui (D0006): il guasto F6 spegne il nodo
+      # `calcolo` e così non tocca la strada verso il database.
+      nodeSelector:
+        kintsugi/ruolo: dati
+      containers:
+        - name: toxiproxy
+          # Versione fissata; l'immagine c'è per arm64 (il Mac) e per amd64 (AWS).
+          image: ghcr.io/shopify/toxiproxy:2.13.0
+          args: ["-host=0.0.0.0", "-config=/config/toxiproxy.json"]
+          ports:
+            - { name: postgres, containerPort: 5432 }
+            - { name: api, containerPort: 8474 }
+          volumeMounts:
+            - { name: config, mountPath: /config, readOnly: true }
+          # Se il file di configurazione non si legge, Toxiproxy lo scrive nel log e parte lo stesso, ma senza
+          # proxy: la readiness chiede proprio il proxy `postgres`, così un Toxiproxy senza proxy non entra
+          # nel Service. La liveness chiede solo la versione, cioè che il programma risponda.
+          readinessProbe:
+            httpGet: { path: /proxies/postgres, port: api }
+            periodSeconds: 1
+            timeoutSeconds: 1
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: { path: /version, port: api }
+            periodSeconds: 2
+            timeoutSeconds: 1
+            failureThreshold: 3
+          # Richieste e limiti come per gli altri pod (#79). Toxiproxy copia byte e basta: il limite di CPU
+          # è largo, perché un proxy rallentato dal limite sarebbe un guasto F5 nascosto.
+          resources:
+            requests: { cpu: 50m, memory: 32Mi }
+            limits: { cpu: "1", memory: 128Mi }
+      volumes:
+        - name: config
+          configMap:
+            name: toxiproxy
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: toxiproxy
+spec:
+  selector:
+    app: toxiproxy
+  ports:
+    - { name: postgres, port: 5432 }
+    - { name: api, port: 8474 }

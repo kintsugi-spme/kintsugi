@@ -5,11 +5,14 @@
 #   make v3       API con la coda e tre worker
 #   make giu      ferma tutto e cancella i dati (database e coda)
 #
-# Il tempo di servizio si imposta a parte:  make v3 SERVICE_TIME_S=0.05
+# Il tempo di servizio è quello di config/parametri.yaml (tempi.tempo_servizio_s, D0018); per una prova si
+# cambia a parte:  make v3 SERVICE_TIME_S=0.2
 
 # La deadline dell'API sta in config/parametri.yaml (tempi.deadline_api_s) e non si riscrive qui.
 DEADLINE_S := $(shell awk '/^ *deadline_api_s:/ {print $$2}' ../../config/parametri.yaml)
 export DEADLINE_S
+SERVICE_TIME_S ?= $(shell awk '/^ *tempo_servizio_s:/ {print $$2}' ../../config/parametri.yaml)
+export SERVICE_TIME_S
 
 COMPOSE = docker compose -f base.yaml
 

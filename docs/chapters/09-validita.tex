@@ -38,6 +38,7 @@ Di costrutto & L'istante del guasto non è esatto: il comando che manda il segna
 Esterna & In locale i nodi sono container sullo stesso hardware: la perdita di un nodo è simulata & Parte degli esperimenti ripetuta su AWS con macchine reali (RQ6). La perdita di un nodo è provata su AWS solo se si esegue il guasto F6 (facoltativo): altrimenti il limite resta non mitigato \\
 Esterna & Il servizio è molto più semplice di uno reale & Le conclusioni riguardano i meccanismi (rilevamento, riparazione, smaltimento), non i valori assoluti \\
 Esterna & Il control plane è unico e funge anche da punto d'ingresso: se cadesse, nessun pod verrebbe riavviato e gli ordini non entrerebbero & Non viene mai guastato; gli esperimenti riguardano l'applicazione, non Kubernetes. In produzione il control plane è replicato \\
+Esterna & Toxiproxy, in una sola copia, sta tra l'applicazione e il database: è un passaggio in più che un sistema reale non avrebbe, e se cadesse fermerebbe ogni scrittura & È uguale in tutte le versioni e non viene mai guastato; il guasto F4 colpisce solo PostgreSQL. Il suo peso si misura ripetendo la verifica di M3 con lui nel percorso (\#93) \\
 Delle conclusioni & Un risultato singolo può essere casuale & 10 ripetizioni per i run con guasto; intervalli di confidenza bootstrap \\
 Delle conclusioni & Si possono adattare le spiegazioni dopo aver visto i dati & Previsioni registrate prima delle misure (tag \texttt{m1}) \\
 \end{longtable}

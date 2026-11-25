@@ -1,0 +1,18 @@
+\begin{decisione}{D0018}{Quanto dura il lavoro su un ordine}{Accettata}{24/11/2026}
+
+\contesto
+Il servizio di ordini è volutamente minimo: salvare un ordine costa al database pochi millisecondi. Per simulare il lavoro di un servizio vero, l'applicazione aggiunge a ogni ordine un'attesa, il \emph{tempo di servizio} $S$, durante la quale tiene occupata la connessione al database. Da $S$ dipende quanti ordini al secondo regge ogni versione: una copia dell'API sincrona ne regge $5/S$ (5 connessioni, D0010), un worker $1/S$, perché salva un ordine alla volta. Fino alla fase F3 nei manifest Kubernetes $S$ valeva 0.
+
+\scelta
+$S$ vale 0,05~s in tutte le versioni e in tutti i run, per l'API sincrona come per i worker. Il valore sta una sola volta in \texttt{config/parametri.yaml} (\texttt{tempi.tempo\_servizio\_s}) e arriva da lì ai manifest di Kubernetes e a Docker Compose. Con questo valore un worker regge circa 20 ordini al secondo, una copia dell'API circa 100.
+
+Le alternative scartate:
+\begin{itemize}
+  \item con $S = 0$ la capacità dipenderebbe dal database e dal computer, non dall'architettura. Il picco del carico W2, che è il 500\% della capacità di un worker, chiederebbe migliaia di ordini al secondo, più di quanti il computer delle misure riesca a inviare. E i worker svuoterebbero la coda all'istante, quindi la scalatura di V5 non si vedrebbe;
+  \item con $S = 0{,}1$~s gli ordini al secondo sarebbero così pochi che un solo errore renderebbe indisponibile un intero secondo.
+\end{itemize}
+
+\conseguenze
+I carichi della campagna restano tra qualche decina e circa 100 ordini al secondo, che il computer delle misure invia senza diventare lui il limite. La soglia provvisoria di KEDA (D0015) e le richieste e i limiti dei pod, misurati in F3, sono stati calcolati proprio con 0,05~s e restano validi. Le previsioni, congelate dal tag \texttt{m1}, trattano $S$ come trascurabile rispetto alla latenza del guasto F5 (da 0,4 a 0,6~s per ordine): 0,05~s ne è circa un decimo, quindi non si toccano. La capacità vera di ogni versione si misura nella fase F4.
+
+\end{decisione}

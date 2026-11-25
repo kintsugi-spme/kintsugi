@@ -4,7 +4,7 @@
 \section{Definizioni}
 \label{sec:definizioni}
 
-Le definizioni seguenti valgono per tutte le versioni e per entrambi gli ambienti. Tempi di fermo e di ripristino si calcolano dal log del client e dagli istanti registrati nel database: la risoluzione di Prometheus (alcuni secondi) è troppo grossolana per guasti che durano pochi secondi.
+Le definizioni seguenti valgono per tutte le versioni e per entrambi gli ambienti. Tempi di fermo e di ripristino si calcolano dal log del client e dagli istanti registrati nel database: Prometheus raccoglie le sue metriche ogni \parametro{intervallo_raccolta_s}~s (D0019), troppo poco spesso per guasti che durano pochi secondi: serve a vedere coda, worker e risorse durante il run.
 
 \begin{table}[htbp]
 \centering
@@ -138,6 +138,8 @@ W3 & sovraccarico prolungato, sopra la capacità & comportamento oltre il limite
 \bottomrule
 \end{tabularx}
 \end{table}
+
+La capacità dipende dal \textbf{tempo di servizio} $S$: ogni ordine tiene occupata la sua connessione al database per \parametro{tempo_servizio_s}~s, in tutte le versioni (D0018). Una copia dell'API sincrona, con 5 connessioni (D0010), regge quindi al massimo $5/S$ ordini al secondo, e un worker, che salva un ordine alla volta, al massimo $1/S$. La capacità misurata nella fase F4 può essere più bassa, se prima si satura il database o il computer: in quel caso si annota quale componente ha ceduto.
 
 \section{Matrice degli esperimenti}
 

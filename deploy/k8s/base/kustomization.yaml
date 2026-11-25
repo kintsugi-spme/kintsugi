@@ -1,4 +1,5 @@
-# Parte comune a V1-V3 (fase F3, issue #73): il database e un'API sincrona con il Service d'ingresso.
+# Parte comune a V1-V3 (fase F3, issue #73): il database, Toxiproxy davanti a lui (#93) e un'API sincrona con il
+# Service d'ingresso.
 # Gli overlay (deploy/k8s/overlays/) la riprendono e cambiano modo, copie e componenti.
 #
 # I numeri di config/parametri.yaml arrivano da `parametri.env`, che non si scrive a mano: lo genera
@@ -9,6 +10,7 @@ kind: Kustomization
 
 resources:
   - db.yaml
+  - toxiproxy.yaml
   - api.yaml
 
 # Un'etichetta su tutto ciò che appartiene a Kintsugi, ConfigMap generati compresi: `make togli` cancella
@@ -20,6 +22,10 @@ labels:
       app.kubernetes.io/part-of: kintsugi
 
 configMapGenerator:
+  # I proxy di Toxiproxy (#93): uno solo, verso il database. V4 lo sostituisce per puntare a `db-rw`.
+  - name: toxiproxy
+    files:
+      - toxiproxy.json
   # Lo schema è uno solo (D0004, D0005): lo legge anche Compose. PostgreSQL lo esegue una volta sola,
   # quando il volume è vuoto.
   - name: schema

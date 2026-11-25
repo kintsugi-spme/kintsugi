@@ -19,7 +19,7 @@ Ogni comando riparte da zero: prima cancella quello che c'era, poi costruisce l'
 python3 ../../harness/client/cliente.py --url http://localhost:8000/ordini --richieste 100 --ritmo 20
 ```
 
-Il tempo di servizio si imposta a parte (predefinito 0): `make v3 SERVICE_TIME_S=0.05`.
+Il tempo di servizio è quello di `config/parametri.yaml` (`tempi.tempo_servizio_s`, D0018). Per una prova si cambia a parte: `make v3 SERVICE_TIME_S=0.2`.
 
 ## Che cosa parte
 

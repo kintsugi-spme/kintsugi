@@ -53,7 +53,7 @@ services:
     environment:
       MODE: async
       ROLE: worker
-      SERVICE_TIME_S: ${SERVICE_TIME_S:-0}
+      SERVICE_TIME_S: "${SERVICE_TIME_S:?avvia con make v3, che lo legge da config/parametri.yaml}"
       DATABASE_URL: postgresql://kintsugi:kintsugi@db:5432/kintsugi
       BROKER_URL: amqp://kintsugi:kintsugi@coda:5672/
     depends_on:
