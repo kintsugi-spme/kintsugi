@@ -42,5 +42,6 @@ spec:
                 configMapKeyRef:
                   name: parametri
                   key: SERVICE_TIME_S
-            - { name: DATABASE_URL, value: "postgresql://kintsugi:kintsugi@db:5432/kintsugi" }
+            # Come l'API sincrona, attraverso Toxiproxy (#93).
+            - { name: DATABASE_URL, value: "postgresql://kintsugi:kintsugi@toxiproxy:5432/kintsugi" }
             - { name: BROKER_URL, value: "amqp://kintsugi:kintsugi@coda:5672/" }

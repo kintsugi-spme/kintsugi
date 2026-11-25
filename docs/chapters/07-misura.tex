@@ -4,7 +4,7 @@
 \section{Definizioni}
 \label{sec:definizioni}
 
-Le definizioni seguenti valgono per tutte le versioni e per entrambi gli ambienti. Tempi di fermo e di ripristino si calcolano dal log del client e dagli istanti registrati nel database: la risoluzione di Prometheus (alcuni secondi) è troppo grossolana per guasti che durano pochi secondi.
+Le definizioni seguenti valgono per tutte le versioni e per entrambi gli ambienti. Tempi di fermo e di ripristino si calcolano dal log del client e dagli istanti registrati nel database: Prometheus raccoglie le sue metriche ogni \parametro{intervallo_raccolta_s}~s (D0019), troppo poco spesso per guasti che durano pochi secondi: serve a vedere coda, worker e risorse durante il run.
 
 \begin{table}[htbp]
 \centering

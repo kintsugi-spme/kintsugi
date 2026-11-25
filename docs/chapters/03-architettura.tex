@@ -46,7 +46,7 @@ Questa divisione spiega perché i guasti si riparano in tempi diversi. Un crash 
   \item[Database] PostgreSQL: conserva gli ordini e la tabella dei doppi (D0004).
   \item[Broker] RabbitMQ: conserva gli ordini in attesa (solo V3 e V5).
   \item[Worker] leggono gli ordini dalla coda e li scrivono nel database (solo V3 e V5).
-  \item[Toxiproxy] proxy sempre presente tra l'applicazione e il database: senza guasti è trasparente, nel guasto F5 introduce un ritardo.
+  \item[Toxiproxy] proxy sempre presente tra l'applicazione e il database: senza guasti è trasparente, nel guasto F5 introduce un ritardo. Ne gira una sola copia, sul nodo \texttt{dati} accanto al database (D0006), e come il control plane non si guasta mai.
 \end{description}
 
 I diagrammi delle versioni usano la notazione della figura~\ref{fig:legenda}.
@@ -320,4 +320,5 @@ V4s & lo standby: con una sola replica sincrona, se cade lo standby le scritture
 
 \vspace{2pt}
 {\footnotesize\textsuperscript{*} Comportamento da verificare sulla versione di CloudNativePG adottata, che consente di scegliere se attendere lo standby o degradare a replica asincrona (D0014).\par}
+{\footnotesize In tutte le versioni sono punti unici di guasto anche il control plane e Toxiproxy, che gli esperimenti non guastano mai (capitolo~\ref{cap:validita}).\par}
 \end{table}
