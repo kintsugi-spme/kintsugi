@@ -11,5 +11,6 @@ Closes #
 - [ ] La PR punta a `main` (se è una PR impilata, punta al branch della PR da cui dipende: dillo qui sopra, vedi CONTRIBUTING.md)
 - [ ] Riga in `report/diario/registro.md` (con le ore)
 - [ ] Voce nel diario (`report/diario/`), solo se c'è una misura, un limite di uno strumento, un problema, una scelta non ovvia, un run scartato o lo scarto da una previsione (vedi `report/diario/README.md`)
+- [ ] Se la PR aggiunge codice o manifest, la CI li controlla: il controllo (test, o un passo in `.github/workflows/controlli.yml`) lo aggiungo io in questa PR (vedi CONTRIBUTING.md)
 - [ ] Decisione registrata in `docs/chapters/decisioni/`, se la modifica cambia una scelta architetturale o un parametro
 - [ ] Nessuna previsione modificata nel documento di architettura dopo aver visto delle misure
