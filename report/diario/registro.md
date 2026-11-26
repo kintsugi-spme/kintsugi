@@ -71,3 +71,4 @@ Il numero della PR è un link: la descrizione, la revisione e le prove sono lì.
 | 25/11 | Gianmarco | F4 | [#137](https://github.com/kintsugi-spme/kintsugi/pull/137) | 2 | CI: controllo dei manifest Kubernetes e regola sui controlli di ogni PR |
 | 26/11 | Gianmarco | F4 | [#138](https://github.com/kintsugi-spme/kintsugi/pull/138) | 1 | Harness: reset verificato prima di ogni run (V1, V2, V3), make reset |
 | 26/11 | Francesco | F4 | [#139](https://github.com/kintsugi-spme/kintsugi/pull/139) | 3 | Banco di prova: JMeter a ritmo costante per W1 e W3, decisione D0020 |
+| 26/11 | Francesco | F4 | [#140](https://github.com/kintsugi-spme/kintsugi/pull/140) (nella [#139](https://github.com/kintsugi-spme/kintsugi/pull/139)) | 3 | Banco di prova: profilo W2 con JMeter e controllo del ritmo per un profilo |
