@@ -1,6 +1,6 @@
 # 2026-11-26 — Guasti F2, F3 e F4 dal nodo
 
-**Chi:** Francesco · **Fase:** F4 · **Durata:** 2 h · **Issue:** #118 · **PR:** #NNN
+**Chi:** Francesco · **Fase:** F4 · **Durata:** 2 h · **Issue:** #118 · **PR:** #141
 
 ## Cosa e perché
 
