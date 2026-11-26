@@ -148,7 +148,9 @@ class ShellNelNodo:
     def __init__(self, nodo: str):
         self._processo = subprocess.Popen(
             ["docker", "exec", "-i", nodo, "sh"],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1,
+            # In una sessione sua: il Ctrl-C del terminale non la chiude (latenza.py la usa per togliere il guasto).
+            start_new_session=True)
 
     def comando(self, riga: str) -> str:
         """Esegue `riga` e restituisce la prima riga che stampa (ogni comando ne stampa una)."""
