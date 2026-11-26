@@ -69,3 +69,4 @@ Il numero della PR è un link: la descrizione, la revisione e le prove sono lì.
 | 24/11 | Francesco | F4 | [#135](https://github.com/kintsugi-spme/kintsugi/pull/135) (nella [#134](https://github.com/kintsugi-spme/kintsugi/pull/134)) | 3 | Banco di prova: Toxiproxy tra applicazione e database in tutte le versioni |
 | 24/11 | Francesco | F4 | [#136](https://github.com/kintsugi-spme/kintsugi/pull/136) (nella [#134](https://github.com/kintsugi-spme/kintsugi/pull/134)) | 2,5 | Banco di prova: Prometheus e kube-state-metrics sul nodo dati, decisione D0019 |
 | 25/11 | Gianmarco | F4 | [#137](https://github.com/kintsugi-spme/kintsugi/pull/137) | 2 | CI: controllo dei manifest Kubernetes e regola sui controlli di ogni PR |
+| 26/11 | Gianmarco | F4 | [#138](https://github.com/kintsugi-spme/kintsugi/pull/138) | 1 | Harness: reset verificato prima di ogni run (V1, V2, V3), make reset |

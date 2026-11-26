@@ -222,6 +222,7 @@ python3 ../../harness/client/cliente.py --url http://localhost:8080/ordini --ric
 make osservabilita  # Prometheus e kube-state-metrics sul nodo dati (D0019); lo fanno anche make v1 … make v5
 make togli      # toglie la versione accesa, dati compresi; il cluster, l'operatore di V4, KEDA e l'osservabilità restano
 make verifica   # i criteri di F3: V1-V3 funzionano e un crash F1 dà fermo e ripristino con i millisecondi (circa 10 minuti)
+make reset VERSIONE=v2   # riporta la versione accesa allo stato iniziale e lo verifica (V1-V3): code e tabelle vuote, pod ricreati
 make giu        # cancella il cluster
 ```
 

@@ -15,6 +15,7 @@
 #   make togli      toglie la versione accesa, dati compresi; il cluster, l'operatore, KEDA e l'osservabilità restano
 #   make giu        cancella il cluster
 #   make verifica   i criteri di F3 (issue #86): V1-V3 funzionano e un crash F1 dà fermo e ripristino con i millisecondi
+#   make reset VERSIONE=v2   riporta la versione accesa allo stato iniziale e lo verifica (V1, V2, V3; issue #121)
 #
 # Tutti i comandi di kubectl usano il contesto `kind-kintsugi`: non toccano altri cluster
 # che il computer conosca.
@@ -168,4 +169,11 @@ giu:
 verifica:
 	PYTHON=$(PYTHON) ./verifica-m3.sh
 
-.PHONY: immagine cluster controlla prova $(VERSIONI) cnpg keda osservabilita togli giu verifica
+# Reset prima di un run (harness/reset/reset.py, issue #121): la versione resta accesa, ma torna allo stato iniziale
+# (tabelle e code vuote, pod ricreati, nessun ritardo di Toxiproxy) e lo verifica. Per ora V1, V2 e V3. Serve PyYAML.
+#   make reset VERSIONE=v2
+reset:
+	@test -n "$(VERSIONE)" || { echo "errore: dì quale versione è accesa, per esempio  make reset VERSIONE=v2  (v1, v2 o v3)"; exit 1; }
+	$(PYTHON) ../../harness/reset/reset.py --versione $(VERSIONE)
+
+.PHONY: immagine cluster controlla prova $(VERSIONI) cnpg keda osservabilita togli giu verifica reset
