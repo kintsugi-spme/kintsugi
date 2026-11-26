@@ -7,7 +7,8 @@ Ogni run salva una cartella `data/<ambiente>/<run-id>/` con:
 | File | Contenuto |
 |---|---|
 | `meta.json` | configurazione (versione, carico, guasto, ripetizione), **hash del commit**, **host** (nome, RAM, CPU, memoria di Docker), guasto (solo il tipo: gli istanti sono in `guasto.json`), esito dei criteri di validità |
-| `client.csv` | log per richiesta di JMeter: istante di invio, ID ordine, esito, tempo di risposta (colonne `ts_invio`, `id`, `esito`, `tempo_risposta_s`; in F2 lo scrive `harness/client/cliente.py`) |
+| `client.csv` | log per richiesta di JMeter: istante di invio, ID ordine, esito, tempo di risposta (colonne `ts_invio`, `id`, `esito`, `tempo_risposta_s`). Lo scrive `harness/jmeter/carico.py` convertendo i risultati di JMeter; in F2 e F3 lo scriveva `harness/client/cliente.py`, con le stesse colonne |
+| `jmeter.jtl`, `jmeter.log` | i risultati grezzi e il log di JMeter, accanto a `client.csv`: servono solo a controllare la conversione o un run anomalo |
 | `db.csv` | ordini salvati: ID, `ts_ricezione` (istante di ricezione da parte dell'API) e `ts_scrittura` (istante dell'inserimento nel database, non del commit; D0005). **Si esporta prima della rielaborazione dei falliti, insieme a `falliti.csv`:** se si esporta dopo, gli ordini in dead-letter sono già nel database e risultano «completato in tempo», senza anomalie e con un run che sembra buono |
 | `falliti.csv` | ordini nella coda dei falliti a fine run, prima della rielaborazione: colonna `id`. Il file c'è sempre; ha solo l'intestazione se non ci sono ordini o la versione non ha una coda (V1, V2) |
 | `duplicati.csv` | un arrivo di un ID già presente per riga (tabella `duplicati`, D0004): colonna `id`. Il file c'è sempre, anche vuoto |

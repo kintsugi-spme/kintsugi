@@ -39,6 +39,7 @@
 0.12 & 24/11/2026 & Decisione D0018: tempo di servizio di 0,05~s per ogni ordine, uguale in tutte le versioni, nella tabella dei parametri e nel protocollo di misura, dove determina la capacità di API e worker (issue \#113). \\
 0.13 & 24/11/2026 & Toxiproxy nel percorso verso il database in tutte le versioni (issue \#93): posizione sul nodo \texttt{dati} in D0006, punto unico di guasto mai guastato nella tabella dei punti unici di guasto e tra le minacce alla validità. \\
 0.14 & 24/11/2026 & Decisione D0019: osservabilità leggera (Prometheus, kube-state-metrics, modulo di RabbitMQ) sul nodo \texttt{dati}, raccolta ogni 5~s, nessuna metrica propria dell'applicazione (issue \#114). \\
+0.15 & 26/11/2026 & Decisione D0020: il generatore di carico apre una connessione nuova per ogni ordine, così le copie dell'API ricevono il traffico in parti circa uguali (issue \#116). \\
 \bottomrule
 \end{tabularx}
 \end{table}

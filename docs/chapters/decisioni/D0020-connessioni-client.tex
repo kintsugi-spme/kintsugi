@@ -1,0 +1,12 @@
+\begin{decisione}{D0020}{Una connessione nuova per ogni ordine}{Accettata}{26/11/2026}
+
+\contesto
+Il Service di Kubernetes sceglie la copia dell'API quando si apre una connessione, non a ogni richiesta. Lo si è misurato il 14/11 su V2: con una connessione nuova per ogni richiesta le tre copie ne hanno ricevute 30, 37 e 33 su 100; con una sola connessione riusata, tutte e 30 sono andate alla stessa copia. JMeter, per impostazione predefinita, riusa le connessioni (\emph{keep-alive}).
+
+\scelta
+Il generatore di carico apre una connessione nuova per ogni ordine: nel piano di JMeter il keep-alive è spento. È lo stesso comportamento del client provvisorio usato in F2 e F3, quindi le misure di prima e di dopo restano confrontabili.
+
+\conseguenze
+Gli ordini si dividono tra le copie dell'API più o meno in parti uguali, come se arrivassero da tanti clienti diversi, e il guasto di una copia colpisce circa un terzo del traffico, come assumono le previsioni (guasto F1 su V2). Con connessioni riusate il risultato dipenderebbe da quale copia capita, non dall'architettura. Ogni ordine paga una stretta di mano TCP in più, che nel cluster locale vale una frazione di millisecondo. Su AWS il bilanciatore ALB divide il traffico a ogni richiesta, quindi lì la scelta non cambia la distribuzione.
+
+\end{decisione}

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Carico a ritmo costante per i profili W1 e W3 (issue #116). Non si lancia a mano: lo lancia
+  harness/jmeter/carico.py, che passa i valori come proprietà (-J) e converte i risultati in client.csv.
+
+  Proprietà lette:
+    host, porta, percorso   indirizzo dell'endpoint degli ordini
+    ritmo, durata           ordini al secondo e secondi di invio
+    timeout_ms              il client rinuncia dopo (tempi.timeout_client_s, D0008)
+
+  Modello aperto: l'Open Model Thread Group fa partire le richieste a ritmo fisso anche quando il sistema
+  rallenta. Arrivi regolari (even_arrivals), non casuali: con arrivi casuali il ritmo in una finestra di 10 s
+  oscillerebbe di circa il 4-5 % e analysis/ritmo.py scarterebbe il run per un effetto del generatore.
+  Una connessione nuova per ogni ordine (keep-alive spento, D0020): il Service di Kubernetes sceglie la copia
+  dell'API quando si apre la connessione, e con connessioni riusate il carico finirebbe su una copia sola.
+-->
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Kintsugi: ordini a ritmo costante">
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="Variabili">
+        <collectionProp name="Arguments.arguments"/>
+      </elementProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
+    </TestPlan>
+    <hashTree>
+      <OpenModelThreadGroup guiclass="OpenModelThreadGroupGui" testclass="OpenModelThreadGroup" testname="Ordini a ritmo fisso">
+        <elementProp name="ThreadGroup.main_controller" elementType="OpenModelThreadGroupController"/>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <stringProp name="OpenModelThreadGroup.schedule">rate(${__P(ritmo)}/sec) even_arrivals(${__P(durata)} sec) pause(${__P(coda_s)} sec)</stringProp>
+        <stringProp name="OpenModelThreadGroup.random_seed"></stringProp>
+      </OpenModelThreadGroup>
+      <hashTree>
+        <!-- Un identificativo nuovo per ogni ordine, scelto dal client (D0004); si salva nei risultati (sample_variables=id).
+             Con la funzione ${__UUID()} e non con uno script Groovy: lo script va compilato al primo ordine, JMeter
+             parte in ritardo e recupera mandando insieme le richieste arretrate (80 nel primo secondo invece di 50). -->
+        <UserParameters guiclass="UserParametersGui" testclass="UserParameters" testname="Identificativo dell'ordine">
+          <collectionProp name="UserParameters.names">
+            <stringProp name="3355">id</stringProp>
+          </collectionProp>
+          <collectionProp name="UserParameters.thread_values">
+            <collectionProp name="1">
+              <stringProp name="2">${__UUID()}</stringProp>
+            </collectionProp>
+          </collectionProp>
+          <boolProp name="UserParameters.per_iteration">true</boolProp>
+        </UserParameters>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST /ordini">
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{"id": "${id}"}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain">${__P(host)}</stringProp>
+          <stringProp name="HTTPSampler.port">${__P(porta)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">${__P(percorso)}</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">false</boolProp>
+          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">false</boolProp>
+          <stringProp name="HTTPSampler.connect_timeout">${__P(timeout_ms)}</stringProp>
+          <stringProp name="HTTPSampler.response_timeout">${__P(timeout_ms)}</stringProp>
+          <stringProp name="HTTPSampler.implementation">HttpClient4</stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Content-Type">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>
