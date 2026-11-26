@@ -5,6 +5,7 @@
 #   make prova      un pod con kintsugi:dev su ognuno dei due worker, senza scaricare nulla
 #   make v1         V1 da zero (cluster e immagine se mancano, database vuoto), aspetta che sia pronta
 #   make v2         V2 da zero, come V1 ma con più copie dell'API (versioni.copie_api in config/parametri.yaml)
+#   make v2-sonde-standard  V2 con le sonde standard dell'API, solo per il guasto F7 (sonde.sonda_standard_*)
 #   make v3         V3 da zero: l'API mette gli ordini in coda (RabbitMQ) e i worker li salvano
 #   make v4a        V4a da zero: come V2, con PostgreSQL primario e standby (CloudNativePG), replica asincrona
 #   make v4s        V4s da zero: come V4a, con replica sincrona
@@ -92,7 +93,7 @@ prova:
 # stampano i pod e gli avvisi di Kubernetes.
 ATTESA_VERSIONE := 180s
 ETICHETTA := app.kubernetes.io/part-of=kintsugi
-VERSIONI := v1 v2 v3 v4a v4s v5
+VERSIONI := v1 v2 v2-sonde-standard v3 v4a v4s v5
 # In V4 il database è un cluster di CloudNativePG e non un Deployment: si aspetta anche lui, più a lungo,
 # perché la prima volta i nodi scaricano l'immagine di PostgreSQL. Poi si riavvia l'API: partita prima del
 # database, ritenterebbe la connessione a intervalli sempre più lunghi e resterebbe senza ordini fino a circa

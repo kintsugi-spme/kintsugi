@@ -1,0 +1,36 @@
+# V2 con le sonde «standard» dell'API, solo per il guasto F7 (issue #119, D0007): come overlays/v2, con i periodi
+# di readiness e liveness di `sonde.sonda_standard_*` in config/parametri.yaml (i valori predefiniti di
+# Kubernetes) al posto di quelli «veloci» della base. Timeout e soglia restano quelli della base: le due
+# configurazioni differiscono solo per il periodo dei controlli.
+#
+# Da deploy/k8s:
+#   make v2-sonde-standard        V2 da zero con le sonde standard
+#   make reset VERSIONE=v2        il reset è quello di V2: i pod hanno l'etichetta kintsugi/versione=v2
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../v2
+
+# I numeri arrivano dal ConfigMap `parametri` della base, come i periodi veloci (base/kustomization.yaml).
+replacements:
+  - source:
+      kind: ConfigMap
+      name: parametri
+      fieldPath: data.SONDA_STANDARD_PRONTA_S
+    targets:
+      - select:
+          kind: Deployment
+          name: api
+        fieldPaths:
+          - spec.template.spec.containers.[name=api].readinessProbe.periodSeconds
+  - source:
+      kind: ConfigMap
+      name: parametri
+      fieldPath: data.SONDA_STANDARD_VIVA_S
+    targets:
+      - select:
+          kind: Deployment
+          name: api
+        fieldPaths:
+          - spec.template.spec.containers.[name=api].livenessProbe.periodSeconds
