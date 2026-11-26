@@ -125,6 +125,8 @@ jobs:
         run: pytest -q ../analysis
       - name: Prove degli script dei guasti (harness/faults)
         run: pytest -q ../harness/faults
+      - name: Prove del reset prima di ogni run (harness/reset)
+        run: pytest -q ../harness/reset
 
   numeri:
     name: Numeri coerenti
