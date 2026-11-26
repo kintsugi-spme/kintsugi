@@ -137,7 +137,7 @@ kintsugi/
 │   └── aws/              # infrastruttura come codice per EKS
 ├── harness/
 │   ├── client/           # client minimo di F2 (provvisorio, prima di JMeter)
-│   ├── jmeter/           # carico con JMeter: costante.jmx e carico.py (W1, W3); il profilo W2 con la #117
+│   ├── jmeter/           # carico con JMeter: carico.jmx e carico.py (W1 e W3 a ritmo costante, W2 con il picco)
 │   └── faults/           # iniezione dei guasti: F1 (arresto.py) e tempi di avvio a vuoto (avvio.py) da F3, gli altri da F4
 ├── analysis/             # categorie degli ordini, fermo e ripristino, ritmo inviato, statistiche
 ├── data/                 # risultati dei run (non versionati)
@@ -220,6 +220,7 @@ make v4s        # oppure V4s: come V4a, con replica sincrona
 make v5         # oppure V5: come V3, con i worker da 1 a 10 secondo la coda (KEDA, installato alla prima volta)
 python3 ../../harness/client/cliente.py --url http://localhost:8080/ordini --richieste 100 --ritmo 10 --timeout 2
 python3 ../../harness/jmeter/carico.py --ritmo 50 --durata 180 --uscita <cartella>/client.csv   # JMeter 5.5 o più
+python3 ../../harness/jmeter/carico.py --profilo w2 --mu1 20 --uscita <cartella>/client.csv   # W2: base, picco, base
 make osservabilita  # Prometheus e kube-state-metrics sul nodo dati (D0019); lo fanno anche make v1 … make v5
 make togli      # toglie la versione accesa, dati compresi; il cluster, l'operatore di V4, KEDA e l'osservabilità restano
 make verifica   # i criteri di F3: V1-V3 funzionano e un crash F1 dà fermo e ripristino con i millisecondi (circa 10 minuti)

@@ -1,4 +1,4 @@
-"""Prove di carico.py senza JMeter: proprietà passate al piano, esiti e conversione in client.csv."""
+"""Prove di carico.py senza JMeter: profili, programma degli arrivi, proprietà, esiti e conversione in client.csv."""
 
 import csv
 import io
@@ -16,12 +16,45 @@ JTL = """timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataTyp
 1795684839635,3,POST /ordini,Non HTTP response code: org.apache.http.conn.HttpHostConnectException,Non HTTP response message: Connect to localhost:8080 failed,Ordini 1-4,text,false,,0,0,1,1,http://localhost:8080/ordini,0,0,3,dddd
 """
 
+CARICHI = {"w2_base_percentuale_mu1": 50, "w2_picco_percentuale_mu1": 500, "w2_durata_picco_s": 60,
+           "w2_inizio_picco_minuto": 2, "w2_finestra_costo_min": 10}
+
+
+def test_il_profilo_costante_e_un_tratto_solo():
+    assert carico.profilo_costante(50, 180) == [carico.Tratto(0, 180, 50)]
+
+
+@pytest.mark.parametrize("ritmo,durata", [(0, 10), (10, 0), (-1, 10)])
+def test_il_profilo_costante_rifiuta_valori_non_positivi(ritmo, durata):
+    with pytest.raises(ValueError):
+        carico.profilo_costante(ritmo, durata)
+
+
+def test_w2_e_base_picco_base_con_i_valori_di_parametri_yaml():
+    tratti = carico.profilo_w2(20, CARICHI)
+    assert tratti == [carico.Tratto(0, 120, 10), carico.Tratto(120, 180, 100), carico.Tratto(180, 720, 10)]
+
+
+def test_w2_con_una_durata_scelta_e_che_non_taglia_il_picco():
+    assert carico.profilo_w2(20, CARICHI, 300)[-1] == carico.Tratto(180, 300, 10)
+    with pytest.raises(ValueError):
+        carico.profilo_w2(20, CARICHI, 180)
+    with pytest.raises(ValueError):
+        carico.profilo_w2(0, CARICHI)
+
+
+def test_il_programma_fa_gradini_e_finisce_con_una_pausa():
+    p = carico.programma(carico.profilo_w2(20, CARICHI), 3)
+    assert p == ("rate(10/sec) even_arrivals(120 sec) rate(10/sec) "
+                 "rate(100/sec) even_arrivals(60 sec) rate(100/sec) "
+                 "rate(10/sec) even_arrivals(540 sec) rate(10/sec) pause(3 sec)")
+
 
 def test_le_proprieta_vengono_dall_indirizzo_e_dal_timeout():
-    p = carico.proprieta("http://localhost:8080/ordini", 50, 180, 2)
+    p = carico.proprieta("http://localhost:8080/ordini", carico.profilo_costante(50, 180), 2)
     assert (p["host"], p["porta"], p["percorso"]) == ("localhost", "8080", "/ordini")
-    assert (p["ritmo"], p["durata"], p["timeout_ms"]) == ("50", "180", "2000")
-    assert float(p["coda_s"]) > 2  # la pausa finale aspetta le richieste ancora in volo
+    assert p["programma"] == "rate(50/sec) even_arrivals(180 sec) rate(50/sec) pause(3 sec)"
+    assert p["timeout_ms"] == "2000"
     assert p["sample_variables"] == "id"
     assert p["sampleresult.timestamp.start"] == "true"
     assert p["jmeterengine.force.system.exit"] == "true"  # niente minuto di attesa a fine test
@@ -30,13 +63,12 @@ def test_le_proprieta_vengono_dall_indirizzo_e_dal_timeout():
 @pytest.mark.parametrize("url", ["https://localhost/ordini", "localhost:8080/ordini", "http:///ordini"])
 def test_un_indirizzo_non_valido_si_rifiuta(url):
     with pytest.raises(ValueError):
-        carico.proprieta(url, 10, 10, 2)
+        carico.proprieta(url, carico.profilo_costante(10, 10), 2)
 
 
-@pytest.mark.parametrize("ritmo,durata,timeout", [(0, 10, 2), (10, 0, 2), (10, 10, 0)])
-def test_valori_non_positivi_si_rifiutano(ritmo, durata, timeout):
+def test_un_timeout_non_positivo_si_rifiuta():
     with pytest.raises(ValueError):
-        carico.proprieta("http://localhost:8080/ordini", ritmo, durata, timeout)
+        carico.proprieta("http://localhost:8080/ordini", carico.profilo_costante(10, 10), 0)
 
 
 @pytest.mark.parametrize("codice,atteso", [
@@ -68,21 +100,27 @@ def test_client_csv_scritto_ha_l_intestazione_di_data_readme(tmp_path):
     assert esiti == {"201": 1, "503": 1, "timeout": 1, "errore": 1}
 
 
+def test_carico_json_descrive_i_tratti():
+    d = carico.descrizione("w2", carico.profilo_w2(20, CARICHI), 20)
+    assert d["profilo"] == "w2" and d["mu1"] == 20
+    assert d["tratti"][1] == {"inizio_s": 120, "fine_s": 180, "ritmo": 100}
+
+
 def test_il_piano_usa_le_proprieta_e_non_riusa_le_connessioni():
-    """Le proprietà che carico.py passa sono quelle che costante.jmx legge; keep-alive spento (D0020)."""
+    """Le proprietà che carico.py passa sono quelle che carico.jmx legge; keep-alive spento (D0020)."""
     testo = carico.PIANO.read_text(encoding="utf-8")
-    p = carico.proprieta("http://localhost:8080/ordini", 10, 10, 2)
-    for nome in ("host", "porta", "percorso", "ritmo", "durata", "coda_s", "timeout_ms"):
+    p = carico.proprieta("http://localhost:8080/ordini", carico.profilo_costante(10, 10), 2)
+    for nome in ("host", "porta", "percorso", "programma", "timeout_ms"):
         assert f"__P({nome})" in testo, nome
+        assert nome in p
     radice = ET.fromstring(testo)
     keepalive = [e.text for e in radice.iter("boolProp") if e.get("name") == "HTTPSampler.use_keepalive"]
     assert keepalive == ["false"]
-    schedule = [e.text or "" for e in radice.iter("stringProp") if e.get("name") == "OpenModelThreadGroup.schedule"]
-    assert schedule and "even_arrivals" in schedule[0] and "pause" in schedule[0]
-    assert set(p) >= {"host", "porta", "percorso", "ritmo", "durata", "coda_s", "timeout_ms"}
+    # Niente script Groovy: compilato al primo ordine, farebbe partire JMeter in ritardo (limite del 26/11).
+    assert not [e for e in radice.iter() if e.tag.startswith("JSR223")]
 
 
 def test_il_comando_lancia_jmeter_senza_interfaccia(tmp_path: Path):
-    c = carico.comando("jmeter", tmp_path, {"ritmo": "10"})
+    c = carico.comando("jmeter", tmp_path, {"programma": "rate(10/sec)"})
     assert c[:2] == ["jmeter", "-n"]
-    assert str(tmp_path / "jmeter.jtl") in c and "-Jritmo=10" in c
+    assert str(tmp_path / "jmeter.jtl") in c and "-Jprogramma=rate(10/sec)" in c
