@@ -19,6 +19,10 @@ Partecipando accetti il [codice di condotta](CODE_OF_CONDUCT.md).
 5. **Aggiorna il diario.** Sempre una riga in `report/diario/registro.md`, con le ore. Una voce in `report/diario/` (parti da `_template.md`) solo se c'è una misura, un limite di uno strumento, un problema che ha fatto perdere tempo, una scelta non ovvia, un run scartato o un'anomalia nei dati, o lo scarto da una previsione: i casi sono in `report/diario/README.md`.
 6. **Aspetta la revisione.** Serve l'approvazione di un autore diverso da chi ha scritto la PR e tutte le discussioni risolte. Dopo un nuovo push l'approvazione va richiesta di nuovo.
 
+## Controlli automatici (CI)
+
+Ogni PR fa partire i controlli di `.github/workflows/controlli.yml`: base della PR, test dell'app, numeri coerenti, PDF, immagine e manifest Kubernetes. **Chi scrive il codice o i manifest di una PR aggiunge in quella stessa PR anche il controllo che li verifica**: un test, oppure un passo nel workflow. Non c'è una issue che lo faccia dopo. Esempi: una cartella nuova di test (per esempio `harness/jmeter`) non gira finché non c'è il suo passo di `pytest` nel workflow; una cartella nuova di manifest va aggiunta al passo «Manifest Kubernetes» (gli overlay di `deploy/k8s/overlays/` sono già presi dalla cartella). Se il controllo non serve, o non si può fare senza un account esterno (per esempio AWS), si scrive il motivo nella PR.
+
 ## PR impilate (stack)
 
 Quando hai da aprire più PR (1, 2, …, n) e ognuna ha bisogno della precedente per funzionare (la 2 della 1, la 3 della 2, …), le apri tutte subito, una sopra l'altra:
