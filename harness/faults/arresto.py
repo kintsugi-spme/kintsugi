@@ -1,7 +1,14 @@
-"""Guasto F1: arresto improvviso (SIGKILL) di una copia dell'API, mandato dal nodo che la ospita.
+"""Guasti F1-F4: arresto improvviso (SIGKILL) di un componente, mandato dal nodo che lo ospita.
 
-    python harness/faults/arresto.py --cartella data/locale/<run-id>
-    python harness/faults/arresto.py --cartella data/locale/<run-id> --selettore app=api --pod api-7694fd4cc7-85655
+    python harness/faults/arresto.py --cartella data/locale/<run-id>                 # F1, una copia dell'API
+    python harness/faults/arresto.py --cartella data/locale/<run-id> --guasto F2     # tutti i worker (V3)
+    python harness/faults/arresto.py --cartella data/locale/<run-id> --guasto F3     # il broker (V3)
+    python harness/faults/arresto.py --cartella data/locale/<run-id> --guasto F4     # il database (V1-V3)
+    python harness/faults/arresto.py --cartella data/locale/<run-id> --pod api-7694fd4cc7-85655
+
+Ogni guasto (tabella GUASTI) dice quali pod colpire e quale container deve trovarci: il kill va al processo
+principale di quel container (PostgreSQL, RabbitMQ, l'API o un worker). Toxiproxy non è mai un bersaglio:
+ha un altro selettore e un altro container (#93). V4 (database replicato) è nella #129.
 
 Il segnale parte dal nodo di kind (`docker exec` nel suo container) e non con `kubectl delete pod`,
 che è una terminazione ordinata e non un guasto (D0016). Dentro il container il processo ha PID 1 e
@@ -19,7 +26,12 @@ sfasamento tra computer e macchina virtuale di Docker (D0005).
 massimo `incertezza_s`, mai più corto. Si è scelto il limite e non il punto medio perché non si sa
 quanta parte del ritardo di `docker exec` sta prima del kill e quanta dopo.
 
-Dopo il kill lo script aspetta che il container riparta nello stesso pod (riavviato, non
+Con più bersagli (F2: tutti i worker) i PID si cercano tutti prima e ogni nodo riceve un solo comando, che
+li uccide insieme. `ts_guasto` è prima del primo comando, `ts_conferma` dopo l'ultimo: l'incertezza comprende
+la distanza tra il primo e l'ultimo kill. Sull'orologio del nodo, `ts_nodo` è prima del primo kill e
+`ts_nodo_ultimo` dopo l'ultimo.
+
+Dopo il kill lo script aspetta che ogni container riparta nello stesso pod (riavviato, non
 ricreato) e scrive tutto in `guasto.json` nella cartella del run. Esce con codice 1 se qualcosa
 non torna: nessun pod, pod ricreato invece che riavviato, nessun riavvio entro l'attesa.
 """
@@ -39,6 +51,25 @@ class ErroreGuasto(RuntimeError):
 
 
 @dataclass(frozen=True)
+class Guasto:
+    """Un guasto del capitolo «Guasti»: quali pod colpire, quale container deve esserci, con quale segnale."""
+    nome: str
+    selettore: str
+    container: str
+    tutti: bool  # tutti i pod del selettore (F2) o uno solo
+    descrizione: str
+    segnale: str = "KILL"
+
+
+GUASTI = {g.nome: g for g in [
+    Guasto("F1", "app=api", "api", False, "una copia dell'API"),
+    Guasto("F2", "app=worker", "worker", True, "tutti i worker"),
+    Guasto("F3", "app=coda", "rabbitmq", False, "il broker"),
+    Guasto("F4", "app=db", "postgres", False, "il database"),
+]}
+
+
+@dataclass(frozen=True)
 class Bersaglio:
     pod: str
     pod_uid: str
@@ -48,28 +79,14 @@ class Bersaglio:
     riavvii: int
 
 
-def scegli_bersaglio(pods: dict, nome: str | None = None) -> Bersaglio:
-    """Il pod da colpire, dall'uscita di `kubectl get pods -o json`.
+def _stato(pod: dict, container: str | None) -> dict | None:
+    stati = pod.get("status", {}).get("containerStatuses") or []
+    if container is None:
+        return stati[0] if stati else None
+    return next((s for s in stati if s["name"] == container), None)
 
-    Solo i pod con il container in esecuzione e non in chiusura: dopo un rollout il pod vecchio
-    risulta ancora «running» per qualche secondo, ma sta già terminando. Con più copie e senza
-    `nome` si prende la prima in ordine alfabetico, così la scelta non dipende dall'ordine in
-    cui kubectl le elenca.
-    """
-    candidati = []
-    for pod in pods.get("items", []):
-        if pod["metadata"].get("deletionTimestamp"):
-            continue
-        stati = pod.get("status", {}).get("containerStatuses") or []
-        if not stati or "running" not in stati[0].get("state", {}):
-            continue
-        candidati.append((pod, stati[0]))
-    if nome is not None:
-        candidati = [(p, s) for p, s in candidati if p["metadata"]["name"] == nome]
-    if not candidati:
-        cosa = f"il pod {nome}" if nome else "nessun pod"
-        raise ErroreGuasto(f"{cosa} con il container in esecuzione: niente da colpire")
-    pod, stato = min(candidati, key=lambda c: c[0]["metadata"]["name"])
+
+def _bersaglio(pod: dict, stato: dict) -> Bersaglio:
     return Bersaglio(
         pod=pod["metadata"]["name"],
         pod_uid=pod["metadata"]["uid"],
@@ -78,6 +95,41 @@ def scegli_bersaglio(pods: dict, nome: str | None = None) -> Bersaglio:
         container_id=stato["containerID"].split("://", 1)[-1],
         riavvii=stato["restartCount"],
     )
+
+
+def scegli_bersagli(pods: dict, container: str | None = None, nome: str | None = None,
+                    tutti: bool = False) -> list[Bersaglio]:
+    """I pod da colpire, dall'uscita di `kubectl get pods -o json`, in ordine alfabetico.
+
+    Contano solo i pod non in chiusura: dopo un rollout il pod vecchio risulta ancora «running» per qualche
+    secondo, ma sta già terminando. Ogni pod deve avere il container `container` (se dato) in esecuzione.
+    Con `tutti` si colpiscono tutti, e un pod con il container fermo è un errore: non sarebbero più tutti.
+    Altrimenti si prende il pod `nome` o il primo in ordine alfabetico, così la scelta non dipende
+    dall'ordine in cui kubectl li elenca.
+    """
+    vivi = sorted((p for p in pods.get("items", []) if not p["metadata"].get("deletionTimestamp")),
+                  key=lambda p: p["metadata"]["name"])
+    if nome is not None:
+        vivi = [p for p in vivi if p["metadata"]["name"] == nome]
+    candidati, fermi = [], []
+    for pod in vivi:
+        stato = _stato(pod, container)
+        if stato is not None and "running" in stato.get("state", {}):
+            candidati.append(_bersaglio(pod, stato))
+        else:
+            fermi.append(pod["metadata"]["name"])
+    if tutti and fermi:
+        raise ErroreGuasto(f"non tutti i pod sono in esecuzione ({', '.join(fermi)}): non si colpirebbero tutti")
+    if not candidati:
+        cosa = f"il pod {nome}" if nome else "nessun pod"
+        dove = f" con il container {container}" if container else " con il container"
+        raise ErroreGuasto(f"{cosa}{dove} in esecuzione: niente da colpire")
+    return candidati if tutti else candidati[:1]
+
+
+def scegli_bersaglio(pods: dict, nome: str | None = None) -> Bersaglio:
+    """Un pod solo, il primo o quello di nome `nome`, con il suo primo container (per avvio.py)."""
+    return scegli_bersagli(pods, nome=nome)[0]
 
 
 class ShellNelNodo:
@@ -120,21 +172,30 @@ def pid_nel_nodo(shell, container_id: str) -> int:
     return pid
 
 
-def manda_sigkill(shell, pid: int, container_id: str, orologio=time.time) -> dict:
-    """Manda SIGKILL a `pid` e restituisce gli istanti del guasto (secondi dall'epoca).
+def nome_del_processo(shell, pid: int) -> str:
+    """Il nome del programma con quel PID (per esempio `postgres`, `beam.smp`): finisce in guasto.json."""
+    return shell.comando(f"echo \"$(cat /proc/{pid}/comm 2>/dev/null)\"")
 
-    Il comando ricontrolla che il PID sia ancora del container (dal suo cgroup): tra la ricerca
-    del PID e il kill il container potrebbe essere ripartito, e il PID dato a un altro processo.
+
+def manda_segnale(shell, colpi: list[tuple[int, str]], segnale: str = "KILL", orologio=time.time) -> dict:
+    """Manda `segnale` a tutti i PID di `colpi` (coppie PID, container) con un solo comando nel nodo.
+
+    Restituisce gli istanti (secondi dall'epoca): `prima` e `dopo` il comando sul computer, `nodo` prima
+    del primo kill e `nodo_fine` dopo l'ultimo, sull'orologio del nodo. Il comando ricontrolla che ogni PID
+    sia ancora del suo container (dal cgroup): tra la ricerca del PID e il kill il container potrebbe essere
+    ripartito, e il PID dato a un altro processo. Se un controllo fallisce, non parte nessun kill.
     """
-    riga = (f"grep -q {container_id} /proc/{pid}/cgroup 2>/dev/null"
-            f" && t=$(date +%s.%N) && kill -KILL {pid} && echo \"ok $t\" || echo fallito")
+    controlli = " && ".join(f"grep -q {cid} /proc/{pid}/cgroup 2>/dev/null" for pid, cid in colpi)
+    pids = " ".join(str(pid) for pid, _ in colpi)
+    riga = (f"{controlli} && t=$(date +%s.%N) && kill -{segnale} {pids}"
+            f" && echo \"ok $t $(date +%s.%N)\" || echo fallito")
     prima = orologio()
     risposta = shell.comando(riga)
     dopo = orologio()
     parti = risposta.split()
-    if len(parti) != 2 or parti[0] != "ok":
-        raise ErroreGuasto(f"il kill del PID {pid} non è riuscito ({risposta!r})")
-    return {"prima": prima, "dopo": dopo, "nodo": float(parti[1])}
+    if len(parti) != 3 or parti[0] != "ok":
+        raise ErroreGuasto(f"il segnale {segnale} ai PID {pids} non è riuscito ({risposta!r})")
+    return {"prima": prima, "dopo": dopo, "nodo": float(parti[1]), "nodo_fine": float(parti[2])}
 
 
 def stato_del_pod(kubectl, pod: str) -> dict:
@@ -149,14 +210,14 @@ def aspetta_riavvio(kubectl, bersaglio: Bersaglio, attesa_s: float, pausa_s: flo
         pod = stato_del_pod(kubectl, bersaglio.pod)
         if pod["metadata"]["uid"] != bersaglio.pod_uid:
             raise ErroreGuasto(f"il pod {bersaglio.pod} è stato ricreato, non riavviato")
-        stato = next(s for s in pod["status"]["containerStatuses"] if s["name"] == bersaglio.container)
+        stato = _stato(pod, bersaglio.container)
         if stato["restartCount"] > bersaglio.riavvii and "running" in stato.get("state", {}):
             return stato
         if orologio() >= scadenza:
             # Il caso tipico è il back-off di Kubernetes: dopo crash ravvicinati l'attesa prima
             # del riavvio raddoppia (10, 20, 40, 80 s… fino a 5 minuti).
-            raise ErroreGuasto(f"il container non è ripartito entro {attesa_s:g} s (riavvii già "
-                               f"avuti: {bersaglio.riavvii}; se sono più di zero è probabilmente il "
+            raise ErroreGuasto(f"il container di {bersaglio.pod} non è ripartito entro {attesa_s:g} s (riavvii "
+                               f"già avuti: {bersaglio.riavvii}; se sono più di zero è probabilmente il "
                                "back-off di Kubernetes: ricreare il pod prima del run)")
         dormi(pausa_s)
 
@@ -165,48 +226,57 @@ def come_testo(secondi_epoca: float) -> str:
     return datetime.fromtimestamp(secondi_epoca, timezone.utc).isoformat(timespec="milliseconds")
 
 
-def resoconto_del_kill(bersaglio: Bersaglio, pid: int, istanti: dict) -> dict:
-    """La prima parte di guasto.json, scritta subito dopo il kill."""
+def resoconto_del_kill(guasto: Guasto, bersagli: list[dict], istanti: list[dict]) -> dict:
+    """La prima parte di guasto.json, scritta subito dopo il kill. `istanti`: uno per comando, in ordine."""
+    prima, dopo = istanti[0]["prima"], istanti[-1]["dopo"]
     return {
-        "guasto": "F1",
-        "segnale": "SIGKILL",
-        "ts_guasto": come_testo(istanti["prima"]),
-        "ts_conferma": come_testo(istanti["dopo"]),
-        "incertezza_s": round(istanti["dopo"] - istanti["prima"], 4),
-        "ts_nodo": come_testo(istanti["nodo"]),
-        "pid_nel_nodo": pid,
-        **asdict(bersaglio),
+        "guasto": guasto.nome,
+        "segnale": f"SIG{guasto.segnale}",
+        "ts_guasto": come_testo(prima),
+        "ts_conferma": come_testo(dopo),
+        "incertezza_s": round(dopo - prima, 4),
+        "ts_nodo": come_testo(min(i["nodo"] for i in istanti)),
+        "ts_nodo_ultimo": come_testo(max(i["nodo_fine"] for i in istanti)),
+        "bersagli": bersagli,
     }
 
 
-def provoca(kubectl, apri_shell, selettore: str, nome: str | None, attesa_s: float, scrivi,
+def provoca(kubectl, apri_shell, guasto: Guasto, nome: str | None, attesa_s: float, scrivi,
             orologio=time.time) -> dict:
-    """Sceglie il pod, manda il SIGKILL dal suo nodo e aspetta il riavvio.
+    """Sceglie i pod, manda il segnale dai loro nodi e aspetta i riavvii.
 
-    `scrivi` riceve guasto.json due volte: subito dopo il kill, perché il run ha bisogno
-    dell'istante del guasto anche se il riavvio non arriva, e poi con l'esito del riavvio.
+    Prima del primo kill si apre e si scalda una shell per nodo e si cercano tutti i PID: al momento del
+    guasto parte solo un comando per nodo. `scrivi` riceve guasto.json due volte: subito dopo il kill,
+    perché il run ha bisogno dell'istante del guasto anche se il riavvio non arriva, e poi con l'esito.
     """
-    pods = json.loads(kubectl(["get", "pods", "-l", selettore, "-o", "json"]))
-    bersaglio = scegli_bersaglio(pods, nome)
-    shell = apri_shell(bersaglio.nodo)
+    pods = json.loads(kubectl(["get", "pods", "-l", guasto.selettore, "-o", "json"]))
+    bersagli = scegli_bersagli(pods, guasto.container, nome, guasto.tutti)
+    nodi = sorted({b.nodo for b in bersagli})
+    shell = {}
     try:
-        shell.comando("echo pronto")  # il primo comando di una shell nuova è lento: non va misurato
-        pid = pid_nel_nodo(shell, bersaglio.container_id)
-        istanti = manda_sigkill(shell, pid, bersaglio.container_id, orologio)
+        for n in nodi:
+            shell[n] = apri_shell(n)
+            shell[n].comando("echo pronto")  # il primo comando di una shell nuova è lento: non va misurato
+        righe = []
+        for b in bersagli:
+            pid = pid_nel_nodo(shell[b.nodo], b.container_id)
+            righe.append({**asdict(b), "pid_nel_nodo": pid, "processo": nome_del_processo(shell[b.nodo], pid)})
+        istanti = [manda_segnale(shell[n], [(r["pid_nel_nodo"], r["container_id"]) for r in righe if r["nodo"] == n],
+                                 guasto.segnale, orologio) for n in nodi]
     finally:
-        shell.chiudi()
-    dati = resoconto_del_kill(bersaglio, pid, istanti)
+        for s in shell.values():
+            s.chiudi()
+    dati = resoconto_del_kill(guasto, righe, istanti)
     scrivi(dati)
     try:
-        stato_dopo = aspetta_riavvio(kubectl, bersaglio, attesa_s)
+        for b, riga in zip(bersagli, righe):
+            stato_dopo = aspetta_riavvio(kubectl, b, attesa_s)
+            riga |= {"container_id_dopo": stato_dopo["containerID"].split("://", 1)[-1],
+                     "riavvii_dopo": stato_dopo["restartCount"]}
     except ErroreGuasto as errore:
-        scrivi({**dati, "riavviato_nello_stesso_pod": False, "errore": str(errore)})
+        scrivi({**dati, "riavviati_nello_stesso_pod": False, "errore": str(errore)})
         raise
-    dati |= {
-        "riavviato_nello_stesso_pod": True,
-        "container_id_dopo": stato_dopo["containerID"].split("://", 1)[-1],
-        "riavvii_dopo": stato_dopo["restartCount"],
-    }
+    dati["riavviati_nello_stesso_pod"] = True
     scrivi(dati)
     return dati
 
@@ -215,12 +285,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--cartella", type=Path, required=True,
                         help="cartella del run (data/<ambiente>/<run-id>): vi si scrive guasto.json")
-    parser.add_argument("--selettore", default="app=api", help="etichette dei pod candidati")
-    parser.add_argument("--pod", default=None, help="nome del pod da colpire (predefinito: il primo)")
+    parser.add_argument("--guasto", choices=sorted(GUASTI), default="F1",
+                        help="; ".join(f"{g.nome}: {g.descrizione}" for g in GUASTI.values()))
+    parser.add_argument("--pod", default=None, help="nome del pod da colpire (predefinito: il primo; non con F2)")
     parser.add_argument("--contesto", default="kind-kintsugi", help="contesto di kubectl")
     parser.add_argument("--attesa", type=float, default=60,
-                        help="secondi di attesa del riavvio prima di dare errore")
+                        help="secondi di attesa del riavvio di ogni container prima di dare errore")
     argomenti = parser.parse_args()
+    guasto = GUASTI[argomenti.guasto]
+    if guasto.tutti and argomenti.pod:
+        parser.error(f"il guasto {guasto.nome} colpisce {guasto.descrizione}: --pod non si usa")
 
     def kubectl(parametri: list[str]) -> str:
         return subprocess.run(["kubectl", "--context", argomenti.contesto, *parametri],
@@ -233,18 +307,17 @@ def main() -> None:
         file.write_text(json.dumps(dati, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
     try:
-        risultato = provoca(kubectl, ShellNelNodo, argomenti.selettore, argomenti.pod,
-                            argomenti.attesa, scrivi)
+        risultato = provoca(kubectl, ShellNelNodo, guasto, argomenti.pod, argomenti.attesa, scrivi)
     except FileNotFoundError as errore:
         sys.exit(f"errore: programma non trovato: {errore.filename} (servono docker e kubectl)")
     except (ErroreGuasto, subprocess.CalledProcessError, subprocess.TimeoutExpired) as errore:
         nota = f" (istante del guasto in {file})" if file.exists() else ""
         sys.exit(f"errore: {getattr(errore, 'stderr', None) or errore}{nota}")
 
-    print(f"SIGKILL a {risultato['pod']} (nodo {risultato['nodo']}, PID {risultato['pid_nel_nodo']}) "
-          f"alle {risultato['ts_guasto']}, incertezza {risultato['incertezza_s'] * 1000:.1f} ms; "
-          f"riavviato nello stesso pod (riavvii {risultato['riavvii']} → {risultato['riavvii_dopo']}); "
-          f"scritto {file}")
+    colpiti = ", ".join(f"{b['pod']} ({b['processo']}, PID {b['pid_nel_nodo']} su {b['nodo']}, "
+                        f"riavvii {b['riavvii']} → {b['riavvii_dopo']})" for b in risultato["bersagli"])
+    print(f"{risultato['guasto']}, {risultato['segnale']} a {colpiti} alle {risultato['ts_guasto']}, incertezza "
+          f"{risultato['incertezza_s'] * 1000:.1f} ms; riavviati nello stesso pod; scritto {file}")
 
 
 if __name__ == "__main__":

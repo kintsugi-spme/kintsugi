@@ -13,7 +13,7 @@ SIGKILL parte dal nodo, come in `arresto.py` (D0016), e si legge lo stato del po
               container, sull'orologio del nodo, lo stesso del `date` del kill: non dipende dal
               ritmo del controllo.
 
-Il kill si conta dall'istante `prima` di `arresto.manda_sigkill`: i tempi sono più lunghi del vero
+Il kill si conta dall'istante `prima` di `arresto.manda_segnale`: i tempi sono più lunghi del vero
 di al massimo l'incertezza di quel comando (0,1-0,3 s) più il periodo del controllo (0,1 s);
 `riavvio` e `pronto` hanno in più il tempo di una chiamata a kubectl.
 """
@@ -91,7 +91,7 @@ def una_ripetizione(kubectl, selettore: str, evento: str | None, assestamento_s:
     try:
         shell.comando("echo pronto")
         pid = arresto.pid_nel_nodo(shell, bersaglio.container_id)
-        istanti = arresto.manda_sigkill(shell, pid, bersaglio.container_id)
+        istanti = arresto.manda_segnale(shell, [(pid, bersaglio.container_id)])
     finally:
         shell.chiudi()
     t_riavvio = t_pronto = None
