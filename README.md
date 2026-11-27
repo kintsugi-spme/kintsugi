@@ -133,12 +133,12 @@ kintsugi/
 │   ├── compose/          # V1, V2 e V3 sul computer con Docker Compose (fase F2)
 │   ├── k8s/
 │   │   ├── base/         # schema del database; manifest comuni: database e API
-│   │   └── overlays/     # v1/, v2/, v3/, v4a/, v4s/, v5/
+│   │   └── overlays/     # v1/, v2/, v2-sonde-standard/ (solo F7), v3/, v4a/, v4s/, v5/
 │   └── aws/              # infrastruttura come codice per EKS
 ├── harness/
 │   ├── client/           # client minimo di F2 (provvisorio, prima di JMeter)
 │   ├── jmeter/           # carico con JMeter: carico.jmx e carico.py (W1 e W3 a ritmo costante, W2 con il picco)
-│   └── faults/           # iniezione dei guasti: F1 (arresto.py) e tempi di avvio a vuoto (avvio.py) da F3, gli altri da F4
+│   └── faults/           # iniezione dei guasti: F1-F4 e F7 (arresto.py), F5 (latenza.py), tempi di avvio a vuoto (avvio.py)
 ├── analysis/             # categorie degli ordini, fermo e ripristino, ritmo inviato, statistiche
 ├── data/                 # risultati dei run (non versionati)
 ├── docs/                 # documento di architettura (LaTeX → PDF)
@@ -214,6 +214,7 @@ cd deploy/k8s
 make immagine   # crea il cluster, controlla i nodi, carica kintsugi:dev
 make v1         # V1 da zero sul cluster (fa anche il passo precedente, se serve)
 make v2         # oppure V2, con più copie dell'API: toglie la versione accesa e riparte da zero
+make v2-sonde-standard   # V2 con le sonde standard dell'API, solo per il guasto F7
 make v3         # oppure V3: l'API mette gli ordini in coda (RabbitMQ), risponde 202 e i worker li salvano
 make v4a        # oppure V4a: come V2, con PostgreSQL primario e standby (CloudNativePG), replica asincrona
 make v4s        # oppure V4s: come V4a, con replica sincrona
