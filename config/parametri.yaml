@@ -57,6 +57,7 @@ run:
   tetto_min: 10
   tetto_min_f6_e_w2: 15
   senza_guasti_min: 5                    # riscaldamento + riferimento + 3 di osservazione
+  attesa_coda_vuota_s: 300               # V3 e V5: prima di esportare si aspetta che `ordini` sia vuota, al massimo questo tempo
 
 # --- Tempi e soglie -------------------------------------------------------------------
 tempi:

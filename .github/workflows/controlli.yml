@@ -127,6 +127,8 @@ jobs:
         run: pytest -q ../harness/faults
       - name: Prove del reset prima di ogni run (harness/reset)
         run: pytest -q ../harness/reset
+      - name: Prove dell'esportazione di fine run (harness/esporta)
+        run: pytest -q ../harness/esporta
       - name: Prove del generatore di carico (harness/jmeter)
         run: pytest -q ../harness/jmeter
 
