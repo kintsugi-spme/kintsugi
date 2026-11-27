@@ -102,6 +102,8 @@ def proprieta(url: str, tratti: list[Tratto], timeout_s: float) -> dict[str, str
         "sample_variables": "id",
         "jmeter.save.saveservice.output_format": "csv",
         "jmeter.save.saveservice.print_field_names": "true",
+        # Ogni riga si scrive subito: harness/run/run.py legge il file mentre JMeter gira, per riconoscere il ripristino.
+        "jmeter.save.saveservice.autoflush": "true",
         # L'istante salvato è quello di invio, non quello della risposta.
         "sampleresult.timestamp.start": "true",
         # A fine test JMeter resterebbe acceso circa 60 s, finché un gruppo di thread interno non si spegne da solo:
@@ -146,6 +148,15 @@ def scrivi_client_csv(percorso_jtl: Path, percorso_csv: Path) -> Counter:
 def descrizione(nome: str, tratti: list[Tratto], mu1: float | None) -> dict:
     """Il contenuto di carico.json: il profilo chiesto, che analysis/ritmo.py confronta con gli invii."""
     return {"profilo": nome, "mu1": mu1, "tratti": [asdict(t) for t in tratti]}
+
+
+def risultati_utilizzabili(percorso_jtl: Path) -> bool:
+    """Il file di JMeter c'è e ha almeno una richiesta oltre l'intestazione."""
+    try:
+        with open(percorso_jtl, encoding="utf-8") as f:
+            return sum(1 for _ in zip(f, range(2))) == 2
+    except OSError:
+        return False
 
 
 def comando(jmeter: str, cartella: Path, props: dict[str, str]) -> list[str]:
@@ -201,7 +212,12 @@ def main() -> None:
     except FileNotFoundError:
         sys.exit(f"errore: programma non trovato: {a.jmeter} (serve JMeter 5.5 o più)")
     except subprocess.CalledProcessError as errore:
-        sys.exit(f"errore: JMeter è uscito con codice {errore.returncode} (vedi {uscita.parent / 'jmeter.log'})")
+        # Un run fermato da fuori (harness/run/run.py manda `StopTestNow` a JMeter) esce con un codice diverso da 0,
+        # ma i risultati fino a quel momento ci sono: si convertono. Senza risultati è un errore vero.
+        if not risultati_utilizzabili(uscita.parent / "jmeter.jtl"):
+            sys.exit(f"errore: JMeter è uscito con codice {errore.returncode} (vedi {uscita.parent / 'jmeter.log'})")
+        print(f"attenzione: JMeter è uscito con codice {errore.returncode} (fermato da fuori?): "
+              "si convertono i risultati che ci sono", file=sys.stderr)
     esiti = scrivi_client_csv(uscita.parent / "jmeter.jtl", uscita)
     dettaglio = ", ".join(f"{k}: {v}" for k, v in sorted(esiti.items()))
     print(f"inviate {sum(esiti.values())} richieste in {time.monotonic() - inizio:.1f} s ({dettaglio}); log in {uscita}")

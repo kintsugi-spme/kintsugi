@@ -26,6 +26,7 @@ import signal
 import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 import arresto
@@ -89,7 +90,7 @@ def istanti(i: dict, chiavi: tuple[str, str, str, str]) -> dict:
 
 
 def provoca(kubectl, apri_shell, ripiego, latenza_ms: int, durata_s: float, scrivi,
-            orologio=time.time, dormi=time.sleep) -> dict:
+            orologio=time.time, dormi=time.sleep, alle: float | None = None) -> dict:
     """Aggiunge la latenza, aspetta `durata_s` secondi e la toglie, anche se nel mezzo qualcosa si interrompe.
 
     `ripiego(nodo, riga)` esegue `riga` nel nodo con un `docker exec` nuovo: serve se la shell aperta prima
@@ -108,6 +109,8 @@ def provoca(kubectl, apri_shell, ripiego, latenza_ms: int, durata_s: float, scri
             raise ErroreGuasto(f"Toxiproxy ha già dei toxic ({', '.join(gia)}): rifare il reset prima del run")
         aggiunta, dati["interrotto"] = None, False
         try:
+            if alle is not None:  # tutto è pronto: si aspetta l'istante scelto (per esempio il minuto del run)
+                dormi(max(0.0, alle - orologio()))
             aggiunta = esegui(shell, comando_aggiungi(indirizzo, latenza_ms), orologio)
             dati |= istanti(aggiunta, INIZIO)
             scrivi(dati)
@@ -170,6 +173,8 @@ def main() -> None:
     parser.add_argument("--latenza-ms", type=int, default=None, help="predefinito: guasti.f5_latenza_ms")
     parser.add_argument("--durata", type=float, default=None, help="secondi (predefinito: guasti.f5_durata_s)")
     parser.add_argument("--contesto", default="kind-kintsugi", help="contesto di kubectl")
+    parser.add_argument("--alle", default=None,
+                        help="istante dell'inizio del guasto (ISO 8601 con fuso orario): si prepara tutto e si aspetta; senza, parte subito")
     a = parser.parse_args()
     if a.latenza_ms is None or a.durata is None:
         guasti = leggi_guasti()
@@ -190,7 +195,8 @@ def main() -> None:
         file.write_text(json.dumps(dati, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
     try:
-        r = provoca(kubectl, arresto.ShellNelNodo, ripiego_docker, a.latenza_ms, a.durata, scrivi)
+        alle = datetime.fromisoformat(a.alle).timestamp() if a.alle else None
+        r = provoca(kubectl, arresto.ShellNelNodo, ripiego_docker, a.latenza_ms, a.durata, scrivi, alle=alle)
     except KeyboardInterrupt:
         sys.exit(f"interrotto: latenza tolta, toxic rimasti: {json.loads(file.read_text())['toxic_dopo'] if file.exists() else '?'}")
     except FileNotFoundError as errore:

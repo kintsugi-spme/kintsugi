@@ -274,13 +274,16 @@ def resoconto_del_kill(guasto: Guasto, bersagli: list[dict], istanti: list[dict]
 
 
 def provoca(kubectl, apri_shell, guasto: Guasto, nome: str | None, attesa_s: float, scrivi,
-            orologio=time.time, ora=time.time, aspetta_servizio=aspetta_fuori_dal_service) -> dict:
+            orologio=time.time, ora=time.time, aspetta_servizio=aspetta_fuori_dal_service,
+            alle: float | None = None, dormi=time.sleep) -> dict:
     """Sceglie i pod, manda il segnale dai loro nodi e aspetta i riavvii.
 
     Prima del primo kill si apre e si scalda una shell per nodo e si cercano tutti i PID: al momento del
     guasto parte solo un comando per nodo. `scrivi` riceve guasto.json due volte: subito dopo il kill,
     perché il run ha bisogno dell'istante del guasto anche se il riavvio non arriva, e poi con l'esito.
-    `orologio` dà gli istanti del kill, `ora` quelli osservati dopo (uscita dal Service, riavvio).
+    `orologio` dà gli istanti del kill, `ora` quelli osservati dopo (uscita dal Service, riavvio). Con `alle`
+    (secondi dall'epoca sull'orologio del computer) tutto si prepara prima e il segnale parte esattamente a
+    quell'istante: il run (harness/run/run.py) lo usa per mettere il guasto al minuto giusto del carico.
     """
     pods = json.loads(kubectl(["get", "pods", "-l", guasto.selettore, "-o", "json"]))
     bersagli = scegli_bersagli(pods, guasto.container, nome, guasto.tutti)
@@ -294,6 +297,8 @@ def provoca(kubectl, apri_shell, guasto: Guasto, nome: str | None, attesa_s: flo
         for b in bersagli:
             pid = pid_nel_nodo(shell[b.nodo], b.container_id)
             righe.append({**asdict(b), "pid_nel_nodo": pid, "processo": nome_del_processo(shell[b.nodo], pid)})
+        if alle is not None:
+            dormi(max(0.0, alle - orologio()))
         istanti = [manda_segnale(shell[n], [(r["pid_nel_nodo"], r["container_id"]) for r in righe if r["nodo"] == n],
                                  guasto.segnale, orologio) for n in nodi]
     finally:
@@ -328,6 +333,9 @@ def main() -> None:
                         help="; ".join(f"{g.nome}: {g.descrizione}" for g in GUASTI.values()))
     parser.add_argument("--pod", default=None, help="nome del pod da colpire (predefinito: il primo; non con F2)")
     parser.add_argument("--contesto", default="kind-kintsugi", help="contesto di kubectl")
+    parser.add_argument("--alle", default=None,
+                        help="istante del guasto (ISO 8601 con fuso orario, orologio del computer): si prepara tutto "
+                             "e il segnale parte a quell'istante; senza, parte subito")
     parser.add_argument("--attesa", type=float, default=120,
                         help="secondi di attesa del riavvio di ogni container prima di dare errore")
     argomenti = parser.parse_args()
@@ -346,7 +354,8 @@ def main() -> None:
         file.write_text(json.dumps(dati, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
     try:
-        risultato = provoca(kubectl, ShellNelNodo, guasto, argomenti.pod, argomenti.attesa, scrivi)
+        alle = datetime.fromisoformat(argomenti.alle).timestamp() if argomenti.alle else None
+        risultato = provoca(kubectl, ShellNelNodo, guasto, argomenti.pod, argomenti.attesa, scrivi, alle=alle)
     except FileNotFoundError as errore:
         sys.exit(f"errore: programma non trovato: {errore.filename} (servono docker e kubectl)")
     except (ErroreGuasto, subprocess.CalledProcessError, subprocess.TimeoutExpired) as errore:
