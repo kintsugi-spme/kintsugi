@@ -4,6 +4,7 @@
 """
 
 import csv
+import json
 import random
 from datetime import datetime, timedelta, timezone
 
@@ -202,3 +203,151 @@ def test_il_tempo_di_risposta_che_non_e_un_numero_e_un_errore(tmp_path):
 def test_i_secondi_e_la_soglia_non_hanno_un_predefinito():
     with pytest.raises(TypeError):
         fermo.ripristino(richieste_a_ritmo(20, 30), INIZIO + 10)
+
+
+# --- Fermo del completamento (issue #124): db.csv, istanti del cluster, ts_nodo di guasto.json ---
+
+def come_iso(secondi_epoca, stile="iso"):
+    quando = datetime.fromtimestamp(secondi_epoca, timezone.utc)
+    if stile == "postgres":  # come lo scrive psql: spazio al posto della T e «+00»
+        return quando.strftime("%Y-%m-%d %H:%M:%S.%f") + "+00"
+    return quando.isoformat(timespec="milliseconds")
+
+
+def scenario(cartella, ritmo=20, durata=60, guasto=10.0, database_fermo=None, scritti_dopo=0.05,
+             sfasamento=0.0, stile="iso", mai_salvati=()):
+    """Un run di V3: il client invia a `ritmo` e riceve sempre 202; il database salva ogni ordine dopo
+    `scritti_dopo` secondi, ma gli ordini ricevuti mentre è fermo (`database_fermo` = (da, a)) restano
+    in coda e si salvano appena torna (a + scritti_dopo). `sfasamento`: di quanto l'orologio del cluster
+    è avanti rispetto a quello del computer. `mai_salvati`: indici di ordini accettati e mai salvati."""
+    richieste = [(INIZIO + k / ritmo, True, 0.01) for k in range(int(durata * ritmo))]
+    scrivi_client(cartella, richieste)
+    righe = ["id,ts_ricezione,ts_scrittura"]
+    for k, (t, _, _) in enumerate(richieste):
+        if k in mai_salvati:
+            continue
+        ricevuto = (t - INIZIO)
+        if database_fermo and database_fermo[0] <= ricevuto < database_fermo[1]:
+            scritto = database_fermo[1] + scritti_dopo + (ricevuto - database_fermo[0]) / 1000
+        else:
+            scritto = ricevuto + scritti_dopo
+        righe.append(f"id{k},{come_iso(INIZIO + ricevuto + sfasamento, stile)},{come_iso(INIZIO + scritto + sfasamento, stile)}")
+    (cartella / "db.csv").write_text("\n".join(righe) + "\n", encoding="utf-8")
+    (cartella / "guasto.json").write_text(json.dumps({
+        "ts_guasto": come_iso(INIZIO + guasto), "ts_nodo": come_iso(INIZIO + guasto + sfasamento)}), encoding="utf-8")
+    return richieste
+
+
+def ordini_del_run(cartella):
+    guasto = fermo.leggi_guasto(cartella)
+    return fermo.leggi_ordini(cartella, guasto["ts_nodo"] - guasto["ts_guasto"]), guasto
+
+
+def fermo_completamento(cartella, limite=2.0):
+    ordini, guasto = ordini_del_run(cartella)
+    t_r = fermo.ripristino(fermo.completamento(ordini, limite), guasto["ts_nodo"], SECONDI, SOGLIA)
+    return None if t_r is None else t_r - guasto["ts_nodo"]
+
+
+def test_database_fermo_il_completamento_dura_piu_dell_accettazione(tmp_path):
+    # Il database è fermo dal secondo 10 al 40: l'API accetta tutto (nessun fermo di accettazione), ma gli
+    # ordini ricevuti in quei 30 s si salvano solo a 40 s. Il completamento riparte con gli ordini ricevuti
+    # da 38,05 s in poi, che si salvano entro il limite di 2 s: fermo 28,1 s, non 30.
+    richieste = scenario(tmp_path, database_fermo=(10, 40))
+    accettazione = fermo.ripristino(richieste, INIZIO + 10, SECONDI, SOGLIA) - (INIZIO + 10)
+    completamento = fermo_completamento(tmp_path)
+    assert accettazione == pytest.approx(0, abs=0.05)
+    assert completamento == pytest.approx(28.1, abs=0.1)
+    assert completamento > accettazione
+
+
+def test_senza_guasto_il_fermo_del_completamento_e_zero(tmp_path):
+    scenario(tmp_path)
+    assert fermo_completamento(tmp_path) == pytest.approx(0, abs=0.01)
+
+
+def test_l_orologio_del_cluster_avanti_non_cambia_il_risultato(tmp_path):
+    # D0005: gli istanti di db.csv e ts_nodo sono del cluster, 3 s avanti rispetto al computer.
+    scenario(tmp_path, database_fermo=(10, 40), sfasamento=3.0)
+    assert fermo_completamento(tmp_path) == pytest.approx(28.1, abs=0.1)
+
+
+def test_gli_istanti_di_postgres_si_leggono(tmp_path):
+    scenario(tmp_path, database_fermo=(10, 40), stile="postgres")
+    assert fermo_completamento(tmp_path) == pytest.approx(28.1, abs=0.1)
+
+
+def test_un_ordine_mai_salvato_conta_come_non_completato(tmp_path):
+    # Dall'ordine 200 (secondo 10) al 259 (secondo 12,95) il database perde ogni ordine: il ripristino
+    # del completamento arriva dopo, anche se l'API ha accettato tutto.
+    scenario(tmp_path, mai_salvati=range(200, 260))
+    assert fermo_completamento(tmp_path) == pytest.approx(3.0, abs=0.1)
+
+
+def test_un_ordine_rifiutato_e_mai_salvato_non_e_stato_ricevuto(tmp_path):
+    # Ogni secondo degli ordini 200-259 ne perde uno: il client vede un 503 e nel database non arriva nulla.
+    # Non è un ordine ricevuto, quindi non è un ordine non completato (lo dice l'accettazione): gli altri
+    # sono tutti salvati subito e il completamento non ha fermo.
+    rifiutati = range(200, 260, 2)
+    richieste = scenario(tmp_path, mai_salvati=rifiutati)
+    scrivi_client(tmp_path, [(t, k not in rifiutati, s) for k, (t, _, s) in enumerate(richieste)])
+    assert fermo_completamento(tmp_path) == pytest.approx(0, abs=0.01)
+    # lo stesso scenario, con quegli ordini accettati dal client: mai salvati, quindi non completati (1 su 2)
+    scrivi_client(tmp_path, richieste)
+    assert fermo_completamento(tmp_path) == pytest.approx(3.0, abs=0.1)
+
+
+def test_un_ordine_salvato_dopo_un_timeout_e_ricevuto_e_conta(tmp_path):
+    richieste = scenario(tmp_path, database_fermo=(10, 40))
+    scrivi_client(tmp_path, [(t, k % 2 == 0, s) for k, (t, _, s) in enumerate(richieste)])  # metà con esito negativo
+    assert fermo_completamento(tmp_path) == pytest.approx(28.1, abs=0.1)  # sono in db.csv: ricevuti lo stesso
+
+
+def test_il_limite_di_completamento_cambia_il_fermo(tmp_path):
+    # ogni ordine si salva 1,5 s dopo la ricezione: completato con il limite di 2 s, non con quello di 1 s
+    scenario(tmp_path, scritti_dopo=1.5)
+    assert fermo_completamento(tmp_path, limite=2) == pytest.approx(0, abs=0.01)
+    ordini, guasto = ordini_del_run(tmp_path)
+    assert fermo.ripristino(fermo.completamento(ordini, 1), guasto["ts_nodo"], SECONDI, SOGLIA) is None
+
+
+def test_il_guasto_di_guasto_json_manca_o_e_sbagliato(tmp_path):
+    scenario(tmp_path)
+    (tmp_path / "guasto.json").unlink()
+    with pytest.raises(ErroreDati, match="ts_nodo"):
+        fermo.leggi_guasto(tmp_path)
+    (tmp_path / "guasto.json").write_text('{"ts_guasto": "2026-11-12T10:00:10+00:00"}')
+    with pytest.raises(ErroreDati, match="servono ts_guasto e ts_nodo"):
+        fermo.leggi_guasto(tmp_path)
+
+
+def test_da_riga_di_comando_stampa_anche_il_completamento(tmp_path, monkeypatch, capsys):
+    scenario(tmp_path, database_fermo=(10, 40))
+    uscita = lancia(monkeypatch, capsys, tmp_path, "--limite", "2")  # --guasto: ts_guasto di guasto.json
+    assert "fermo      t_r - t_g = 0.000 s" in uscita  # accettazione
+    assert "completamento, limite 2 s" in uscita
+    assert "fermo      t_r - t_g = 28.1" in uscita
+    assert "servizio   fermo = 28.1" in uscita
+    assert "ordini non completati per il guasto: 562" in uscita
+
+
+def test_sensibilita_ripete_il_calcolo_con_i_limiti_di_parametri_yaml(tmp_path, monkeypatch, capsys):
+    scenario(tmp_path, scritti_dopo=1.5)
+    uscita = lancia(monkeypatch, capsys, tmp_path, "--sensibilita")
+    assert "completamento, limite 2 s" in uscita
+    assert "completamento, limite 1 s" in uscita
+    assert "completamento, limite 5 s" in uscita
+    assert "ripristino non avvenuto: gli ordini finiscono" in uscita  # con 1 s non c'è ripristino
+
+
+def test_senza_db_csv_resta_solo_l_accettazione(tmp_path, monkeypatch, capsys):
+    scenario(tmp_path)
+    (tmp_path / "db.csv").unlink()
+    assert "completamento" not in lancia(monkeypatch, capsys, tmp_path)
+
+
+def test_con_db_csv_ma_senza_guasto_json_e_un_errore(tmp_path, monkeypatch, capsys):
+    scenario(tmp_path)
+    (tmp_path / "guasto.json").unlink()
+    with pytest.raises(SystemExit, match="guasto.json"):
+        lancia(monkeypatch, capsys, tmp_path, "--guasto", come_iso(INIZIO + 10))
