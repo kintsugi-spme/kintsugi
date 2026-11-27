@@ -15,7 +15,7 @@ F1 & Arresto improvviso di un'istanza dell'API & \texttt{SIGKILL} & V1, V2, V3 &
 F2 & Arresto di tutti i worker & \texttt{SIGKILL} & V3 & 2, 3 \\
 F3 & Arresto del broker & \texttt{SIGKILL} & V3 & 2, 3 \\
 F4 & Arresto del database (in V4: del primario) & \texttt{SIGKILL} & V1--V4 & 1, 2, 4 \\
-F5 & Latenza verso il database (200~ms per 60~s) & Toxiproxy & V2, V3 & 2 \\
+F5 & Latenza verso il database (\parametro{f5_latenza_ms}~ms per \parametro{f5_durata_s}~s) & Toxiproxy & V2, V3 & 2 \\
 F6 & Perdita di un nodo \textit{(facoltativo)} & arresto del nodo & V2, V3 & 3, 6 \\
 F7 & Blocco di un'istanza dell'API, con due configurazioni delle sonde & \texttt{SIGSTOP} & V2 & 3 \\
 \bottomrule
@@ -67,4 +67,4 @@ La figura~\ref{fig:anatomia} scompone il fermo in rilevamento, riavvio e ritorno
 \label{fig:anatomia}
 \end{figure}
 
-\paragraph{Come si provocano.} I segnali \texttt{SIGKILL} (crash) e \texttt{SIGSTOP} (blocco) sono inviati dal nodo che ospita il processo, non con \texttt{kubectl delete pod}, che è una terminazione ordinata e non un guasto. L'istante del guasto è registrato al millisecondo. Prima di ogni run il sistema viene riportato a uno stato iniziale verificato. La latenza del guasto F5 è di 200~ms: con 500~ms il sincrono fallirebbe quasi del tutto e il guasto non direbbe nulla di nuovo rispetto all'arresto del database.
+\paragraph{Come si provocano.} I segnali \texttt{SIGKILL} (crash) e \texttt{SIGSTOP} (blocco) sono inviati dal nodo che ospita il processo, non con \texttt{kubectl delete pod}, che è una terminazione ordinata e non un guasto. L'istante del guasto è registrato al millisecondo. Prima di ogni run il sistema viene riportato a uno stato iniziale verificato. La latenza del guasto F5 è di \parametro{f5_latenza_ms}~ms: ogni ordine fa 4 scambi con il database, e già con 200~ms il sincrono fallirebbe quasi del tutto e il guasto non direbbe nulla di nuovo rispetto all'arresto del database.

@@ -81,7 +81,7 @@ sonde:
 # --- Guasti (capitolo «Guasti») ------------------------------------------------------
 # Li usano il capitolo e lo script del guasto F5 (harness/faults/latenza.py).
 guasti:
-  f5_latenza_ms: 200                     # ritardo aggiunto a ogni risposta del database (Toxiproxy)
+  f5_latenza_ms: 100                     # ritardo aggiunto a ogni risposta del database (Toxiproxy); 200 fino al 27/11 (D0021)
   f5_durata_s: 60                        # per quanto tempo
 
 # --- Osservabilità (D0019) ------------------------------------------------------------
