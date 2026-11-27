@@ -21,7 +21,7 @@ Perché questi numeri non sono solo del documento: sono i parametri degli esperi
 | Manifest Kubernetes: KEDA (`deploy/k8s/overlays/v5/`) | `deploy/k8s/parametri.py` scrive nello stesso `parametri.env` i worker da 1 a 10 (`versioni.worker_v5_*`) e i valori di KEDA (`keda.*`); `overlays/v5/kustomization.yaml` li copia nello ScaledObject con `replacements`. La soglia in ordini per worker è provvisoria fino a F4 | in uso |
 | Manifest Kubernetes: osservabilità (`deploy/k8s/osservabilita/`) | `deploy/k8s/parametri.py` scrive `osservabilita/prometheus.yml` da `prometheus.modello.yml`, con l'intervallo di raccolta (`osservabilita.intervallo_raccolta_s`, D0019) | in uso |
 | Guasto F5 (`harness/faults/latenza.py`) | legge latenza e durata (`guasti.f5_latenza_ms`, `guasti.f5_durata_s`), se non si passano `--latenza-ms` e `--durata` | in uso |
-| Analisi: fermo e ripristino (`analysis/fermo.py`) | legge i secondi consecutivi (`run.ripristino_secondi_consecutivi`) e la soglia del 99% (`tempi.soglia_secondo_disponibile_percentuale`) | in uso |
+| Analisi: fermo e ripristino (`analysis/fermo.py`) | legge i secondi consecutivi (`run.ripristino_secondi_consecutivi`) e la soglia del 99% (`tempi.soglia_secondo_disponibile_percentuale`); per il completamento anche il limite (`tempi.limite_completamento_s`) e quelli della sensibilità (`tempi.limite_completamento_sensibilita_s`, con `--sensibilita`) | in uso |
 | Analisi: ritmo inviato (`analysis/ritmo.py`) | legge la tolleranza sul ritmo del client (`carichi.ritmo_tolleranza_percentuale`), se non si passa `--tolleranza` | in uso |
 | Analisi: calcoli di fine campagna (`analysis/`) | limite di completamento e sensibilità a 1 s e 5 s | previsto |
 
