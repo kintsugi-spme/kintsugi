@@ -22,8 +22,8 @@ ricreati) e 1 minuto dopo; si cambia con --da e --a. Si scrive anche `esportazio
 passo: il tempo dell'esportazione entra nella durata di ogni run.
 
 Il database si legge direttamente, non da Toxiproxy: il guasto F5 non rallenta l'esportazione. In V4 (database
-replicato) si legge dal primario di CloudNativePG di quel momento, anche dopo un failover: scritto, ma non
-ancora provato su V4 (si prova a mano o nella #129). Tutti i comandi usano il contesto `kind-kintsugi`.
+replicato) si legge dal primario di CloudNativePG di quel momento, anche dopo un failover (provato su V4a e V4s
+cancellando il primario con il carico acceso). Tutti i comandi usano il contesto `kind-kintsugi`.
 Esce con codice 1 se un passo non riesce o categorie.py trova un'anomalia.
 """
 
