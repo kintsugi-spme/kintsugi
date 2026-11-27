@@ -22,7 +22,17 @@ Run vero, lanciato con il `run.py` della #122: V3, guasto F4 (SIGKILL al contain
 
 Con `--sensibilita` lo stesso run dà un fermo del completamento di **3,312 s** con il limite di 1 s (66 ordini non completati) e di **0 s** con 5 s.
 
-Il container è ripartito dopo 0,26 s e tra due scritture nel database c'è stato un buco di 3,07 s (ritardo massimo di un ordine 3,12 s). Lo scarto dalla previsione si spiega: l'esempio del capitolo ha un fermo del database di 30 s e un ritmo di 100 ordini/s, qui il fermo è di pochi secondi e il ritmo è 20/s. La previsione non si cambia: il confronto vero si fa a fine campagna, con il ritmo di F4 e il fermo del database che l'infrastruttura darà.
+**Il confronto giusto con la previsione** (correzione di Francesco nella revisione). L'intervallo da 10 a 36 s non viene dall'esempio 3 del capitolo (database fermo 30 s, 100 ordini/s) ma dalla riga «Guasto F4 su V3»: (D₀ + R) · μ/(μ − λ) ≈ 2 · (5-18 s), cioè D₀ + R tra 5 e 18 s e un fattore μ/(μ − λ) = 2 (carico al 50 % della capacità). Nel run vero i numeri sono altri:
+
+- **D₀ + R è circa 3 s**, sotto i 5-18 s ipotizzati: il container è ripartito dopo 0,26 s e tra due scritture nel database c'è stato un buco di 3,07 s (ritardo massimo di un ordine 3,12 s).
+- **Il fattore è circa 1,5**: 3 worker da circa 20 ordini/s danno μ ≈ 60 ordini/s e λ è 20, quindi 60/(60 − 20) = 1,5.
+- **Con questi valori la formula dà 3,07 · 1,5 ≈ 4,6 s.** Il fermo misurato dipende dal limite di completamento (stesso run, `--limite`):
+
+| Limite | 0,1 s | 0,5 s | 1 s | 2 s | 5 s |
+|---|---|---|---|---|---|
+| Fermo del completamento | 4,72 s | 4,07 s | 3,31 s | 1,72 s | 0 s |
+
+Con un limite quasi nullo il fermo misurato è vicino alla formula (4,7 s contro 4,6 s); con i 2 s di D0008 è più corto, perché un ordine che aspetta meno di 2 s conta come completato. È uno **scarto di definizione**, non di modello: la formula della previsione non toglie il limite. Va scritto nel report. La previsione non si cambia: il confronto vero si fa a fine campagna, con il ritmo di F4 e il fermo del database che l'infrastruttura darà.
 
 ## Problemi e limiti
 
