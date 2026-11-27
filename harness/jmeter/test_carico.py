@@ -124,3 +124,13 @@ def test_il_comando_lancia_jmeter_senza_interfaccia(tmp_path: Path):
     c = carico.comando("jmeter", tmp_path, {"programma": "rate(10/sec)"})
     assert c[:2] == ["jmeter", "-n"]
     assert str(tmp_path / "jmeter.jtl") in c and "-Jprogramma=rate(10/sec)" in c
+
+
+def test_risultati_utilizzabili_solo_con_almeno_una_richiesta(tmp_path):
+    # un run fermato da fuori esce con un codice diverso da 0: i risultati si usano se ci sono
+    jtl = tmp_path / "jmeter.jtl"
+    assert not carico.risultati_utilizzabili(jtl)  # il file non c'è
+    jtl.write_text("timeStamp,elapsed\n")
+    assert not carico.risultati_utilizzabili(jtl)  # solo l'intestazione
+    jtl.write_text("timeStamp,elapsed\n1795770000500,52\n")
+    assert carico.risultati_utilizzabili(jtl)

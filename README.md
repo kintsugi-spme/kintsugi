@@ -226,6 +226,7 @@ make osservabilita  # Prometheus e kube-state-metrics sul nodo dati (D0019); lo 
 make togli      # toglie la versione accesa, dati compresi; il cluster, l'operatore di V4, KEDA e l'osservabilità restano
 make verifica   # i criteri di F3: V1-V3 funzionano e un crash F1 dà fermo e ripristino con i millisecondi (circa 10 minuti)
 make reset VERSIONE=v2   # riporta la versione accesa allo stato iniziale e lo verifica (V1-V3): code e tabelle vuote, pod ricreati
+make run VERSIONE=V2 GUASTO=F1 CARICO=W1 RITMO=20   # un run completo (V1-V3): reset, JMeter, guasto, esportazione e analisi in data/locale/
 make giu        # cancella il cluster
 ```
 

@@ -17,6 +17,7 @@
 #   make giu        cancella il cluster
 #   make verifica   i criteri di F3 (issue #86): V1-V3 funzionano e un crash F1 dà fermo e ripristino con i millisecondi
 #   make reset VERSIONE=v2   riporta la versione accesa allo stato iniziale e lo verifica (V1, V2, V3; issue #121)
+#   make run VERSIONE=V2 GUASTO=F1 CARICO=W1 RITMO=20   un run completo, dal reset all'analisi (V1, V2, V3; issue #122)
 #
 # Tutti i comandi di kubectl usano il contesto `kind-kintsugi`: non toccano altri cluster
 # che il computer conosca.
@@ -177,4 +178,14 @@ reset:
 	@test -n "$(VERSIONE)" || { echo "errore: dì quale versione è accesa, per esempio  make reset VERSIONE=v2  (v1, v2 o v3)"; exit 1; }
 	$(PYTHON) ../../harness/reset/reset.py --versione $(VERSIONE)
 
-.PHONY: immagine cluster controlla prova $(VERSIONI) cnpg keda osservabilita togli giu verifica reset
+# Un run completo (harness/run/run.py, issue #122): reset, carico con JMeter, guasto al minuto 2, osservazione fino al
+# ripristino più 2 minuti, esportazione e analisi. La versione deve essere già accesa (make v1, v2 o v3).
+#   make run VERSIONE=V2 GUASTO=F1 CARICO=W1 RITMO=20        GUASTO vuoto: senza guasto; CARICO=W2 vuole MU1=20
+#   Ripetizione e altre opzioni:  make run ... RIPETIZIONE=2
+run:
+	@test -n "$(VERSIONE)" -a -n "$(CARICO)" || { echo "errore: servono VERSIONE e CARICO, per esempio  make run VERSIONE=V2 GUASTO=F1 CARICO=W1 RITMO=20"; exit 1; }
+	$(PYTHON) ../../harness/run/run.py --versione $(VERSIONE) --carico $(CARICO) \
+		$(if $(GUASTO),--guasto $(GUASTO)) $(if $(RITMO),--ritmo $(RITMO)) $(if $(MU1),--mu1 $(MU1)) \
+		$(if $(RIPETIZIONE),--ripetizione $(RIPETIZIONE))
+
+.PHONY: immagine cluster controlla prova $(VERSIONI) cnpg keda osservabilita togli giu verifica reset run
