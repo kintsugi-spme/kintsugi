@@ -1,0 +1,20 @@
+\begin{decisione}{D0021}{Quanto rallentare il database nel guasto F5}{Accettata}{27/11/2026}
+
+\contesto
+Il guasto F5 aggiunge con Toxiproxy una latenza $L$ a ogni risposta del database, per vedere un sistema che rallenta senza fermarsi. Il capitolo «Guasti» l'aveva fissata a 200~ms, stimando che ogni ordine facesse 2 o 3 scambi con il database ($k$ nella formula $S + kL$ delle previsioni), cioè da 0,4 a 0,6~s per ordine. La prima prova del guasto (issue \#120) ha dato circa 1,1~s per ordine e, su V2 a 20 ordini al secondo, tra il 70 e il 95\% di risposte \texttt{503}: con 200~ms il guasto F5 diventava quasi uguale al guasto F4.
+
+La causa è nel codice: per salvare un ordine l'applicazione fa 4 scambi con il database, cioè il controllo della connessione presa dal pool, l'inizio della transazione, l'inserimento e la conferma. La misura lo conferma (issue \#144): su V2, a 2 ordini al secondo per non creare code, il tempo di risposta cresce di 4,1, 3,9 e 4,0 volte la latenza con 50, 100 e 200~ms (da 73~ms senza latenza a 875~ms con 200~ms), quindi $k = 4$.
+
+\scelta
+La latenza del guasto F5 è 100~ms, sempre per 60~s. Con $k = 4$ un ordine costa circa $S + 4L \approx 0{,}45$~s e V2, con 15 scritture contemporanee, regge circa 33 ordini al secondo: il guasto rallenta senza far fallire gli ordini, come era stato pensato. Il valore sta in \texttt{config/parametri.yaml} (\texttt{guasti.f5\_latenza\_ms}) e lo leggono il capitolo «Guasti» e lo script del guasto.
+
+Le alternative scartate:
+\begin{itemize}
+  \item tenere 200~ms: V2 reggerebbe circa 17 ordini al secondo e a 20 fallirebbe quasi tutto, quindi F5 non direbbe niente di nuovo rispetto a F4, per lo stesso motivo per cui il capitolo «Guasti» scartava già 500~ms;
+  \item togliere scambi dall'applicazione (per esempio il controllo della connessione): cambierebbe il codice di tutte le versioni dopo le misure di F3 solo per far tornare un guasto.
+\end{itemize}
+
+\conseguenze
+Il cambio avviene dopo una prova di funzionamento e prima delle misure ufficiali del guasto F5. \textbf{Le previsioni non si toccano}: congelate dal tag \texttt{m1}, sono scritte per $L = 200$~ms e $k$ da 2 a 3. Nel report si confronta la misura con la formula $S + kL$, che resta la stessa, usando $k = 4$ misurato e $L = 100$~ms, e si spiega lo scarto tra la stima di $k$ e il valore misurato. La capacità $\mu_L$ della previsione si ricalcola con gli stessi valori.
+
+\end{decisione}
