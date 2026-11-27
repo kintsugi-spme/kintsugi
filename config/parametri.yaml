@@ -78,6 +78,12 @@ sonde:
   sonda_standard_pronta_periodo_s: 10    # readiness ogni
   sonda_standard_viva_periodo_s: 10      # liveness ogni
 
+# --- Guasti (capitolo «Guasti») ------------------------------------------------------
+# Li usano il capitolo e lo script del guasto F5 (harness/faults/latenza.py).
+guasti:
+  f5_latenza_ms: 200                     # ritardo aggiunto a ogni risposta del database (Toxiproxy)
+  f5_durata_s: 60                        # per quanto tempo
+
 # --- Osservabilità (D0019) ------------------------------------------------------------
 # Prometheus non misura il fermo (lo si calcola dal log del client e dal database): serve a vedere coda,
 # worker accesi e risorse durante un run.

@@ -1,9 +1,10 @@
-"""Guasti F1-F4: arresto improvviso (SIGKILL) di un componente, mandato dal nodo che lo ospita.
+"""Guasti F1-F4 e F7: arresto improvviso (SIGKILL) o blocco (SIGSTOP) di un componente, mandato dal suo nodo.
 
     python harness/faults/arresto.py --cartella data/locale/<run-id>                 # F1, una copia dell'API
     python harness/faults/arresto.py --cartella data/locale/<run-id> --guasto F2     # tutti i worker (V3)
     python harness/faults/arresto.py --cartella data/locale/<run-id> --guasto F3     # il broker (V3)
     python harness/faults/arresto.py --cartella data/locale/<run-id> --guasto F4     # il database (V1-V3)
+    python harness/faults/arresto.py --cartella data/locale/<run-id> --guasto F7     # blocca una copia dell'API (V2)
     python harness/faults/arresto.py --cartella data/locale/<run-id> --pod api-7694fd4cc7-85655
 
 Ogni guasto (tabella GUASTI) dice quali pod colpire e quale container deve trovarci: il kill va al processo
@@ -34,6 +35,13 @@ la distanza tra il primo e l'ultimo kill. Sull'orologio del nodo, `ts_nodo` è p
 Dopo il kill lo script aspetta che ogni container riparta nello stesso pod (riavviato, non
 ricreato) e scrive tutto in `guasto.json` nella cartella del run. Esce con codice 1 se qualcosa
 non torna: nessun pod, pod ricreato invece che riavviato, nessun riavvio entro l'attesa.
+
+Il guasto F7 manda SIGSTOP: il processo resta in vita ma non risponde, e Kubernetes se ne accorge solo dalle
+sonde (D0007). Lo script registra quando la copia esce dagli endpoint del Service (`ts_fuori_dal_service`, la
+readiness l'ha esclusa: lì finisce il fermo di V2) e quando la liveness l'ha fatta ripartire. Il riavvio
+arriva tardi: Kubernetes manda prima SIGTERM, che un processo fermo non riceve, e il SIGKILL solo dopo il
+tempo di chiusura del pod (30 s). Gli istanti dopo il guasto si leggono con kubectl ogni 0,2 s: sono in
+ritardo sul vero di al massimo una lettura (circa 0,3 s).
 """
 
 import argparse
@@ -59,6 +67,7 @@ class Guasto:
     tutti: bool  # tutti i pod del selettore (F2) o uno solo
     descrizione: str
     segnale: str = "KILL"
+    service: str | None = None  # con un blocco: il Service da cui la copia deve uscire
 
 
 GUASTI = {g.nome: g for g in [
@@ -66,6 +75,7 @@ GUASTI = {g.nome: g for g in [
     Guasto("F2", "app=worker", "worker", True, "tutti i worker"),
     Guasto("F3", "app=coda", "rabbitmq", False, "il broker"),
     Guasto("F4", "app=db", "postgres", False, "il database"),
+    Guasto("F7", "app=api", "api", False, "blocca una copia dell'API", segnale="STOP", service="api"),
 ]}
 
 
@@ -138,7 +148,9 @@ class ShellNelNodo:
     def __init__(self, nodo: str):
         self._processo = subprocess.Popen(
             ["docker", "exec", "-i", nodo, "sh"],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1,
+            # In una sessione sua: il Ctrl-C del terminale non la chiude (latenza.py la usa per togliere il guasto).
+            start_new_session=True)
 
     def comando(self, riga: str) -> str:
         """Esegue `riga` e restituisce la prima riga che stampa (ogni comando ne stampa una)."""
@@ -202,6 +214,26 @@ def stato_del_pod(kubectl, pod: str) -> dict:
     return json.loads(kubectl(["get", "pod", pod, "-o", "json"]))
 
 
+def fuori_dal_service(slices: dict, pod: str) -> bool:
+    """Vero se nessun endpoint pronto del Service è `pod`, da `kubectl get endpointslices -o json`."""
+    return not any(e.get("targetRef", {}).get("name") == pod and e.get("conditions", {}).get("ready")
+                   for s in slices.get("items", []) for e in s.get("endpoints") or [])
+
+
+def aspetta_fuori_dal_service(kubectl, service: str, pod: str, attesa_s: float, pausa_s: float = 0.2,
+                              orologio=time.monotonic, ora=time.time, dormi=time.sleep) -> float:
+    """Aspetta che la readiness escluda `pod` dal Service; restituisce l'istante (orologio del computer)."""
+    scadenza = orologio() + attesa_s
+    while True:
+        slices = json.loads(kubectl(["get", "endpointslices", "-l", f"kubernetes.io/service-name={service}",
+                                     "-o", "json"]))
+        if fuori_dal_service(slices, pod):
+            return ora()
+        if orologio() >= scadenza:
+            raise ErroreGuasto(f"{pod} è ancora tra gli endpoint pronti del Service {service} dopo {attesa_s:g} s")
+        dormi(pausa_s)
+
+
 def aspetta_riavvio(kubectl, bersaglio: Bersaglio, attesa_s: float, pausa_s: float = 0.5,
                     orologio=time.monotonic, dormi=time.sleep) -> dict:
     """Aspetta che il container riparta nello stesso pod; restituisce il suo nuovo stato."""
@@ -242,12 +274,13 @@ def resoconto_del_kill(guasto: Guasto, bersagli: list[dict], istanti: list[dict]
 
 
 def provoca(kubectl, apri_shell, guasto: Guasto, nome: str | None, attesa_s: float, scrivi,
-            orologio=time.time) -> dict:
+            orologio=time.time, ora=time.time, aspetta_servizio=aspetta_fuori_dal_service) -> dict:
     """Sceglie i pod, manda il segnale dai loro nodi e aspetta i riavvii.
 
     Prima del primo kill si apre e si scalda una shell per nodo e si cercano tutti i PID: al momento del
     guasto parte solo un comando per nodo. `scrivi` riceve guasto.json due volte: subito dopo il kill,
     perché il run ha bisogno dell'istante del guasto anche se il riavvio non arriva, e poi con l'esito.
+    `orologio` dà gli istanti del kill, `ora` quelli osservati dopo (uscita dal Service, riavvio).
     """
     pods = json.loads(kubectl(["get", "pods", "-l", guasto.selettore, "-o", "json"]))
     bersagli = scegli_bersagli(pods, guasto.container, nome, guasto.tutti)
@@ -269,10 +302,16 @@ def provoca(kubectl, apri_shell, guasto: Guasto, nome: str | None, attesa_s: flo
     dati = resoconto_del_kill(guasto, righe, istanti)
     scrivi(dati)
     try:
+        if guasto.service:
+            fuori = aspetta_servizio(kubectl, guasto.service, bersagli[0].pod, attesa_s)
+            dati |= {"ts_fuori_dal_service": come_testo(fuori),
+                     "fuori_dal_service_dopo_s": round(fuori - istanti[0]["prima"], 3)}
+            scrivi(dati)
         for b, riga in zip(bersagli, righe):
             stato_dopo = aspetta_riavvio(kubectl, b, attesa_s)
             riga |= {"container_id_dopo": stato_dopo["containerID"].split("://", 1)[-1],
-                     "riavvii_dopo": stato_dopo["restartCount"]}
+                     "riavvii_dopo": stato_dopo["restartCount"],
+                     "riavvio_visto_dopo_s": round(ora() - istanti[0]["prima"], 3)}
     except ErroreGuasto as errore:
         scrivi({**dati, "riavviati_nello_stesso_pod": False, "errore": str(errore)})
         raise
@@ -289,7 +328,7 @@ def main() -> None:
                         help="; ".join(f"{g.nome}: {g.descrizione}" for g in GUASTI.values()))
     parser.add_argument("--pod", default=None, help="nome del pod da colpire (predefinito: il primo; non con F2)")
     parser.add_argument("--contesto", default="kind-kintsugi", help="contesto di kubectl")
-    parser.add_argument("--attesa", type=float, default=60,
+    parser.add_argument("--attesa", type=float, default=120,
                         help="secondi di attesa del riavvio di ogni container prima di dare errore")
     argomenti = parser.parse_args()
     guasto = GUASTI[argomenti.guasto]
@@ -316,8 +355,10 @@ def main() -> None:
 
     colpiti = ", ".join(f"{b['pod']} ({b['processo']}, PID {b['pid_nel_nodo']} su {b['nodo']}, "
                         f"riavvii {b['riavvii']} → {b['riavvii_dopo']})" for b in risultato["bersagli"])
+    fuori = (f"fuori dal Service dopo {risultato['fuori_dal_service_dopo_s']:.1f} s; "
+             if "fuori_dal_service_dopo_s" in risultato else "")
     print(f"{risultato['guasto']}, {risultato['segnale']} a {colpiti} alle {risultato['ts_guasto']}, incertezza "
-          f"{risultato['incertezza_s'] * 1000:.1f} ms; riavviati nello stesso pod; scritto {file}")
+          f"{risultato['incertezza_s'] * 1000:.1f} ms; {fuori}riavviati nello stesso pod; scritto {file}")
 
 
 if __name__ == "__main__":

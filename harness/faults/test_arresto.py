@@ -1,4 +1,4 @@
-"""Prove dello script dei guasti F1-F4 con kubectl e la shell del nodo finti (nessun cluster).
+"""Prove dello script dei guasti F1-F4 e F7 con kubectl e la shell del nodo finti (nessun cluster).
 
     pytest -q harness/faults
 
@@ -304,3 +304,66 @@ def test_senza_docker_o_kubectl_si_esce_con_un_messaggio(monkeypatch, tmp_path, 
         arresto.main()
     assert uscita.value.code == "errore: programma non trovato: kubectl (servono docker e kubectl)"
     assert not (tmp_path / "guasto.json").exists()
+
+
+def slices(*endpoint):
+    """EndpointSlice finti: coppie (pod, pronto)."""
+    return {"items": [{"endpoints": [{"targetRef": {"name": n}, "conditions": {"ready": r}} for n, r in endpoint]}]}
+
+
+@pytest.mark.parametrize("fette, fuori", [
+    (slices(("api-a", True), ("api-b", True)), False),
+    (slices(("api-a", False), ("api-b", True)), True),   # la readiness l'ha esclusa
+    (slices(("api-b", True)), True),                     # tolta del tutto
+    ({"items": [{"endpoints": None}]}, True),            # nessun endpoint
+])
+def test_una_copia_e_fuori_dal_service_se_non_e_tra_gli_endpoint_pronti(fette, fuori):
+    assert arresto.fuori_dal_service(fette, "api-a") is fuori
+
+
+def test_si_aspetta_l_uscita_dal_service_e_se_ne_da_l_istante():
+    risposte = iter([slices(("api-a", True)), slices(("api-a", True)), slices(("api-a", False))])
+    letture = []
+
+    def kubectl(parametri):
+        letture.append(parametri)
+        return json.dumps(next(risposte))
+    istante = arresto.aspetta_fuori_dal_service(kubectl, "api", "api-a", 10, ora=lambda: 123.5, dormi=lambda _: None)
+    assert istante == 123.5 and len(letture) == 3
+    assert letture[0] == ["get", "endpointslices", "-l", "kubernetes.io/service-name=api", "-o", "json"]
+
+
+def test_una_copia_che_resta_nel_service_e_un_errore():
+    tempo = iter(range(100)).__next__
+    with pytest.raises(arresto.ErroreGuasto, match="ancora tra gli endpoint"):
+        arresto.aspetta_fuori_dal_service(lambda _: json.dumps(slices(("api-a", True))), "api", "api-a", 3,
+                                          orologio=tempo, dormi=lambda _: None)
+
+
+def test_f7_manda_sigstop_e_registra_uscita_dal_service_e_riavvio():
+    shell = ShellFinta("pronto", "8179", "uvicorn", f"ok {GUASTO + 0.001:.6f} {GUASTO + 0.0011:.6f}")
+    orologio = iter([GUASTO, GUASTO + 0.004]).__next__
+
+    def kubectl(parametri):
+        if parametri[:2] == ["get", "pods"]:
+            return json.dumps({"items": [pod("api-b"), pod("api-a")]})
+        return json.dumps(pod("api-a", riavvii=1, container_id=ID_B))
+
+    def aspetta_servizio(_kubectl, service, nome, _attesa):
+        assert (service, nome) == ("api", "api-a")
+        return GUASTO + 4.2
+    scritti = []
+    risultato = arresto.provoca(kubectl, lambda _: shell, arresto.GUASTI["F7"], None, attesa_s=10,
+                                scrivi=lambda d: scritti.append(dict(d)), orologio=orologio,
+                                ora=lambda: GUASTO + 38.0, aspetta_servizio=aspetta_servizio)
+    assert "kill -STOP 8179" in shell.comandi[-1]
+    assert risultato["segnale"] == "SIGSTOP"
+    assert risultato["fuori_dal_service_dopo_s"] == pytest.approx(4.2)
+    assert risultato["ts_fuori_dal_service"] == "2026-11-12T09:13:20.930+00:00"
+    assert risultato["bersagli"][0]["riavvio_visto_dopo_s"] == pytest.approx(38.0)
+    # L'uscita dal Service si scrive appena vista, prima di aspettare il riavvio.
+    assert "ts_fuori_dal_service" in scritti[1] and "riavviati_nello_stesso_pod" not in scritti[1]
+
+
+def test_i_crash_non_aspettano_l_uscita_dal_service():
+    assert all(g.service is None for n, g in arresto.GUASTI.items() if n != "F7")
