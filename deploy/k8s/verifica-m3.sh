@@ -80,7 +80,7 @@ criterio2() {  # criterio2 VERSIONE
     --timeout 2 --uscita "$d/client.csv" >"$d/cliente.txt" 2>&1 &
   cliente=$!
   sleep 20
-  $PYTHON "$RADICE/harness/faults/arresto.py" --cartella "$d" --selettore app=api >"$d/arresto.txt" 2>&1
+  $PYTHON "$RADICE/harness/faults/arresto.py" --cartella "$d" --guasto F1 >"$d/arresto.txt" 2>&1
   arresto=$?
   wait "$cliente"
   esito "$v: SIGKILL a una copia dell'API, riavviata nello stesso pod" "$arresto" "$(tail -1 "$d/arresto.txt" | cut -c1-140)"

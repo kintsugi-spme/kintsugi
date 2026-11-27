@@ -1,4 +1,4 @@
-"""Prove dello script del guasto F1 con kubectl e la shell del nodo finti (nessun cluster).
+"""Prove dello script dei guasti F1-F4 e F7 con kubectl e la shell del nodo finti (nessun cluster).
 
     pytest -q harness/faults
 
@@ -17,13 +17,14 @@ ID_A = "a" * 64
 ID_B = "b" * 64
 
 
-def pod(nome, uid="uid-1", nodo="kintsugi-worker2", riavvii=0, in_esecuzione=True, container_id=ID_A):
+def pod(nome, uid="uid-1", nodo="kintsugi-worker2", riavvii=0, in_esecuzione=True, container_id=ID_A,
+        container="api"):
     stato = {"running": {"startedAt": "2026-11-12T09:00:00Z"}} if in_esecuzione else {"waiting": {}}
     return {
         "metadata": {"name": nome, "uid": uid},
         "spec": {"nodeName": nodo},
         "status": {"containerStatuses": [{
-            "name": "api", "containerID": f"containerd://{container_id}",
+            "name": container, "containerID": f"containerd://{container_id}",
             "restartCount": riavvii, "state": stato}]},
     }
 
@@ -84,21 +85,31 @@ def test_un_pid_assente_o_uguale_a_uno_e_un_errore(risposta):
         arresto.pid_nel_nodo(ShellFinta(risposta), ID_A)
 
 
-def test_il_kill_ricontrolla_il_container_e_restituisce_i_tre_istanti():
-    shell = ShellFinta("ok 1731402796.731000000")
+def test_il_kill_ricontrolla_il_container_e_restituisce_gli_istanti():
+    shell = ShellFinta("ok 1731402796.731000000 1731402796.731200000")
     orologio = iter([1731402796.730, 1731402796.734]).__next__
-    istanti = arresto.manda_sigkill(shell, 8179, ID_A, orologio)
-    assert istanti == {"prima": 1731402796.730, "dopo": 1731402796.734, "nodo": 1731402796.731}
+    istanti = arresto.manda_segnale(shell, [(8179, ID_A)], "KILL", orologio)
+    assert istanti == {"prima": 1731402796.730, "dopo": 1731402796.734,
+                       "nodo": 1731402796.731, "nodo_fine": 1731402796.7312}
     comando = shell.comandi[0]
     # Il PID deve essere ancora del container: altrimenti il kill non parte.
     assert comando.index(f"grep -q {ID_A} /proc/8179/cgroup") < comando.index("kill -KILL 8179")
-    assert comando.index("date +%s.%N") < comando.index("kill -KILL")
+    assert comando.index("date +%s.%N") < comando.index("kill -KILL") < comando.rindex("date +%s.%N")
 
 
-@pytest.mark.parametrize("risposta", ["fallito", "ok", ""])
+def test_piu_pid_si_uccidono_con_un_solo_comando_dopo_tutti_i_controlli():
+    shell = ShellFinta("ok 1.0 1.1")
+    arresto.manda_segnale(shell, [(101, ID_A), (102, ID_B)])
+    assert len(shell.comandi) == 1
+    comando = shell.comandi[0]
+    assert comando.index(f"/proc/102/cgroup") < comando.index("kill -KILL 101 102")
+    assert f"grep -q {ID_A} /proc/101/cgroup" in comando and f"grep -q {ID_B} /proc/102/cgroup" in comando
+
+
+@pytest.mark.parametrize("risposta", ["fallito", "ok", "ok 1.0", ""])
 def test_un_kill_non_riuscito_e_un_errore(risposta):
     with pytest.raises(arresto.ErroreGuasto, match="non è riuscito"):
-        arresto.manda_sigkill(ShellFinta(risposta), 8179, ID_A)
+        arresto.manda_segnale(ShellFinta(risposta), [(8179, ID_A)])
 
 
 def kubectl_che_risponde(*pods_in_ordine):
@@ -139,11 +150,12 @@ def test_senza_riavvio_entro_l_attesa_e_un_errore():
 
 
 GUASTO = datetime(2026, 11, 12, 9, 13, 16, 730000, tzinfo=timezone.utc).timestamp()
+F1 = arresto.GUASTI["F1"]
 
 
 def guasto_finto(dopo):
     """kubectl che elenca un pod `api-a` e poi risponde `dopo`, shell che uccide, orologio fisso."""
-    shell = ShellFinta("pronto", "8179", f"ok {GUASTO + 0.001:.9f}")
+    shell = ShellFinta("pronto", "8179", "uvicorn", f"ok {GUASTO + 0.001:.9f} {GUASTO + 0.0011:.9f}")
     orologio = iter([GUASTO, GUASTO + 0.004]).__next__
 
     def kubectl(parametri):
@@ -157,17 +169,19 @@ def guasto_finto(dopo):
 def test_tutto_il_guasto_con_kubectl_e_shell_finti():
     kubectl, shell, orologio = guasto_finto(pod("api-a", riavvii=1, container_id=ID_B))
     scritti = []
-    risultato = arresto.provoca(kubectl, lambda _: shell, "app=api", None, attesa_s=10,
+    risultato = arresto.provoca(kubectl, lambda _: shell, F1, None, attesa_s=10,
                                 scrivi=scritti.append, orologio=orologio)
     assert shell.comandi[0] == "echo pronto" and shell.chiusa
-    assert scritti[-1] == risultato and risultato["riavviato_nello_stesso_pod"] is True
+    assert scritti[-1] == risultato and risultato["riavviati_nello_stesso_pod"] is True
+    assert (risultato["guasto"], risultato["segnale"]) == ("F1", "SIGKILL")
     assert risultato["ts_guasto"] == "2026-11-12T09:13:16.730+00:00"
     assert risultato["ts_conferma"] == "2026-11-12T09:13:16.734+00:00"
     assert risultato["incertezza_s"] == pytest.approx(0.004)
     assert risultato["ts_nodo"] == "2026-11-12T09:13:16.731+00:00"
-    assert (risultato["pod"], risultato["pid_nel_nodo"], risultato["riavvii"], risultato["riavvii_dopo"]) \
-        == ("api-a", 8179, 0, 1)
-    assert risultato["container_id_dopo"] == ID_B
+    [b] = risultato["bersagli"]
+    assert (b["pod"], b["pid_nel_nodo"], b["processo"], b["riavvii"], b["riavvii_dopo"]) \
+        == ("api-a", 8179, "uvicorn", 0, 1)
+    assert b["container_id_dopo"] == ID_B
     json.dumps(risultato)  # si scrive così com'è in guasto.json
 
 
@@ -176,19 +190,82 @@ def test_senza_riavvio_l_istante_del_guasto_resta_scritto():
     kubectl, shell, orologio = guasto_finto(pod("api-a", riavvii=0, in_esecuzione=False))
     scritti = []
     with pytest.raises(arresto.ErroreGuasto, match="back-off"):
-        arresto.provoca(kubectl, lambda _: shell, "app=api", None, attesa_s=0.6,
+        arresto.provoca(kubectl, lambda _: shell, F1, None, attesa_s=0.6,
                         scrivi=scritti.append, orologio=orologio)
     assert scritti[0]["ts_guasto"] == "2026-11-12T09:13:16.730+00:00"
-    assert scritti[-1]["riavviato_nello_stesso_pod"] is False and "entro 0.6 s" in scritti[-1]["errore"]
+    assert scritti[-1]["riavviati_nello_stesso_pod"] is False and "entro 0.6 s" in scritti[-1]["errore"]
 
 
 def test_la_shell_si_chiude_anche_se_il_kill_fallisce():
-    shell = ShellFinta("pronto", "8179", "fallito")
+    shell = ShellFinta("pronto", "8179", "uvicorn", "fallito")
     scritti = []
     with pytest.raises(arresto.ErroreGuasto):
-        arresto.provoca(lambda _: json.dumps({"items": [pod("api-a")]}), lambda _: shell, "app=api",
+        arresto.provoca(lambda _: json.dumps({"items": [pod("api-a")]}), lambda _: shell, F1,
                         None, attesa_s=10, scrivi=scritti.append)
     assert shell.chiusa and scritti == []  # nessun kill, nessun guasto da registrare
+
+
+@pytest.mark.parametrize("nome,selettore,container", [("F2", "app=worker", "worker"), ("F3", "app=coda", "rabbitmq"),
+                                                      ("F4", "app=db", "postgres")])
+def test_ogni_guasto_ha_il_suo_selettore_e_il_suo_container(nome, selettore, container):
+    g = arresto.GUASTI[nome]
+    assert (g.selettore, g.container, g.segnale) == (selettore, container, "KILL")
+    assert g.tutti == (nome == "F2")
+
+
+def test_toxiproxy_non_e_mai_un_bersaglio():
+    # Anche se il selettore lo prendesse, il container non è quello del guasto F4 (#93).
+    pods = {"items": [pod("toxiproxy-a", container="toxiproxy")]}
+    with pytest.raises(arresto.ErroreGuasto, match="container postgres"):
+        arresto.scegli_bersagli(pods, "postgres")
+    assert not any(g.selettore == "app=toxiproxy" for g in arresto.GUASTI.values())
+
+
+def test_con_f2_si_prendono_tutti_i_worker_e_un_worker_fermo_e_un_errore():
+    pods = {"items": [pod("worker-b", container="worker"), pod("worker-a", container="worker")]}
+    assert [b.pod for b in arresto.scegli_bersagli(pods, "worker", tutti=True)] == ["worker-a", "worker-b"]
+    pods["items"].append(pod("worker-c", container="worker", in_esecuzione=False))
+    with pytest.raises(arresto.ErroreGuasto, match="worker-c"):
+        arresto.scegli_bersagli(pods, "worker", tutti=True)
+
+
+def test_f2_uccide_tutti_i_worker_con_un_comando_per_nodo_e_aspetta_ogni_riavvio():
+    """Tre worker su due nodi: due comandi di kill, istanti dal primo all'ultimo, tre riavvii."""
+    worker = {"worker-a": ("kintsugi-worker2", "a" * 64), "worker-b": ("kintsugi-worker2", "b" * 64),
+              "worker-c": ("kintsugi-worker", "c" * 64)}
+    shell = {"kintsugi-worker": ShellFinta("pronto", "303", "uvicorn", f"ok {GUASTO + 0.012:.6f} {GUASTO + 0.0121:.6f}"),
+             "kintsugi-worker2": ShellFinta("pronto", "101", "uvicorn", "102", "uvicorn",
+                                            f"ok {GUASTO + 0.001:.6f} {GUASTO + 0.0012:.6f}")}
+
+    def kubectl(parametri):
+        if parametri[:2] == ["get", "pods"]:
+            assert parametri[2:4] == ["-l", "app=worker"]
+            return json.dumps({"items": [pod(n, uid=n, nodo=nd, container_id=c, container="worker")
+                                         for n, (nd, c) in worker.items()]})
+        n = parametri[2]
+        return json.dumps(pod(n, uid=n, nodo=worker[n][0], riavvii=1, container_id="d" * 64, container="worker"))
+
+    orologio = iter([GUASTO, GUASTO + 0.004, GUASTO + 0.005, GUASTO + 0.015]).__next__
+    risultato = arresto.provoca(kubectl, shell.__getitem__, arresto.GUASTI["F2"], None, attesa_s=10,
+                                scrivi=lambda _: None, orologio=orologio)
+    assert [c for c in shell["kintsugi-worker2"].comandi if "kill" in c] == [
+        f"grep -q {'a' * 64} /proc/101/cgroup 2>/dev/null && grep -q {'b' * 64} /proc/102/cgroup 2>/dev/null"
+        " && t=$(date +%s.%N) && kill -KILL 101 102 && echo \"ok $t $(date +%s.%N)\" || echo fallito"]
+    assert all(s.chiusa for s in shell.values())
+    assert risultato["incertezza_s"] == pytest.approx(0.015)  # dal primo comando alla fine dell'ultimo
+    assert risultato["ts_nodo"] == "2026-11-12T09:13:16.731+00:00"
+    assert risultato["ts_nodo_ultimo"] == "2026-11-12T09:13:16.742+00:00"
+    assert [b["pod"] for b in risultato["bersagli"]] == ["worker-a", "worker-b", "worker-c"]
+    assert all(b["riavvii_dopo"] == 1 for b in risultato["bersagli"])
+    assert risultato["riavviati_nello_stesso_pod"] is True
+
+
+def test_con_f2_il_pod_non_si_sceglie(monkeypatch, tmp_path):
+    monkeypatch.setattr(arresto.sys, "argv", ["arresto.py", "--cartella", str(tmp_path), "--guasto", "F2",
+                                              "--pod", "worker-a"])
+    with pytest.raises(SystemExit) as uscita:
+        arresto.main()
+    assert uscita.value.code == 2
 
 
 class ProcessoBloccato:
@@ -227,3 +304,66 @@ def test_senza_docker_o_kubectl_si_esce_con_un_messaggio(monkeypatch, tmp_path, 
         arresto.main()
     assert uscita.value.code == "errore: programma non trovato: kubectl (servono docker e kubectl)"
     assert not (tmp_path / "guasto.json").exists()
+
+
+def slices(*endpoint):
+    """EndpointSlice finti: coppie (pod, pronto)."""
+    return {"items": [{"endpoints": [{"targetRef": {"name": n}, "conditions": {"ready": r}} for n, r in endpoint]}]}
+
+
+@pytest.mark.parametrize("fette, fuori", [
+    (slices(("api-a", True), ("api-b", True)), False),
+    (slices(("api-a", False), ("api-b", True)), True),   # la readiness l'ha esclusa
+    (slices(("api-b", True)), True),                     # tolta del tutto
+    ({"items": [{"endpoints": None}]}, True),            # nessun endpoint
+])
+def test_una_copia_e_fuori_dal_service_se_non_e_tra_gli_endpoint_pronti(fette, fuori):
+    assert arresto.fuori_dal_service(fette, "api-a") is fuori
+
+
+def test_si_aspetta_l_uscita_dal_service_e_se_ne_da_l_istante():
+    risposte = iter([slices(("api-a", True)), slices(("api-a", True)), slices(("api-a", False))])
+    letture = []
+
+    def kubectl(parametri):
+        letture.append(parametri)
+        return json.dumps(next(risposte))
+    istante = arresto.aspetta_fuori_dal_service(kubectl, "api", "api-a", 10, ora=lambda: 123.5, dormi=lambda _: None)
+    assert istante == 123.5 and len(letture) == 3
+    assert letture[0] == ["get", "endpointslices", "-l", "kubernetes.io/service-name=api", "-o", "json"]
+
+
+def test_una_copia_che_resta_nel_service_e_un_errore():
+    tempo = iter(range(100)).__next__
+    with pytest.raises(arresto.ErroreGuasto, match="ancora tra gli endpoint"):
+        arresto.aspetta_fuori_dal_service(lambda _: json.dumps(slices(("api-a", True))), "api", "api-a", 3,
+                                          orologio=tempo, dormi=lambda _: None)
+
+
+def test_f7_manda_sigstop_e_registra_uscita_dal_service_e_riavvio():
+    shell = ShellFinta("pronto", "8179", "uvicorn", f"ok {GUASTO + 0.001:.6f} {GUASTO + 0.0011:.6f}")
+    orologio = iter([GUASTO, GUASTO + 0.004]).__next__
+
+    def kubectl(parametri):
+        if parametri[:2] == ["get", "pods"]:
+            return json.dumps({"items": [pod("api-b"), pod("api-a")]})
+        return json.dumps(pod("api-a", riavvii=1, container_id=ID_B))
+
+    def aspetta_servizio(_kubectl, service, nome, _attesa):
+        assert (service, nome) == ("api", "api-a")
+        return GUASTO + 4.2
+    scritti = []
+    risultato = arresto.provoca(kubectl, lambda _: shell, arresto.GUASTI["F7"], None, attesa_s=10,
+                                scrivi=lambda d: scritti.append(dict(d)), orologio=orologio,
+                                ora=lambda: GUASTO + 38.0, aspetta_servizio=aspetta_servizio)
+    assert "kill -STOP 8179" in shell.comandi[-1]
+    assert risultato["segnale"] == "SIGSTOP"
+    assert risultato["fuori_dal_service_dopo_s"] == pytest.approx(4.2)
+    assert risultato["ts_fuori_dal_service"] == "2026-11-12T09:13:20.930+00:00"
+    assert risultato["bersagli"][0]["riavvio_visto_dopo_s"] == pytest.approx(38.0)
+    # L'uscita dal Service si scrive appena vista, prima di aspettare il riavvio.
+    assert "ts_fuori_dal_service" in scritti[1] and "riavviati_nello_stesso_pod" not in scritti[1]
+
+
+def test_i_crash_non_aspettano_l_uscita_dal_service():
+    assert all(g.service is None for n, g in arresto.GUASTI.items() if n != "F7")
