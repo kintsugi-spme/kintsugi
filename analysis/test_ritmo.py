@@ -4,6 +4,7 @@
 """
 
 import csv
+import json
 import random
 from datetime import datetime, timezone
 
@@ -186,3 +187,94 @@ def test_uno_scarto_minuscolo_non_si_scrive_meno_zero():
     assert ritmo.con_segno(-0.0004) == "+0.0"
     assert ritmo.con_segno(-9.09) == "-9.1"
     assert ritmo.con_segno(3.04) == "+3.0"
+
+
+# --- Profilo da carico.json (W2, #117) ----------------------------------------------------------------------------
+
+W2 = [(0, 120, 10), (120, 180, 100), (180, 300, 10)]  # base, picco, base: come carico.py con mu1 = 20
+
+
+def invii_a_profilo(tratti):
+    """Istanti di invio (assoluti) di un generatore che segue i tratti, ognuno a ritmo regolare."""
+    istanti = []
+    for inizio, fine, r in tratti:
+        istanti += [inizio + k / r for k in range(round((fine - inizio) * r))]
+    return [INIZIO + t for t in istanti]
+
+
+def scrivi_carico(cartella, tratti, profilo="w2"):
+    (cartella / "carico.json").write_text(json.dumps(
+        {"profilo": profilo, "mu1": 20, "tratti": [{"inizio_s": i, "fine_s": f, "ritmo": r} for i, f, r in tratti]}))
+
+
+def test_le_attese_di_una_finestra_a_cavallo_del_picco_sono_la_media_pesata():
+    assert ritmo.attese(W2, 115, 125) == 5 * 10 + 5 * 100
+    assert ritmo.attese(W2, 0, 300) == 120 * 10 + 60 * 100 + 120 * 10
+    assert ritmo.attese([(0.0, float("inf"), 50.0)], 0, 10) == 500
+
+
+def test_un_profilo_rispettato_ha_tutte_le_finestre_nella_tolleranza():
+    per_finestra = ritmo.finestre(invii_a_profilo(W2), W2, 10)
+    assert per_finestra and all(abs(scarto) < 1 for _, _, scarto in per_finestra)
+
+
+def test_un_profilo_rispettato_anche_con_il_cambio_a_meta_finestra():
+    tratti = [(0, 125, 10), (125, 185, 100), (185, 300, 10)]
+    per_finestra = ritmo.finestre(invii_a_profilo(tratti), tratti, 10)
+    assert all(abs(scarto) < 1 for _, _, scarto in per_finestra)
+
+
+def test_da_riga_di_comando_senza_ritmo_si_usa_carico_json(tmp_path, monkeypatch, capsys):
+    scrivi_client(tmp_path, invii_a_profilo(W2))
+    scrivi_carico(tmp_path, W2)
+    uscita = lancia(monkeypatch, capsys, tmp_path)
+    assert "profilo w2 di carico.json" in uscita and "100/s da 120 a 180 s" in uscita
+    assert "ritmo entro la tolleranza" in uscita
+
+
+@pytest.mark.parametrize("inviato", [
+    [(0, 300, 10)],                                    # il picco non c'è: il generatore resta alla base
+    [(0, 120, 10), (120, 150, 100), (150, 300, 10)],   # il picco dura metà
+])
+def test_un_picco_mancato_o_troncato_rende_il_run_non_valido(tmp_path, monkeypatch, capsys, inviato):
+    scrivi_client(tmp_path, invii_a_profilo(inviato))
+    scrivi_carico(tmp_path, W2)
+    with pytest.raises(SystemExit, match="fuori tolleranza"):
+        lancia(monkeypatch, capsys, tmp_path)
+
+
+def test_senza_ritmo_e_senza_carico_json_e_un_errore(tmp_path, monkeypatch, capsys):
+    scrivi_client(tmp_path, invii_a_ritmo(50, 30))
+    with pytest.raises(SystemExit, match="carico.json"):
+        lancia(monkeypatch, capsys, tmp_path)
+
+
+@pytest.mark.parametrize("contenuto", [
+    {"profilo": "w2"},
+    {"tratti": [{"inizio_s": 0, "fine_s": 10, "ritmo": 0}]},
+    {"tratti": [{"inizio_s": 10, "fine_s": 5, "ritmo": 10}]},
+    {"tratti": []},
+])
+def test_un_carico_json_rotto_e_un_errore(tmp_path, monkeypatch, capsys, contenuto):
+    scrivi_client(tmp_path, invii_a_ritmo(50, 30))
+    (tmp_path / "carico.json").write_text(json.dumps(contenuto))
+    with pytest.raises(SystemExit, match="errore"):
+        lancia(monkeypatch, capsys, tmp_path)
+
+
+def test_lo_zero_si_ricava_anche_con_il_ritardo_e_la_raffica_di_jmeter():
+    """Come nel run W2 del 26/11: lo zero del programma è 0,6 s prima del primo invio, e le prime 6 richieste
+    (quelle dei primi 0,6 s) partono insieme quando JMeter recupera il ritardo."""
+    istanti = [t - INIZIO for t in invii_a_profilo(W2)]
+    con_ritardo = [INIZIO + max(t, 0.6) for t in istanti]
+    assert abs(ritmo.zero(con_ritardo, W2) - INIZIO) < 0.01
+    per_finestra = ritmo.finestre(con_ritardo, W2, 10)
+    assert all(abs(scarto) < 1 for _, _, scarto in per_finestra)
+    assert abs(ritmo.scarto_medio(con_ritardo, W2)) < 1
+
+
+def test_con_il_primo_invio_come_zero_il_picco_sarebbe_fuori_tolleranza():
+    """Il motivo di zero(): contando dal primo invio, mezzo secondo di sfasamento basta a uscire dal 5 %."""
+    spostati = [t + 0.6 for t in invii_a_profilo(W2)]
+    assert abs(ritmo.zero(spostati, W2) - (INIZIO + 0.6)) < 0.01
+    assert all(abs(scarto) < 1 for _, _, scarto in ritmo.finestre(spostati, W2, 10))

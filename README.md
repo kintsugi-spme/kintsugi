@@ -133,12 +133,12 @@ kintsugi/
 │   ├── compose/          # V1, V2 e V3 sul computer con Docker Compose (fase F2)
 │   ├── k8s/
 │   │   ├── base/         # schema del database; manifest comuni: database e API
-│   │   └── overlays/     # v1/, v2/, v3/, v4a/, v4s/, v5/
+│   │   └── overlays/     # v1/, v2/, v2-sonde-standard/ (solo F7), v3/, v4a/, v4s/, v5/
 │   └── aws/              # infrastruttura come codice per EKS
 ├── harness/
 │   ├── client/           # client minimo di F2 (provvisorio, prima di JMeter)
-│   ├── jmeter/           # carico con JMeter: costante.jmx e carico.py (W1, W3); il profilo W2 con la #117
-│   └── faults/           # iniezione dei guasti: F1 (arresto.py) e tempi di avvio a vuoto (avvio.py) da F3, gli altri da F4
+│   ├── jmeter/           # carico con JMeter: carico.jmx e carico.py (W1 e W3 a ritmo costante, W2 con il picco)
+│   └── faults/           # iniezione dei guasti: F1-F4 e F7 (arresto.py), F5 (latenza.py), tempi di avvio a vuoto (avvio.py)
 ├── analysis/             # categorie degli ordini, fermo e ripristino, ritmo inviato, statistiche
 ├── data/                 # risultati dei run (non versionati)
 ├── docs/                 # documento di architettura (LaTeX → PDF)
@@ -214,12 +214,14 @@ cd deploy/k8s
 make immagine   # crea il cluster, controlla i nodi, carica kintsugi:dev
 make v1         # V1 da zero sul cluster (fa anche il passo precedente, se serve)
 make v2         # oppure V2, con più copie dell'API: toglie la versione accesa e riparte da zero
+make v2-sonde-standard   # V2 con le sonde standard dell'API, solo per il guasto F7
 make v3         # oppure V3: l'API mette gli ordini in coda (RabbitMQ), risponde 202 e i worker li salvano
 make v4a        # oppure V4a: come V2, con PostgreSQL primario e standby (CloudNativePG), replica asincrona
 make v4s        # oppure V4s: come V4a, con replica sincrona
 make v5         # oppure V5: come V3, con i worker da 1 a 10 secondo la coda (KEDA, installato alla prima volta)
 python3 ../../harness/client/cliente.py --url http://localhost:8080/ordini --richieste 100 --ritmo 10 --timeout 2
 python3 ../../harness/jmeter/carico.py --ritmo 50 --durata 180 --uscita <cartella>/client.csv   # JMeter 5.5 o più
+python3 ../../harness/jmeter/carico.py --profilo w2 --mu1 20 --uscita <cartella>/client.csv   # W2: base, picco, base
 make osservabilita  # Prometheus e kube-state-metrics sul nodo dati (D0019); lo fanno anche make v1 … make v5
 make togli      # toglie la versione accesa, dati compresi; il cluster, l'operatore di V4, KEDA e l'osservabilità restano
 make verifica   # i criteri di F3: V1-V3 funzionano e un crash F1 dà fermo e ripristino con i millisecondi (circa 10 minuti)
