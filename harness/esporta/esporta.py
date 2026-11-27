@@ -176,6 +176,19 @@ def indirizzo_query(job: str, da: datetime, a: datetime, passo_s: float) -> str:
     return f"{PROXY_PROMETHEUS}/api/v1/query_range?{parametri}"
 
 
+COMANDO_CODE = ["exec", "deploy/coda", "--", "rabbitmqctl", "list_queues", "name", "messages"]
+
+
+def elenco_code(uscita: str) -> dict[str, int]:
+    """Gli ordini di ogni coda (pronti e in lavorazione) dall'uscita di `rabbitmqctl list_queues name messages`."""
+    code = {}
+    for riga in uscita.splitlines():
+        campi = riga.split()
+        if len(campi) == 2 and campi[1].isdigit():
+            code[campi[0]] = int(campi[1])
+    return code
+
+
 def intervallo_del_run(cartella: Path) -> tuple[datetime, datetime]:
     """Dal primo all'ultimo `ts_invio` di client.csv, con i margini."""
     percorso = cartella / "client.csv"
@@ -225,13 +238,7 @@ class Esporta:
             raise ErroreEsportazione(f"la coda dei falliti non si legge: {uscita[-200:]!r}") from None
 
     def messaggi_in_coda(self) -> dict[str, int]:
-        uscita = self.k(["exec", "deploy/coda", "--", "rabbitmqctl", "list_queues", "name", "messages"])
-        code = {}
-        for riga in uscita.splitlines():
-            campi = riga.split()
-            if len(campi) == 2 and campi[1].isdigit():
-                code[campi[0]] = int(campi[1])
-        return code
+        return elenco_code(self.k(COMANDO_CODE))
 
     def ordini_in_coda(self) -> int:
         """Gli ordini nella coda `ordini` (pronti e in lavorazione). Se la coda non compare nell'elenco è un errore,
