@@ -11,13 +11,22 @@ Crea `data/locale/<run-id>/` e, nell'ordine:
   2. lancia il reset (harness/reset): se fallisce il run non parte e `meta.json` dice perché (codice 2);
   3. avvia JMeter (harness/jmeter/carico.py): riscaldamento e riferimento sono i primi minuti del carico;
   4. inietta il guasto al minuto `run.guasto_al_minuto` del carico (harness/faults, con `--alle`: tutto si
-     prepara prima e il segnale parte a quell'istante). Il minuto si conta dalla prima richiesta di JMeter;
+     prepara prima e il segnale parte a quell'istante). Il minuto si conta dalla prima richiesta di JMeter.
+     Se lo script del guasto esce con un codice diverso da 0, o non scrive `guasto.json`, il run si ferma subito
+     con `stato: guasto fallito` (codice di uscita 3): senza guasto non c'è nulla da misurare;
   5. osserva fino al ripristino più `run.osservazione_dopo_ripristino_min`, con il tetto `run.tetto_min`
      (`run.tetto_min_f6_e_w2` per F6 e per W2). Il ripristino si riconosce *durante* il run: si legge
      `jmeter.jtl` mentre JMeter lo scrive e si applica la regola di analysis/fermo.py (5 secondi di fila
      disponibili, a partire da ogni richiesta). Senza questo ogni run durerebbe fino al tetto. È il ripristino
-     dell'accettazione; quello del completamento (V3 e V5) serve db.csv e si calcola a fine run: se non c'è,
-     fermo.txt lo dice e il run va esaminato. Senza guasto il run dura `run.senza_guasti_min`;
+     dell'accettazione. In V3 e V5 l'accettazione non si ferma con il database o i worker fermi: il run finisce
+     solo quando, oltre ai 2 minuti, nessun ordine aspetta più nella coda `ordini` (sempre entro il tetto):
+     se il carico si fermasse con l'arretrato ancora in coda, gli ultimi ordini ricevuti sarebbero tutti in ritardo
+     e il completamento risulterebbe «non ripristinato» solo perché non arrivano altri ordini a provarlo. Si
+     contano gli ordini *in attesa* (`messages_ready`), non quelli in lavorazione: con il carico acceso ci sono
+     sempre, e la coda «vuota» del tutto non arriva mai (visto in un run vero). La coda si
+     guarda solo da quando i 2 minuti sono passati, ogni 5 s: `rabbitmqctl` avvia una macchina virtuale Erlang
+     dentro il pod del broker e farlo di continuo durante il run lo disturberebbe. Il fermo del completamento
+     si calcola a fine run, con db.csv. Senza guasto il run dura `run.senza_guasti_min`;
   6. ferma JMeter, poi esporta (harness/esporta: db.csv, falliti.csv, duplicati.csv, events.csv, prometheus.csv e
      categorie.py), poi lancia analysis/fermo.py e analysis/ritmo.py e ne salva l'uscita in `fermo.txt` e
      `ritmo.txt`. I criteri di validità (#125) si aggiungeranno qui.
@@ -41,10 +50,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 RADICE = Path(__file__).resolve().parents[2]
-for sottocartella in ("analysis", "harness/reset", "harness/jmeter"):
+for sottocartella in ("analysis", "harness/reset", "harness/jmeter", "harness/esporta"):
     sys.path.insert(0, str(RADICE / sottocartella))
 
 import carico as modulo_carico  # noqa: E402
+import esporta  # noqa: E402
 import fermo  # noqa: E402
 import reset as modulo_reset  # noqa: E402
 from categorie import ErroreDati, esito_positivo  # noqa: E402
@@ -52,6 +62,8 @@ from categorie import ErroreDati, esito_positivo  # noqa: E402
 PARAMETRI = RADICE / "config" / "parametri.yaml"
 ANTICIPO_GUASTO_S = 20  # lo script del guasto parte così presto prima del minuto: apre le shell e cerca i PID
 ATTESA_PRIME_RICHIESTE_S = 90
+CON_CODA = {"V3", "V5"}  # le versioni dove l'accettazione non basta: gli ordini accettati stanno nella coda `ordini`
+INTERVALLO_CONTROLLO_CODA_S = 5
 PORTA_COMANDI_JMETER = 4445
 
 # guasto -> (script in harness/faults, versioni in cui ha senso)
@@ -105,12 +117,16 @@ def controlla_piano(piano: Piano) -> None:
         raise ErroreRun(f"carico {piano.carico}: W1, W3 o W2")
 
 
-def quando_fermarsi(piano: Piano, ora: float, t0: float, t_ripristino: float | None) -> str | None:
+def quando_fermarsi(piano: Piano, ora: float, t0: float, t_ripristino: float | None, in_attesa: int | None = 0) -> str | None:
     """Il motivo per cui il run finisce adesso, o None se continua.
 
     `t0` è la prima richiesta del carico, `t_ripristino` l'istante di ripristino dell'accettazione (None se non
     c'è ancora, o senza guasto). Senza guasto il run dura `senza_guasti_min` (con W2, quanto dura il suo profilo);
-    con il guasto, fino al ripristino più `osservazione_dopo_ripristino_min`, ma mai oltre il tetto.
+    con il guasto, fino al ripristino più `osservazione_dopo_ripristino_min`, ma mai oltre il tetto. `in_attesa` sono
+    gli ordini della coda `ordini` che nessun worker ha ancora preso (V3 e V5): finché non sono 0 il run continua,
+    anche passati i 2 minuti. Gli ordini in lavorazione non contano: con il carico acceso ce ne sono sempre alcuni.
+    Va passato solo da quando i 2 minuti sono finiti; None vuol dire «non so» (broker che non risponde) e conta
+    come ordini ancora in attesa. Dove non c'è la coda, 0.
     """
     if piano.guasto is None:
         if piano.carico == "W2":  # il profilo W2 ha la sua durata: il carico finisce da solo, o si arriva al tetto
@@ -118,7 +134,7 @@ def quando_fermarsi(piano: Piano, ora: float, t0: float, t_ripristino: float | N
         if ora >= t0 + 60 * piano.run["senza_guasti_min"]:
             return "durata senza guasti"
         return None
-    if t_ripristino is not None and ora >= t_ripristino + 60 * piano.run["osservazione_dopo_ripristino_min"]:
+    if t_ripristino is not None and ora >= t_ripristino + 60 * piano.run["osservazione_dopo_ripristino_min"] and in_attesa == 0:
         return "ripristino più osservazione"
     if ora >= t0 + piano.tetto_s:
         return "tetto raggiunto: ripristino non avvenuto" if t_ripristino is None else "tetto raggiunto"
@@ -190,8 +206,9 @@ class Ambiente:
     def dormi(self, secondi: float) -> None: ...
     def reset(self, piano: Piano) -> dict: ...
     def avvia_carico(self, piano: Piano, cartella: Path): ...  # .nuove() .vivo() .ferma() .attendi()
-    def avvia_guasto(self, piano: Piano, cartella: Path, alle: float): ...  # .vivo() .attendi()
+    def avvia_guasto(self, piano: Piano, cartella: Path, alle: float): ...  # .vivo() .attendi() (il codice di uscita)
     def ts_guasto(self, cartella: Path) -> float | None: ...
+    def ordini_in_attesa(self) -> int | None: ...  # gli ordini pronti nella coda `ordini`; None se non si riesce a saperlo
     def dopo_il_run(self, piano: Piano, cartella: Path) -> dict: ...
 
 
@@ -250,8 +267,9 @@ class Run:
         # 4. e 5. il guasto e l'osservazione
         t_guasto_previsto = t0 + 60 * p.run["guasto_al_minuto"] if p.guasto else None
         guasto = None
-        t_guasto = t_ripristino = None
+        t_guasto = t_ripristino = codice_guasto = None
         motivo = None
+        in_attesa = ultimo_controllo_coda = None  # gli ordini in attesa in `ordini` (V3, V5) e quando li abbiamo contati
         while motivo is None:
             a.dormi(1.0)
             richieste += carico.nuove()
@@ -262,6 +280,13 @@ class Run:
                 t_guasto = a.ts_guasto(self.cartella)
                 if t_guasto is not None:
                     self.scrivi_meta(guasto_ts=come_testo(t_guasto))
+            if guasto is not None and codice_guasto is None and not guasto.vivo():
+                # lo script del guasto è finito: se è uscito male, o non ha scritto guasto.json, non c'è un guasto da misurare
+                codice_guasto = guasto.attendi()
+                t_guasto = t_guasto if t_guasto is not None else a.ts_guasto(self.cartella)
+                if codice_guasto != 0 or t_guasto is None:
+                    motivo = "guasto fallito"
+                    continue
             if t_guasto is not None and t_ripristino is None:
                 try:
                     t_ripristino = fermo.ripristino(sorted(richieste), t_guasto, p.run["ripristino_secondi_consecutivi"],
@@ -270,19 +295,35 @@ class Run:
                     t_ripristino = None
                 if t_ripristino is not None:
                     self.scrivi_meta(ripristino_accettazione=come_testo(t_ripristino))
-            motivo = quando_fermarsi(p, ora, t0, t_ripristino)
+            # In V3 e V5 la coda si guarda solo da quando i minuti di osservazione sono passati, ogni pochi secondi
+            if (p.versione in CON_CODA and t_ripristino is not None
+                    and ora >= t_ripristino + 60 * p.run["osservazione_dopo_ripristino_min"]):
+                if ultimo_controllo_coda is None or ora - ultimo_controllo_coda >= INTERVALLO_CONTROLLO_CODA_S:
+                    in_attesa, ultimo_controllo_coda = a.ordini_in_attesa(), ora
+            else:
+                in_attesa = 0 if p.versione not in CON_CODA else None
+            motivo = quando_fermarsi(p, ora, t0, t_ripristino, in_attesa)
             if motivo is None and not carico.vivo():
                 motivo = "il carico è finito da solo"
         # 6. si ferma il carico, si esporta e si analizza
         carico.ferma()
         carico.attendi()
-        if guasto is not None:
-            guasto.attendi()
+        if guasto is not None and codice_guasto is None:
+            codice_guasto = guasto.attendi()
         fine_carico = a.orologio()
-        self.scrivi_meta(fine_osservazione={"motivo": motivo, "ts": come_testo(fine_carico)})
+        fine = {"motivo": motivo, "ts": come_testo(fine_carico)}
+        if p.versione in CON_CODA and p.guasto:
+            fine["ordini_in_attesa"] = in_attesa  # None: non si è guardato (ripristino non avvenuto) o il broker non rispondeva
+        self.scrivi_meta(fine_osservazione=fine, guasto_codice_uscita=codice_guasto)
         analisi = a.dopo_il_run(p, self.cartella)
-        self.scrivi_meta(analisi=analisi, stato="completato", ts_fine=come_testo(a.orologio()),
-                         durata_s=round(a.orologio() - inizio, 1), criteri_di_validita=None)
+        stato = {"stato": "completato"}
+        if motivo == "guasto fallito":
+            causa = f"lo script del guasto è uscito con codice {codice_guasto}" if codice_guasto != 0 else "guasto.json non c'è"
+            stato = {"stato": "guasto fallito", "motivo": f"{causa} (vedi guasto.txt)"}
+        self.scrivi_meta(analisi=analisi, ts_fine=come_testo(a.orologio()), durata_s=round(a.orologio() - inizio, 1),
+                         criteri_di_validita=None, **stato)
+        if motivo == "guasto fallito":
+            return 3
         return 0 if analisi.get("esportazione") == 0 else 1
 
 
@@ -325,6 +366,12 @@ class AmbienteReale(Ambiente):
         try:
             return fermo.istante(json.loads((cartella / "guasto.json").read_text(encoding="utf-8"))["ts_guasto"], "guasto.json")
         except (OSError, ValueError, KeyError, ErroreDati):
+            return None
+
+    def ordini_in_attesa(self) -> int | None:
+        try:
+            return esporta.elenco_code(self.kubectl(esporta.COMANDO_CODE)).get("ordini", (None, None))[0]
+        except (subprocess.SubprocessError, OSError):
             return None
 
     def dopo_il_run(self, piano: Piano, cartella: Path) -> dict:

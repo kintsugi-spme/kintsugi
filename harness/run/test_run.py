@@ -57,17 +57,33 @@ class FintoCarico:
 
 
 class FintoGuasto:
+    """Lo script del guasto: finisce quando il guasto è fatto (o subito, se è uscito male) e dà il suo codice di uscita."""
+
+    def __init__(self, amb, codice=0):
+        self.amb, self.codice = amb, codice
+
+    def vivo(self):
+        if self.codice != 0:
+            return False  # si è fermato subito (per esempio non ha trovato il PID)
+        return self.amb.t < self.amb.guasto_alle + 1
+
     def attendi(self):
-        return 0
+        return self.codice
 
 
 class Finto(run.Ambiente):
-    def __init__(self, esito_reset=None, durata_guasto=4.3, carico_che_non_parte=False, durata_propria=None):
+    def __init__(self, esito_reset=None, durata_guasto=4.3, carico_che_non_parte=False, durata_propria=None,
+                 codice_guasto=0, guasto_senza_json=False, coda_vuota_dopo=None, broker_muto=False, json_subito=False):
         self.t = INIZIO
         self.esito_reset = esito_reset or {"durata_s": 12.0, "problemi": []}
         self.durata_guasto = durata_guasto
         self.carico_che_non_parte = carico_che_non_parte
         self.durata_propria = durata_propria
+        self.codice_guasto, self.guasto_senza_json = codice_guasto, guasto_senza_json
+        self.coda_vuota_dopo = coda_vuota_dopo  # secondi dopo il guasto in cui l'arretrato di `ordini` è smaltito (None: nessun ordine in attesa)
+        self.broker_muto = broker_muto
+        self.json_subito = json_subito  # guasto.json c'è prima del guasto, come se lo script l'avesse scritto e poi fosse uscito male
+        self.controlli_coda: list[float] = []  # quando è stata guardata la coda
         self.guasto_alle = None
         self.guasto_avviato_a = None
         self.carico = None
@@ -97,10 +113,22 @@ class Finto(run.Ambiente):
         self.chiamate.append("guasto")
         self.guasto_avviato_a = self.t
         self.guasto_alle = alle
-        return FintoGuasto()
+        return FintoGuasto(self, self.codice_guasto)
 
     def ts_guasto(self, cartella):
+        if self.guasto_senza_json:
+            return None
+        if self.json_subito and self.guasto_alle is not None:
+            return self.guasto_alle
         return self.guasto_alle if self.guasto_alle is not None and self.t >= self.guasto_alle else None
+
+    def ordini_in_attesa(self):
+        self.controlli_coda.append(self.t)
+        if self.broker_muto:
+            return None
+        if self.coda_vuota_dopo is None or self.t >= self.guasto_alle + self.coda_vuota_dopo:
+            return 0
+        return 1400
 
     def dopo_il_run(self, piano, cartella):
         self.chiamate.append("analisi")
@@ -269,3 +297,130 @@ def test_l_id_del_run_ha_data_versione_guasto_carico_e_ripetizione():
     ora = datetime(2026, 11, 27, 10, 5, 30, tzinfo=timezone.utc)
     assert run.id_del_run(piano(), ora) == "20261127-100530-V2-F1-W1-r1"
     assert run.id_del_run(piano(None, "W2", "V3"), ora) == "20261127-100530-V3-nessuno-W2-r1"
+
+
+# --- l'arretrato in V3 e V5 e il guasto che non parte (revisione della #148) ---
+
+def test_in_v3_il_run_aspetta_l_arretrato_oltre_i_due_minuti(tmp_path):
+    # l'accettazione non si ferma (fermo 0): il ripristino è subito, ma la coda si svuota 170 s dopo il guasto
+    amb = Finto(durata_guasto=0, coda_vuota_dopo=170)
+    codice, _, meta = esegui(tmp_path, amb, piano(guasto="F4", versione="V3"))
+    assert codice == 0 and meta["stato"] == "completato"
+    assert meta["fine_osservazione"]["motivo"] == "ripristino più osservazione"
+    assert meta["fine_osservazione"]["ordini_in_attesa"] == 0
+    assert amb.fermato_alle - amb.guasto_alle == pytest.approx(170, abs=run.INTERVALLO_CONTROLLO_CODA_S + 1.5)  # non 120
+
+
+def test_la_coda_si_guarda_solo_dopo_i_due_minuti_e_ogni_pochi_secondi(tmp_path):
+    amb = Finto(durata_guasto=0, coda_vuota_dopo=200)
+    esegui(tmp_path, amb, piano(guasto="F4", versione="V3"))
+    assert min(amb.controlli_coda) >= amb.guasto_alle + 120 - 1.5  # prima non si disturba il broker
+    pause = [b - a for a, b in zip(amb.controlli_coda, amb.controlli_coda[1:])]
+    assert all(p >= run.INTERVALLO_CONTROLLO_CODA_S - 0.01 for p in pause)
+
+
+def test_senza_ordini_in_attesa_il_run_di_v3_finisce_come_prima(tmp_path):
+    amb = Finto(durata_guasto=0)  # nessun ordine aspetta mai
+    _, _, meta = esegui(tmp_path, amb, piano(guasto="F4", versione="V3"))
+    assert amb.fermato_alle - amb.guasto_alle == pytest.approx(120, abs=1.5)
+    assert meta["fine_osservazione"]["ordini_in_attesa"] == 0
+
+
+def test_se_l_arretrato_non_si_smaltisce_il_run_si_ferma_al_tetto(tmp_path):
+    amb = Finto(durata_guasto=0, coda_vuota_dopo=1e9)
+    _, _, meta = esegui(tmp_path, amb, piano(guasto="F4", versione="V3"))
+    assert meta["fine_osservazione"]["motivo"] == "tetto raggiunto"
+    assert meta["fine_osservazione"]["ordini_in_attesa"] == 1400  # il perché sta in meta.json
+    assert amb.fermato_alle == pytest.approx(amb.carico.primo + 600, abs=1.5)
+
+
+def test_un_broker_che_non_risponde_non_vale_come_nessun_ordine_in_attesa(tmp_path):
+    amb = Finto(durata_guasto=0, broker_muto=True)
+    _, _, meta = esegui(tmp_path, amb, piano(guasto="F4", versione="V3"))
+    assert meta["fine_osservazione"]["motivo"] == "tetto raggiunto"
+    assert meta["fine_osservazione"]["ordini_in_attesa"] is None
+
+
+def test_in_v2_non_si_guarda_la_coda(tmp_path):
+    amb = Finto()
+    _, _, meta = esegui(tmp_path, amb)
+    assert amb.controlli_coda == [] and "ordini_in_attesa" not in meta["fine_osservazione"]
+
+
+def test_senza_guasto_su_v3_non_si_guarda_la_coda_durante_il_run(tmp_path):
+    # il run dura 5 minuti fissi; la coda la aspetta l'esportazione
+    amb = Finto(coda_vuota_dopo=1e9)
+    amb.guasto_alle = amb.t
+    _, _, meta = esegui(tmp_path, amb, piano(guasto=None, versione="V3"))
+    assert amb.controlli_coda == [] and meta["fine_osservazione"]["motivo"] == "durata senza guasti"
+
+
+def test_quando_fermarsi_con_la_coda():
+    p = piano(guasto="F4", versione="V3")
+    t0, t_r = 1000.0, 1120.0
+    dopo = t_r + 120
+    assert run.quando_fermarsi(p, dopo, t0, t_r, in_attesa=0) == "ripristino più osservazione"
+    assert run.quando_fermarsi(p, dopo, t0, t_r, in_attesa=5) is None
+    assert run.quando_fermarsi(p, dopo, t0, t_r, in_attesa=None) is None  # «non so» non vuol dire che nessuno aspetta
+    assert run.quando_fermarsi(p, t0 + 600, t0, t_r, in_attesa=5) == "tetto raggiunto"
+    assert run.quando_fermarsi(p, dopo - 1, t0, t_r, in_attesa=0) is None  # i due minuti restano
+
+
+def test_se_lo_script_del_guasto_esce_male_il_run_non_e_completato(tmp_path):
+    amb = Finto(codice_guasto=1)
+    codice, _, meta = esegui(tmp_path, amb)
+    assert codice == 3
+    assert meta["stato"] == "guasto fallito" and "codice 1" in meta["motivo"] and "guasto.txt" in meta["motivo"]
+    assert meta["guasto_codice_uscita"] == 1
+    assert meta["fine_osservazione"]["motivo"] == "guasto fallito"
+    assert amb.fermato_alle - amb.carico.primo < 120  # non si aspetta il tetto di 10 minuti
+    assert amb.chiamate[-1] == "analisi"  # i dati si esportano lo stesso, per capire cosa è successo
+
+
+def test_il_codice_di_uscita_conta_anche_se_guasto_json_c_e(tmp_path):
+    amb = Finto(codice_guasto=1, json_subito=True)
+    codice, _, meta = esegui(tmp_path, amb)
+    assert codice == 3 and meta["stato"] == "guasto fallito" and "codice 1" in meta["motivo"]
+
+
+def test_uno_script_che_esce_bene_ma_senza_guasto_json_e_un_guasto_fallito(tmp_path):
+    amb = Finto(guasto_senza_json=True)
+    codice, _, meta = esegui(tmp_path, amb)
+    assert codice == 3 and meta["stato"] == "guasto fallito" and "guasto.json non c'è" in meta["motivo"]
+    assert meta["guasto_codice_uscita"] == 0
+
+
+def test_un_guasto_riuscito_salva_il_codice_di_uscita(tmp_path):
+    _, _, meta = esegui(tmp_path, Finto())
+    assert meta["guasto_codice_uscita"] == 0 and meta["stato"] == "completato"
+
+
+def test_un_processo_reale_che_esce_male_da_il_suo_codice(tmp_path):
+    # è quello che `run.py` guarda per sapere se lo script del guasto è riuscito
+    import sys
+    processo = run.ProcessoReale([sys.executable, "-c", "import sys; print('non trovo il PID'); sys.exit(3)"], tmp_path / "guasto.txt")
+    assert processo.attendi(10) == 3 and not processo.vivo()
+    assert "non trovo il PID" in (tmp_path / "guasto.txt").read_text()
+
+
+def test_gli_ordini_in_attesa_sono_i_pronti_non_quelli_in_lavorazione():
+    # con il carico acceso ci sono sempre ordini in lavorazione: la coda «vuota» del tutto non arriva (visto in un run vero)
+    class Broker(run.AmbienteReale):
+        def kubectl(self, parametri):
+            return "Timeout: 60.0 seconds ...\nname\tmessages_ready\tmessages_unacknowledged\nordini\t0\t3\nordini.falliti\t7\t0\n"
+
+    assert Broker().ordini_in_attesa() == 0
+
+    class SenzaCoda(run.AmbienteReale):
+        def kubectl(self, parametri):
+            return "name\tmessages_ready\tmessages_unacknowledged\n"
+
+    assert SenzaCoda().ordini_in_attesa() is None  # la coda non c'è nell'elenco: non si sa
+
+
+def test_un_kubectl_che_fallisce_vuol_dire_non_so():
+    class Rotto(run.AmbienteReale):
+        def kubectl(self, parametri):
+            raise run.subprocess.CalledProcessError(1, "kubectl")
+
+    assert Rotto().ordini_in_attesa() is None

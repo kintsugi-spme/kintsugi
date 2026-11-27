@@ -179,7 +179,7 @@ reset:
 	$(PYTHON) ../../harness/reset/reset.py --versione $(VERSIONE)
 
 # Un run completo (harness/run/run.py, issue #122): reset, carico con JMeter, guasto al minuto 2, osservazione fino al
-# ripristino più 2 minuti, esportazione e analisi. La versione deve essere già accesa (make v1, v2 o v3).
+# ripristino più 2 minuti (in V3 anche finché un ordine aspetta in coda), esportazione e analisi. La versione deve essere già accesa (make v1, v2 o v3).
 #   make run VERSIONE=V2 GUASTO=F1 CARICO=W1 RITMO=20        GUASTO vuoto: senza guasto; CARICO=W2 vuole MU1=20
 #   Ripetizione e altre opzioni:  make run ... RIPETIZIONE=2
 run:
