@@ -1,0 +1,27 @@
+\begin{decisione}{D0021}{Quanto rallentare il database nel guasto F5}{Accettata}{27/11/2026}
+
+\contesto
+Il guasto F5 aggiunge con Toxiproxy una latenza $L$ a ogni risposta del database, per vedere un sistema che rallenta senza fermarsi. Il capitolo «Guasti» l'aveva fissata a 200~ms, stimando che ogni ordine facesse 2 o 3 scambi con il database ($k$ nella formula $S + kL$ delle previsioni), cioè da 0,4 a 0,6~s per ordine. La prima prova del guasto (issue \#120) ha dato circa 1,1~s per ordine e, su V2 a 20 ordini al secondo, tra il 70 e il 95\% di risposte \texttt{503}: con 200~ms il guasto F5 diventava quasi uguale al guasto F4.
+
+La causa è nel codice: per salvare un ordine l'applicazione fa 4 scambi con il database, cioè il controllo della connessione presa dal pool, l'inizio della transazione, l'inserimento e la conferma. Le misure lo confermano (issue \#144): su V2, a 2 ordini al secondo per non creare code, il tempo di risposta cresce di 4,1, 3,9 e 4,0 volte la latenza con 50, 100 e 200~ms (da 73~ms senza latenza a 875~ms con 200~ms), e il registro delle istruzioni di PostgreSQL mostra per ogni ordine le stesse 4: un'istruzione vuota (il controllo del pool), \texttt{BEGIN}, l'inserimento, \texttt{COMMIT}. Quindi $k = 4$.
+
+\scelta
+La latenza del guasto F5 è 100~ms, sempre per 60~s. Con $k = 4$ un ordine costa circa $S + 4L \approx 0{,}45$~s e V2, con 15 scritture contemporanee, regge circa 33 ordini al secondo. Il valore sta in \texttt{config/parametri.yaml} (\texttt{guasti.f5\_latenza\_ms}) e lo leggono il capitolo «Guasti» e lo script del guasto.
+
+Che il guasto rallenti senza far fallire gli ordini dipende anche dal ritmo del carico W1, che oggi non è fissato: è il \parametro{w1_percentuale_capacita_minima}\% della capacità più bassa tra le versioni, misurata nella fase F4 (issue \#127). La regola è che V2 sotto il guasto regga almeno 1,5 volte W1:
+\[
+  \frac{15}{S + 4L} \ \ge\ 1{,}5 \cdot W_1 .
+\]
+Con 100~ms vale fino a W1 di circa 22 ordini al secondo. Le prove su V2 lo confermano: a 20 ordini al secondo nessun fallimento e circa 0,47~s per ordine; a 30 ordini al secondo, con 100~ms, circa il 10\% di \texttt{503} durante il guasto, con 75~ms nessun fallimento e circa 0,38~s per ordine. Quando la issue \#127 fissa W1, la latenza si ricontrolla con questa regola e, se serve, si abbassa (con W1 di 30 ordini al secondo, circa 70~ms), scrivendolo qui.
+
+Le alternative scartate:
+\begin{itemize}
+  \item tenere 200~ms: V2 reggerebbe circa 17 ordini al secondo e a 20 fallirebbe quasi tutto, quindi F5 non direbbe niente di nuovo rispetto a F4, per lo stesso motivo per cui il capitolo «Guasti» scartava già 500~ms;
+  \item fissare subito 70~ms per un W1 di 30 ordini al secondo: W1 non è ancora misurato, quindi sarebbe un'altra stima; la regola sopra decide il valore quando W1 c'è;
+  \item togliere scambi dall'applicazione (per esempio il controllo della connessione): cambierebbe il codice di tutte le versioni dopo le misure di F3 solo per far tornare un guasto.
+\end{itemize}
+
+\conseguenze
+Il cambio avviene dopo una prova di funzionamento e prima delle misure ufficiali del guasto F5. \textbf{Le previsioni non si toccano}: congelate dal tag \texttt{m1}, sono scritte per $L = 200$~ms e $k$ da 2 a 3. Nel report si confronta la misura con la formula $S + kL$, che resta la stessa, usando $k = 4$ misurato e $L = 100$~ms, e si spiega lo scarto tra la stima di $k$ e il valore misurato. La capacità $\mu_L$ della previsione si ricalcola con gli stessi valori.
+
+\end{decisione}

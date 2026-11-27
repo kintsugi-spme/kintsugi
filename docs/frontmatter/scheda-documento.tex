@@ -40,6 +40,7 @@
 0.13 & 24/11/2026 & Toxiproxy nel percorso verso il database in tutte le versioni (issue \#93): posizione sul nodo \texttt{dati} in D0006, punto unico di guasto mai guastato nella tabella dei punti unici di guasto e tra le minacce alla validità. \\
 0.14 & 24/11/2026 & Decisione D0019: osservabilità leggera (Prometheus, kube-state-metrics, modulo di RabbitMQ) sul nodo \texttt{dati}, raccolta ogni 5~s, nessuna metrica propria dell'applicazione (issue \#114). \\
 0.15 & 26/11/2026 & Decisione D0020: il generatore di carico apre una connessione nuova per ogni ordine, così le copie dell'API ricevono il traffico in parti circa uguali (issue \#116). \\
+0.16 & 27/11/2026 & Decisione D0021: latenza del guasto F5 portata da 200 a 100~ms, perché ogni ordine fa 4 scambi con il database (misurati) e non 2 o 3; capitolo «Guasti» e tabella dei parametri aggiornati, previsioni invariate (issue \#144). \\
 \bottomrule
 \end{tabularx}
 \end{table}
