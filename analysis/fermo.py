@@ -261,10 +261,12 @@ def main() -> None:
         if (argomenti.cartella / "db.csv").is_file():
             if guasto is None:
                 leggi_guasto(argomenti.cartella)  # solleva l'errore: manca guasto.json
-            limite, sensibilita = parametri_completamento()
-            limiti = argomenti.limite or [limite]
-            if argomenti.sensibilita:
-                limiti += [x for x in sensibilita if x not in limiti]
+            limiti = list(argomenti.limite) if argomenti.limite else None
+            if limiti is None or argomenti.sensibilita:  # parametri.yaml (e PyYAML) solo se servono
+                limite, sensibilita = parametri_completamento()
+                limiti = limiti or [limite]
+                if argomenti.sensibilita:
+                    limiti += [x for x in sensibilita if x not in limiti]
             ordini = leggi_ordini(argomenti.cartella, guasto["ts_nodo"] - guasto["ts_guasto"])
             fermi = {}
             for x in limiti:

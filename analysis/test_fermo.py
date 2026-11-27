@@ -332,6 +332,9 @@ def test_da_riga_di_comando_stampa_anche_il_completamento(tmp_path, monkeypatch,
 
 
 def test_sensibilita_ripete_il_calcolo_con_i_limiti_di_parametri_yaml(tmp_path, monkeypatch, capsys):
+    # i valori di parametri.yaml li controlla `make -C docs controlla`; qui basta che si usino (e la CI non ha PyYAML)
+    monkeypatch.setattr(fermo, "leggi_parametri", lambda: {"tempi": {
+        "limite_completamento_s": 2, "limite_completamento_sensibilita_s": [1, 5]}})
     scenario(tmp_path, scritti_dopo=1.5)
     uscita = lancia(monkeypatch, capsys, tmp_path, "--sensibilita")
     assert "completamento, limite 2 s" in uscita
