@@ -79,12 +79,15 @@ class ClusterFinto:
             return "righe di avvio\n" + json.dumps(letti) + "\n"
         if "list_queues" in args:
             if self.coda_non_elencata:
-                return "Timeout: 60.0 seconds ...\nname\tmessages\n"
+                return "Timeout: 60.0 seconds ...\nname\tmessages_ready\tmessages_unacknowledged\n"
             if len(self.sequenza_in_coda) > 1:
                 self.in_coda = self.sequenza_in_coda.pop(0)
             elif self.sequenza_in_coda:
                 self.in_coda = self.sequenza_in_coda[0]
-            return f"Timeout: 60.0 seconds ...\nname\tmessages\nordini\t{self.in_coda}\nordini.falliti\t{len(self.falliti)}\n"
+            # metà degli ordini della coda in attesa e metà in lavorazione: il totale è quello che conta
+            pronti = self.in_coda // 2
+            return (f"Timeout: 60.0 seconds ...\nname\tmessages_ready\tmessages_unacknowledged\n"
+                    f"ordini\t{pronti}\t{self.in_coda - pronti}\nordini.falliti\t{len(self.falliti)}\t0\n")
         if args[:3] == ["get", "events", "-o"]:
             return json.dumps({"items": [
                 {"type": "Normal", "reason": "Killing", "message": "Stopping\ncontainer api", "count": 1,
@@ -280,3 +283,9 @@ def test_una_coda_che_non_compare_nell_elenco_non_e_una_coda_vuota(tmp_path):
     esito = esporta_tutto(tmp_path, cluster)
     assert esito["problemi"][0].startswith("coda:") and "non ha elencato" in esito["problemi"][0]
     assert (tmp_path / "db.csv").is_file()  # il resto si esporta lo stesso
+
+
+def test_l_elenco_delle_code_distingue_in_attesa_e_in_lavorazione():
+    uscita = "Timeout: 60.0 seconds ...\nListing queues for vhost / ...\nname\tmessages_ready\tmessages_unacknowledged\nordini\t5\t3\nordini.falliti\t0\t0\n"
+    assert esporta.elenco_code(uscita) == {"ordini": (5, 3), "ordini.falliti": (0, 0)}
+    assert esporta.elenco_code("") == {} and esporta.elenco_code("name\tmessages_ready\n") == {}

@@ -176,16 +176,21 @@ def indirizzo_query(job: str, da: datetime, a: datetime, passo_s: float) -> str:
     return f"{PROXY_PROMETHEUS}/api/v1/query_range?{parametri}"
 
 
-COMANDO_CODE = ["exec", "deploy/coda", "--", "rabbitmqctl", "list_queues", "name", "messages"]
+COMANDO_CODE = ["exec", "deploy/coda", "--", "rabbitmqctl", "list_queues", "name", "messages_ready", "messages_unacknowledged"]
 
 
-def elenco_code(uscita: str) -> dict[str, int]:
-    """Gli ordini di ogni coda (pronti e in lavorazione) dall'uscita di `rabbitmqctl list_queues name messages`."""
+def elenco_code(uscita: str) -> dict[str, tuple[int, int]]:
+    """Di ogni coda (in attesa, in lavorazione), dall'uscita di `rabbitmqctl list_queues name messages_ready messages_unacknowledged`.
+
+    «In attesa» sono i messaggi pronti, che nessun worker ha ancora preso; «in lavorazione» quelli presi e non ancora
+    confermati. Finché c'è carico ce ne sono sempre alcuni in lavorazione; a carico fermo, in attesa + in lavorazione
+    è 0 solo quando tutto è stato lavorato.
+    """
     code = {}
     for riga in uscita.splitlines():
         campi = riga.split()
-        if len(campi) == 2 and campi[1].isdigit():
-            code[campi[0]] = int(campi[1])
+        if len(campi) == 3 and campi[1].isdigit() and campi[2].isdigit():
+            code[campi[0]] = (int(campi[1]), int(campi[2]))
     return code
 
 
@@ -238,7 +243,8 @@ class Esporta:
             raise ErroreEsportazione(f"la coda dei falliti non si legge: {uscita[-200:]!r}") from None
 
     def messaggi_in_coda(self) -> dict[str, int]:
-        return elenco_code(self.k(COMANDO_CODE))
+        """Gli ordini di ogni coda, in attesa e in lavorazione."""
+        return {nome: attesa + lavorazione for nome, (attesa, lavorazione) in elenco_code(self.k(COMANDO_CODE)).items()}
 
     def ordini_in_coda(self) -> int:
         """Gli ordini nella coda `ordini` (pronti e in lavorazione). Se la coda non compare nell'elenco è un errore,
