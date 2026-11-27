@@ -31,7 +31,8 @@ def leggi(percorso):
 class ClusterFinto:
     """Un cluster con V3 (o V1/V2 senza coda). Gli ordini 0-3 sono nel database, il 4 e il 5 nella coda dei falliti."""
 
-    def __init__(self, con_coda=True, primario=None, prometheus_rotto=False, categorie_codice=0):
+    def __init__(self, con_coda=True, primario=None, prometheus_rotto=False, categorie_codice=0,
+                 sequenza_in_coda=(), coda_non_elencata=False):
         self.con_coda = con_coda
         self.primario = primario
         self.prometheus_rotto = prometheus_rotto
@@ -39,6 +40,8 @@ class ClusterFinto:
         self.falliti = [json.dumps({"id": ID[4], "ts_ricezione": "2026-11-27T09:01:04+00:00"}),
                         json.dumps({"id": ID[5].upper(), "ts_ricezione": "2026-11-27T09:01:05+00:00"}), "non è json"]
         self.in_coda = 0
+        self.sequenza_in_coda = list(sequenza_in_coda)  # gli ordini in `ordini` a ogni elenco delle code, poi l'ultimo resta
+        self.coda_non_elencata = coda_non_elencata
         self.registro: list[str] = []
         self.categorie_codice = categorie_codice
 
@@ -75,6 +78,12 @@ class ClusterFinto:
                         pass
             return "righe di avvio\n" + json.dumps(letti) + "\n"
         if "list_queues" in args:
+            if self.coda_non_elencata:
+                return "Timeout: 60.0 seconds ...\nname\tmessages\n"
+            if len(self.sequenza_in_coda) > 1:
+                self.in_coda = self.sequenza_in_coda.pop(0)
+            elif self.sequenza_in_coda:
+                self.in_coda = self.sequenza_in_coda[0]
             return f"Timeout: 60.0 seconds ...\nname\tmessages\nordini\t{self.in_coda}\nordini.falliti\t{len(self.falliti)}\n"
         if args[:3] == ["get", "events", "-o"]:
             return json.dumps({"items": [
@@ -185,7 +194,7 @@ def test_se_il_database_non_si_legge_la_rielaborazione_non_parte(tmp_path):
 
 def test_il_tempo_di_ogni_passo_e_scritto(tmp_path):
     esito = esporta_tutto(tmp_path, ClusterFinto())
-    assert set(esito["secondi_per_passo"]) == {"db", "falliti", "rielaborazione", "eventi", "prometheus", "categorie"}
+    assert set(esito["secondi_per_passo"]) == {"coda", "db", "falliti", "rielaborazione", "eventi", "prometheus", "categorie"}
     assert esito["durata_s"] >= 0
 
 
@@ -227,3 +236,47 @@ def test_l_intervallo_del_run_ha_i_margini(tmp_path):
 def test_i_messaggi_illeggibili_si_contano_a_parte():
     righe, illeggibili = esporta.messaggi_falliti(['{"id": "ABC", "ts_ricezione": "t"}', "x", '{"id": 1}'])
     assert righe == [["abc", "t"]] and illeggibili == 2
+
+
+# --- la coda `ordini` deve essere vuota prima di leggere il database (revisione della #147) ---
+
+def test_in_v3_si_aspetta_la_coda_vuota_prima_di_leggere_il_database(tmp_path):
+    cluster = ClusterFinto(sequenza_in_coda=[7, 3, 0])
+    esito = esporta_tutto(tmp_path, cluster)
+    assert esito["problemi"] == []
+    assert esito["coda_ordini"]["in_coda_all_inizio"] == 7 and esito["coda_ordini"]["in_coda_alla_fine"] == 0
+    elenchi = [i for i, c in enumerate(cluster.registro) if "list_queues" in c]
+    assert len(elenchi) >= 3  # 7, 3, 0: l'attesa
+    assert elenchi[2] < cluster.indice("from ordini order by")  # db.csv dopo la coda vuota
+    assert json.loads((tmp_path / "esportazione.json").read_text())["coda_ordini"]["in_coda_alla_fine"] == 0
+
+
+def test_la_coda_gia_vuota_non_costa_attese(tmp_path):
+    cluster = ClusterFinto()
+    esito = esporta_tutto(tmp_path, cluster)
+    assert esito["coda_ordini"]["in_coda_all_inizio"] == 0 and esito["coda_ordini"]["in_coda_alla_fine"] == 0
+    assert esito["secondi_per_passo"]["coda"] < 1
+
+
+def test_se_la_coda_non_si_svuota_e_un_problema_ma_i_file_ci_sono(tmp_path, monkeypatch):
+    monkeypatch.setattr(esporta, "ATTESA_RIELABORAZIONE_S", 0.05)  # anche la rielaborazione aspetta una coda che non si svuota
+    cluster = ClusterFinto(sequenza_in_coda=[40])
+    esito = esporta_tutto(tmp_path, cluster, attesa_coda_s=0.05)
+    assert esito["coda_ordini"]["in_coda_alla_fine"] == 40
+    assert [p.split(":")[0] for p in esito["problemi"]] == ["coda"]
+    assert "ancora nella coda" in esito["problemi"][0]
+    assert (tmp_path / "db.csv").is_file() and (tmp_path / "falliti.csv").is_file() and "categorie" in esito
+
+
+def test_senza_la_coda_non_si_aspetta_niente(tmp_path):
+    cluster = ClusterFinto(con_coda=False)
+    esito = esporta_tutto(tmp_path, cluster)
+    assert "coda_ordini" not in esito
+    assert not any("list_queues" in c for c in cluster.registro)
+
+
+def test_una_coda_che_non_compare_nell_elenco_non_e_una_coda_vuota(tmp_path):
+    cluster = ClusterFinto(coda_non_elencata=True)
+    esito = esporta_tutto(tmp_path, cluster)
+    assert esito["problemi"][0].startswith("coda:") and "non ha elencato" in esito["problemi"][0]
+    assert (tmp_path / "db.csv").is_file()  # il resto si esporta lo stesso

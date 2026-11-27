@@ -22,7 +22,7 @@ Perché questi numeri non sono solo del documento: sono i parametri degli esperi
 | Manifest Kubernetes: osservabilità (`deploy/k8s/osservabilita/`) | `deploy/k8s/parametri.py` scrive `osservabilita/prometheus.yml` da `prometheus.modello.yml`, con l'intervallo di raccolta (`osservabilita.intervallo_raccolta_s`, D0019) | in uso |
 | Guasto F5 (`harness/faults/latenza.py`) | legge latenza e durata (`guasti.f5_latenza_ms`, `guasti.f5_durata_s`), se non si passano `--latenza-ms` e `--durata` | in uso |
 | Analisi: fermo e ripristino (`analysis/fermo.py`) | legge i secondi consecutivi (`run.ripristino_secondi_consecutivi`) e la soglia del 99% (`tempi.soglia_secondo_disponibile_percentuale`); per il completamento anche il limite (`tempi.limite_completamento_s`) e quelli della sensibilità (`tempi.limite_completamento_sensibilita_s`, con `--sensibilita`) | in uso |
-| Esportazione di fine run (`harness/esporta/esporta.py`) | legge l'intervallo di raccolta di Prometheus (`osservabilita.intervallo_raccolta_s`) come passo delle serie esportate | in uso |
+| Esportazione di fine run (`harness/esporta/esporta.py`) | legge l'intervallo di raccolta di Prometheus (`osservabilita.intervallo_raccolta_s`) come passo delle serie esportate e, in V3 e V5, il tempo massimo di attesa della coda `ordini` vuota prima di leggere il database (`run.attesa_coda_vuota_s`) | in uso |
 | Analisi: ritmo inviato (`analysis/ritmo.py`) | legge la tolleranza sul ritmo del client (`carichi.ritmo_tolleranza_percentuale`), se non si passa `--tolleranza` | in uso |
 | Analisi: calcoli di fine campagna (`analysis/`) | limite di completamento e sensibilità a 1 s e 5 s | previsto |
 

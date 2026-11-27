@@ -5,6 +5,11 @@
 
 Nell'ordine, che conta:
 
+  0. In V3 e V5, **si aspetta che la coda `ordini` sia vuota** (tempo massimo `run.attesa_coda_vuota_s`): un ordine
+     accettato e ancora in coda non è né in `db.csv` né in `falliti.csv`, e `categorie.py` lo direbbe «perso»
+     mentre è solo in attesa (succede, per esempio, con W3 su V3, che accumula coda per costruzione). Quanti
+     erano in coda all'inizio e alla fine dell'attesa si scrive in `esportazione.json` (`coda_ordini`); se alla
+     fine non sono 0 c'è un problema e l'esportazione esce con codice 1.
   1. `db.csv`, `falliti.csv` e `duplicati.csv`, **prima della rielaborazione dei falliti**: se si esporta dopo,
      gli ordini della coda dei falliti sono già nel database e risultano «completato in tempo», senza anomalie
      e con un run che sembra buono (avvertenza di data/README.md). `falliti.csv` si legge senza consumare la
@@ -187,11 +192,12 @@ class Esporta:
     """Un'esportazione. `kubectl(argomenti, input=None)` dà l'uscita del comando; `categorie(cartella)` dà (codice, testo)."""
 
     def __init__(self, kubectl, cartella: Path, da: datetime, a: datetime, passo_s: float = 5.0,
-                 rielabora: bool = True, categorie=None):
+                 rielabora: bool = True, categorie=None, attesa_coda_s: float = 300.0):
         self.k = kubectl
         self.cartella = cartella
         self.da, self.a, self.passo_s = da, a, passo_s
         self.rielabora = rielabora
+        self.attesa_coda_s = attesa_coda_s
         self.categorie = categorie or esegui_categorie
         self.tempi: dict[str, float] = {}
         self.esito: dict = {}
@@ -227,6 +233,14 @@ class Esporta:
                 code[campi[0]] = int(campi[1])
         return code
 
+    def ordini_in_coda(self) -> int:
+        """Gli ordini nella coda `ordini` (pronti e in lavorazione). Se la coda non compare nell'elenco è un errore,
+        non una coda vuota: un elenco illeggibile non deve far passare un run con ordini ancora in coda."""
+        code = self.messaggi_in_coda()
+        if "ordini" not in code:
+            raise ErroreEsportazione(f"rabbitmqctl non ha elencato la coda `ordini` (code viste: {sorted(code)})")
+        return code["ordini"]
+
     # --- i passi ---
 
     def passo(self, nome: str, funzione) -> None:
@@ -235,6 +249,21 @@ class Esporta:
             funzione()
         finally:
             self.tempi[nome] = round(time.monotonic() - inizio, 2)
+
+    def coda_vuota(self) -> None:
+        """V3 e V5: aspetta che gli ordini accettati siano stati lavorati (salvati o finiti nei falliti) prima di leggere."""
+        if not self.ha("deployment/coda"):  # V1, V2, V4: nessuna coda
+            return
+        inizio = time.monotonic()
+        all_inizio = rimasti = self.ordini_in_coda()
+        while rimasti > 0 and time.monotonic() - inizio < self.attesa_coda_s:
+            time.sleep(1)
+            rimasti = self.ordini_in_coda()
+        self.esito["coda_ordini"] = {"in_coda_all_inizio": all_inizio, "in_coda_alla_fine": rimasti,
+                                     "attesa_s": round(time.monotonic() - inizio, 2)}
+        if rimasti > 0:
+            raise ErroreEsportazione(f"{rimasti} ordini sono ancora nella coda `ordini` dopo {self.attesa_coda_s:g} s: "
+                                     "db.csv non li ha e categorie.py li direbbe «persi»")
 
     def database(self) -> None:
         sql = "select id, ts_ricezione, ts_scrittura from ordini order by ts_ricezione, id"
@@ -259,13 +288,12 @@ class Esporta:
         spostati = len(self.coda("sposta"))
         scadenza = time.monotonic() + ATTESA_RIELABORAZIONE_S
         while time.monotonic() < scadenza:
-            code = self.messaggi_in_coda()
-            if code.get("ordini", 0) == 0:
+            if self.ordini_in_coda() == 0:
                 break
             time.sleep(1)
         dopo = int(self.query("select count(*) as n from ordini", ["n"])[0][0])
         self.esito["rielaborati"] = {"spostati": spostati, "salvati": dopo - prima,
-                                     "ancora_in_coda": self.messaggi_in_coda().get("ordini", 0)}
+                                     "ancora_in_coda": self.ordini_in_coda()}
 
     def eventi(self) -> None:
         eventi = json.loads(self.k(["get", "events", "-o", "json"]))
@@ -292,7 +320,7 @@ class Esporta:
         """Tutti i passi nell'ordine. Un passo che fallisce non ferma gli altri, ma l'esito dice quali non sono riusciti."""
         inizio = time.monotonic()
         problemi = []
-        passi = [("db", self.database), ("falliti", self.falliti)]
+        passi = [("coda", self.coda_vuota), ("db", self.database), ("falliti", self.falliti)]
         if self.rielabora:
             passi.append(("rielaborazione", self.rielaborazione))
         passi += [("eventi", self.eventi), ("prometheus", self.prometheus), ("categorie", self.coerenza)]
@@ -315,6 +343,15 @@ class Esporta:
 def esegui_categorie(cartella: Path) -> tuple[int, str]:
     r = subprocess.run([sys.executable, str(CATEGORIE), str(cartella)], capture_output=True, text=True)
     return r.returncode, r.stdout + r.stderr
+
+
+def attesa_coda_vuota() -> float:
+    try:
+        import yaml
+        with open(PARAMETRI, encoding="utf-8") as f:
+            return float(yaml.safe_load(f)["run"]["attesa_coda_vuota_s"])
+    except (ImportError, OSError, KeyError):
+        return 300.0
 
 
 def passo_di_raccolta() -> float:
@@ -347,7 +384,8 @@ def main() -> None:
             da, a = da or predefinito[0], a or predefinito[1]
     except (ErroreEsportazione, ValueError) as errore:
         sys.exit(f"errore: {errore}")
-    esito = Esporta(kubectl, argomenti.cartella, da, a, passo_di_raccolta(), not argomenti.senza_rielaborazione).esegui()
+    esito = Esporta(kubectl, argomenti.cartella, da, a, passo_di_raccolta(), not argomenti.senza_rielaborazione,
+                    attesa_coda_s=attesa_coda_vuota()).esegui()
     righe = ", ".join(f"{k} {esito[k]}" for k in ("db", "falliti", "duplicati", "eventi", "prometheus") if k in esito)
     print(f"esportato in {esito['durata_s']:g} s: {righe}")
     if esito["problemi"]:
